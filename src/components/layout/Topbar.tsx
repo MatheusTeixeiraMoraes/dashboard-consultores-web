@@ -2,9 +2,16 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import type { User } from '@supabase/supabase-js'
+import type { Profile } from '@/lib/types'
 
-export default function Topbar({ user }: { user: User }) {
+const ROLE_LABEL: Record<string, string> = {
+  admin: 'Admin',
+  dono: 'Dono',
+  lider: 'Líder',
+  consultor: 'Consultor',
+}
+
+export default function Topbar({ profile }: { profile: Profile }) {
   const router = useRouter()
 
   async function handleLogout() {
@@ -14,20 +21,24 @@ export default function Topbar({ user }: { user: User }) {
     router.refresh()
   }
 
-  const initials = (user.email ?? '?').slice(0, 2).toUpperCase()
+  const displayName = profile.nome || profile.email
+  const initials = displayName.slice(0, 2).toUpperCase()
 
   return (
     <header className="h-14 bg-white border-b border-[#E5E7EB] flex items-center justify-between px-6 flex-shrink-0">
       <div />
       <div className="flex items-center gap-3">
-        <div className="w-7 h-7 rounded-full bg-[#10B981] flex items-center justify-center">
-          <span className="text-[10px] font-bold text-white">{initials}</span>
+        <div className="text-right hidden sm:block">
+          <p className="text-sm font-medium text-[#111827] leading-tight">{displayName}</p>
+          <p className="text-[11px] text-[#6B7280] leading-tight">{ROLE_LABEL[profile.role]}</p>
         </div>
-        <span className="text-sm text-[#6B7280]">{user.email}</span>
-        <span className="text-gray-300">·</span>
+        <div className="w-8 h-8 rounded-full bg-[#10B981] flex items-center justify-center flex-shrink-0">
+          <span className="text-xs font-bold text-white">{initials}</span>
+        </div>
+        <span className="text-gray-200">|</span>
         <button
           onClick={handleLogout}
-          className="text-sm text-[#EF4444] hover:text-[#DC2626] font-medium transition-colors"
+          className="text-sm text-[#6B7280] hover:text-[#EF4444] font-medium transition-colors"
         >
           Sair
         </button>

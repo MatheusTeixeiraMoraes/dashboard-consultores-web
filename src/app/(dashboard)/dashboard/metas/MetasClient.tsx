@@ -1,0 +1,110 @@
+'use client'
+
+import { useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import type { PillarConfig } from '@/lib/types'
+
+const CAT_LABEL: Record<string, string> = { atuacao: 'Atuação', resultado: 'Resultado' }
+const CAT_COLOR: Record<string, string> = { atuacao: '#3B82F6', resultado: '#10B981' }
+
+export default function MetasClient({ pilares, profileId }: { pilares: PillarConfig[]; profileId: string }) {
+  const [values, setValues] = useState<Record<string, string>>(
+    Object.fromEntries(pilares.map(p => [p.pilar_key, String(p.meta)]))
+  )
+  const [saving, setSaving] = useState<string | null>(null)
+  const [saved, setSaved] = useState<string | null>(null)
+
+  async function handleSave(pilar: PillarConfig) {
+    const novaMeta = parseFloat(values[pilar.pilar_key])
+    if (isNaN(novaMeta)) return
+    setSaving(pilar.pilar_key)
+
+    const supabase = createClient()
+    await supabase.from('pillar_config').update({
+      meta: novaMeta,
+      updated_at: new Date().toISOString(),
+      updated_by: profileId,
+    }).eq('pilar_key', pilar.pilar_key)
+
+    setSaving(null)
+    setSaved(pilar.pilar_key)
+    setTimeout(() => setSaved(null), 2000)
+  }
+
+  const grupos = ['atuacao', 'resultado'] as const
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h1 className="text-xl font-bold text-[#111827]">Configurar Metas</h1>
+        <p className="text-sm text-[#6B7280] mt-0.5">
+          Ajuste as metas de cada pilar. Alterações aplicadas imediatamente nos próximos cálculos.
+        </p>
+      </div>
+
+      <div className="space-y-6">
+        {grupos.map(cat => {
+          const grupo = pilares.filter(p => p.categoria === cat)
+          return (
+            <div key={cat}>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ background: CAT_COLOR[cat] }} />
+                <h2 className="text-sm font-semibold text-[#111827]">
+                  Pilares de {CAT_LABEL[cat]}
+                  <span className="ml-2 text-[#6B7280] font-normal text-xs">
+                    ({grupo.reduce((s, p) => s + p.pontos_max, 0).toFixed(1)} pts no total)
+                  </span>
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {grupo.map(pilar => (
+                  <div key={pilar.pilar_key} className="bg-white rounded-2xl border border-[#E5E7EB] p-5">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <p className="text-sm font-semibold text-[#111827]">{pilar.label}</p>
+                        <p className="text-xs text-[#6B7280] mt-0.5">Peso: {pilar.pontos_max} pts</p>
+                      </div>
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                        style={{ background: `${CAT_COLOR[cat]}15`, color: CAT_COLOR[cat] }}>
+                        {CAT_LABEL[cat]}
+                      </span>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs text-[#6B7280] mb-1 block">Meta atual</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={values[pilar.pilar_key]}
+                            onChange={e => setValues(prev => ({ ...prev, [pilar.pilar_key]: e.target.value }))}
+                            className="flex-1 border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                          />
+                          <span className="text-sm text-[#6B7280]">{pilar.unidade}</span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleSave(pilar)}
+                        disabled={saving === pilar.pilar_key}
+                        className={`w-full py-2 rounded-xl text-sm font-medium transition-colors ${
+                          saved === pilar.pilar_key
+                            ? 'bg-[#F0FDF4] text-[#10B981] border border-[#10B981]/30'
+                            : 'bg-[#10B981] hover:bg-[#047857] text-white disabled:opacity-60'
+                        }`}
+                      >
+                        {saving === pilar.pilar_key ? 'Salvando...' : saved === pilar.pilar_key ? '✓ Salvo' : 'Salvar meta'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
