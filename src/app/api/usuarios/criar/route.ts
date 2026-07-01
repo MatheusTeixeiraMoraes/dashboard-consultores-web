@@ -29,10 +29,10 @@ export async function POST(request: Request) {
     })
 
     if (authErr || !authData.user) {
-      return NextResponse.json(
-        { ok: false, error: authErr?.message ?? 'Erro ao criar usuário no Auth' },
-        { status: 400 }
-      )
+      const errDetail = authErr
+        ? `[${authErr.name ?? 'AuthError'}] status=${(authErr as any).status ?? '?'} msg="${authErr.message ?? 'undefined'}" json=${JSON.stringify(authErr)}`
+        : 'user nulo após createUser'
+      return NextResponse.json({ ok: false, error: errDetail }, { status: 400 })
     }
 
     const { data: prof, error: profErr } = await admin
