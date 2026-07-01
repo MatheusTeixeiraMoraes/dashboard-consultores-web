@@ -20,6 +20,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: 'Sem permissão para criar esse cargo' }, { status: 403 })
     }
 
+    const rawKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
+    const keyDiag = `len=${rawKey.length} code0=${rawKey.charCodeAt(0)} starts_eyJ=${rawKey.startsWith('eyJ')}`
+
     const admin = createAdminClient()
 
     const { data: authData, error: authErr } = await admin.auth.admin.createUser({
@@ -30,8 +33,8 @@ export async function POST(request: Request) {
 
     if (authErr || !authData.user) {
       const errDetail = authErr
-        ? `[${authErr.name ?? 'AuthError'}] status=${(authErr as any).status ?? '?'} msg="${authErr.message ?? 'undefined'}" json=${JSON.stringify(authErr)}`
-        : 'user nulo após createUser'
+        ? `[${authErr.name ?? 'AuthError'}] status=${(authErr as any).status ?? '?'} msg="${authErr.message ?? 'undefined'}" [key:${keyDiag}]`
+        : `user nulo após createUser [key:${keyDiag}]`
       return NextResponse.json({ ok: false, error: errDetail }, { status: 400 })
     }
 
