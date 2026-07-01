@@ -90,7 +90,7 @@ export default function HistoricoClient({ rows: initialRows, role }: { rows: Upl
                 <th className="text-center px-4 py-3 font-semibold text-[#6B7280] text-xs uppercase tracking-wider">Ref.</th>
                 <th className="text-center px-4 py-3 font-semibold text-[#6B7280] text-xs uppercase tracking-wider">Registros</th>
                 <th className="text-left px-4 py-3 font-semibold text-[#6B7280] text-xs uppercase tracking-wider">Enviado por</th>
-                <th className="text-left px-4 py-3 font-semibold text-[#6B7280] text-xs uppercase tracking-wider">Enviado em</th>
+                <th className="text-left px-4 py-3 font-semibold text-[#6B7280] text-xs uppercase tracking-wider">Data Ref.</th>
                 {role === 'admin' && (
                   <th className="text-center px-4 py-3 font-semibold text-[#6B7280] text-xs uppercase tracking-wider">Ação</th>
                 )}
@@ -123,7 +123,7 @@ export default function HistoricoClient({ rows: initialRows, role }: { rows: Upl
                     </td>
                     <td className="px-4 py-3 text-sm text-[#374151]">{row.uploader_nome}</td>
                     <td className="px-4 py-3 text-sm text-[#6B7280] whitespace-nowrap">
-                      {formatDateTimeBR(row.created_at)}
+                      {formatDateBR(row.created_at)}
                     </td>
                     {role === 'admin' && (
                       <td className="px-4 py-3 text-center">

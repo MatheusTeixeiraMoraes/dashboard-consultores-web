@@ -13,8 +13,8 @@ export default async function HistoricoPage() {
 
   const { data: uploads } = await supabase
     .from('score_uploads')
-    .select('id, pilar_key, filename, data_referencia, record_count, uploaded_by, created_at')
-    .order('created_at', { ascending: false })
+    .select('id, pilar_key, filename, data_referencia, record_count, uploaded_by')
+    .order('data_referencia', { ascending: false })
 
   const uploaderIds = [...new Set((uploads ?? []).map(u => u.uploaded_by))]
 
@@ -27,6 +27,7 @@ export default async function HistoricoPage() {
 
   const rows = (uploads ?? []).map(u => ({
     ...u,
+    created_at: u.data_referencia,
     uploader_nome: profileMap[u.uploaded_by] ?? '—',
   }))
 
