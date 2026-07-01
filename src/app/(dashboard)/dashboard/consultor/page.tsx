@@ -1,19 +1,52 @@
-export default function ConsultorPage() {
-  return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-[#111827]">Visão Individual</h1>
-        <p className="text-sm text-[#6B7280] mt-0.5">Performance detalhada por consultor</p>
-      </div>
-      <div className="bg-white rounded-2xl border border-[#E5E7EB] p-12 text-center">
-        <div className="w-14 h-14 rounded-2xl bg-[#F0FDF4] flex items-center justify-center mx-auto mb-4">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-          </svg>
+import { createClient } from '@/lib/supabase/server'
+import { getProfile } from '@/lib/supabase/profile'
+import { redirect } from 'next/navigation'
+import ConsultorClient from './ConsultorClient'
+
+export default async function ConsultorPage() {
+  const profile = await getProfile()
+  if (!profile) redirect('/login')
+
+  const supabase = await createClient()
+
+  const { data: uploads } = await supabase
+    .from('score_uploads')
+    .select('data_referencia')
+    .order('data_referencia', { ascending: false })
+    .limit(1)
+
+  const latestDate = uploads?.[0]?.data_referencia ?? null
+
+  if (!latestDate) {
+    return (
+      <div>
+        <div className="mb-6">
+          <h1 className="text-xl font-bold text-[#111827]">Consultor</h1>
+          <p className="text-sm text-[#6B7280] mt-0.5">Performance individual</p>
         </div>
-        <p className="font-semibold text-[#111827]">Nenhum consultor disponível</p>
-        <p className="text-sm text-[#6B7280] mt-1">Faça upload das planilhas para visualizar.</p>
+        <div className="bg-white rounded-2xl border border-[#E5E7EB] p-12 text-center">
+          <p className="font-semibold text-[#111827]">Nenhum dado carregado ainda</p>
+          <p className="text-sm text-[#6B7280] mt-1">Vá em <strong className="text-[#10B981]">Upar Planilha</strong> para começar.</p>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
+
+  const { data: uploadIds } = await supabase
+    .from('score_uploads')
+    .select('id')
+    .eq('data_referencia', latestDate)
+
+  const idList = (uploadIds ?? []).map(u => u.id)
+
+  const { data: resultados } = await supabase
+    .from('score_consultor_resultados')
+    .select('id_carteira, consultor_nome, pilar_key, score_planilha, total_a_reverter')
+    .in('upload_id', idList.length > 0 ? idList : ['none'])
+
+  const dateDisplay = new Date(latestDate + 'T12:00:00').toLocaleDateString('pt-BR', {
+    day: '2-digit', month: 'long', year: 'numeric',
+  })
+
+  return <ConsultorClient resultados={resultados ?? []} dateDisplay={dateDisplay} />
 }
