@@ -32,21 +32,28 @@ export default async function ConsultorPage() {
     )
   }
 
-  const { data: uploadIds } = await supabase
-    .from('score_uploads')
-    .select('id')
-    .eq('data_referencia', latestDate)
+  const [{ data: uploadIds }, { data: pontosMax }] = await Promise.all([
+    supabase.from('score_uploads').select('id').eq('data_referencia', latestDate),
+    supabase.from('pillar_config').select('pilar_key, pontos_max'),
+  ])
 
   const idList = (uploadIds ?? []).map(u => u.id)
 
   const { data: resultados } = await supabase
     .from('score_consultor_resultados')
-    .select('id_carteira, consultor_nome, pilar_key, score_planilha, total_a_reverter')
+    .select('id_carteira, consultor_nome, pilar_key, score_planilha, total_a_reverter, metricas')
     .in('upload_id', idList.length > 0 ? idList : ['none'])
 
   const dateDisplay = new Date(latestDate + 'T12:00:00').toLocaleDateString('pt-BR', {
     day: '2-digit', month: 'long', year: 'numeric',
   })
 
-  return <ConsultorClient resultados={resultados ?? []} dateDisplay={dateDisplay} />
+  return (
+    <ConsultorClient
+      resultados={resultados ?? []}
+      dateDisplay={dateDisplay}
+      dataReferencia={latestDate}
+      pontosMax={pontosMax ?? []}
+    />
+  )
 }

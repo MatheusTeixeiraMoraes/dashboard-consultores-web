@@ -37,7 +37,10 @@ interface ParsedRow {
   valor_metrica: number
   score_planilha: number
   total_a_reverter: number | null
+  metricas: Record<string, unknown>
 }
+
+const SKIP_COLS = new Set(['id carteira', 'executivo'])
 
 async function parsePilarFile(file: File, pilarKey: PilarKey): Promise<ParsedRow[]> {
   const { read, utils } = await import('xlsx')
@@ -61,15 +64,27 @@ async function parsePilarFile(file: File, pilarKey: PilarKey): Promise<ParsedRow
   if (!colNome)     throw new Error(`Coluna "Executivo" não encontrada.`)
   if (!colScore)    throw new Error(`Coluna "${cfg.scoreCol}" não encontrada.\nColunas: ${headers.join(', ')}`)
 
+  // Colunas a omitir do JSON (já têm campos dedicados)
+  const skipSet = new Set([colCarteira, colNome, colScore].map(c => c?.toLowerCase()))
+
   return rows
     .filter(r => r[colCarteira] !== '' && r[colCarteira] != null)
-    .map(r => ({
-      id_carteira:      String(r[colCarteira]).trim(),
-      consultor_nome:   String(r[colNome!]).trim(),
-      valor_metrica:    colValor ? Number(r[colValor]) || 0 : 0,
-      score_planilha:   Number(r[colScore]) || 0,
-      total_a_reverter: colReverter ? (Number(r[colReverter]) || null) : null,
-    }))
+    .map(r => {
+      const metricas: Record<string, unknown> = {}
+      for (const col of headers) {
+        if (!skipSet.has(col.toLowerCase()) && !SKIP_COLS.has(norm(col))) {
+          metricas[col] = r[col]
+        }
+      }
+      return {
+        id_carteira:      String(r[colCarteira]).trim(),
+        consultor_nome:   String(r[colNome!]).trim(),
+        valor_metrica:    colValor ? Number(r[colValor]) || 0 : 0,
+        score_planilha:   Number(r[colScore]) || 0,
+        total_a_reverter: colReverter ? (Number(r[colReverter]) || null) : null,
+        metricas,
+      }
+    })
     .filter(r => r.id_carteira && r.consultor_nome)
 }
 
@@ -132,6 +147,7 @@ export default function UploadClient({ uploadedBy }: { uploadedBy: string }) {
         score_planilha: r.score_planilha,
         total_a_reverter: r.total_a_reverter,
         data_referencia: date,
+        metricas: r.metricas,
       }))
     )
 

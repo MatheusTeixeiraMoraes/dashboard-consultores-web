@@ -3,26 +3,98 @@
 import { useState, useMemo } from 'react'
 
 const PILARES = ['tpv', 'net_churn', 'acionaveis', 'aderencia', 'awareness', 'produtividade']
+
 const PILAR_LABEL: Record<string, string> = {
-  tpv: 'TPV', net_churn: 'Net Churn', acionaveis: 'Acionáveis',
-  aderencia: 'Aderência', awareness: 'Awareness', produtividade: 'Produtividade',
+  tpv: 'TPV', net_churn: 'Net Churn', acionaveis: 'Acionáveis Comerciais',
+  aderencia: 'Aderência a Agenda', awareness: 'Awareness', produtividade: 'Produtividade',
 }
+
 const PILAR_COLOR: Record<string, string> = {
   tpv: '#60a5fa', net_churn: '#c084fc', acionaveis: '#fb923c',
   aderencia: '#2dd4bf', awareness: '#f472b6', produtividade: '#818cf8',
 }
 
-interface Resultado {
-  id_carteira: string
-  consultor_nome: string
-  pilar_key: string
-  score_planilha: number
-  total_a_reverter: number | null
+// Ordem preferida de exibição por pilar (nomes aproximados — usa matching normalizado)
+const PILAR_COLS: Record<string, string[]> = {
+  tpv: [
+    'TPV Total (mês atual)', 'TPV Total (mês passado)',
+    'TPV Médio (mês atual)', 'TPV Médio (mês passado)',
+    'Variação de TPV', '% Objetivo Maio', '% Total a Realizar',
+  ],
+  net_churn: [
+    'Sellers ativos (atual)', 'Sellers ativos (passado)',
+    'Sellers em churn', 'Sellers reativos',
+    '%Net churn', '% Objetivo', 'Objetivo Final', 'Total a Reverter',
+  ],
+  acionaveis: [
+    'Total Acionáveis (Tarefas)', 'Total Acionáveis (Revertido)',
+    'Total Acionáveis %Tarefa-Revertido', '% Objetivo', 'Objetivo Final', 'Total a Reverter',
+  ],
+  aderencia: [
+    'Sellers agendados', 'Sellers aderentes', 'Sellers visitados',
+    '%Aderência à agenda', '% Objetivo', 'Total a Reverter',
+  ],
+  awareness: [
+    'Sellers visitados', 'Sellers que responderam',
+    '%Awareness', '% Objetivo', 'Total a Reverter',
+  ],
+  produtividade: [
+    'Visitas', 'Visitas efetivas', 'Sellers visitados',
+    'Visitas / dia útil', 'Visitas efetivas / dia útil',
+    'Prod média por dia útil', 'Produtividade média (objetivo)', 'Total Média a Realizar',
+  ],
 }
 
-interface Props {
-  resultados: Resultado[]
-  dateDisplay: string
+// Colunas que representam "total a reverter" (mostrar em âmbar apenas se > 0)
+const REVERTER_KEYS = new Set([
+  'total a reverter', '% total a realizar', 'total media a realizar', 'total medio a realizar',
+])
+
+// Colunas de currency (R$)
+const CURRENCY_KEYS = /tpv total|tpv medio|tpv médio/i
+
+function norm(s: string) {
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
+}
+
+function formatVal(key: string, val: unknown): string {
+  if (val === '' || val == null) return '—'
+  const n = Number(val)
+  if (isNaN(n)) return String(val)
+
+  if (CURRENCY_KEYS.test(key)) {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(n)
+  }
+  // Percentuais: valores entre -5 e 5 provavelmente são decimais (0.02 = 2%)
+  if (/%|churn|aderencia|awareness|objetivo|variacao|variação|realizar/i.test(norm(key))) {
+    if (Math.abs(n) <= 5 && n !== 0) {
+      const pct = (n * 100).toFixed(2).replace('.', ',')
+      return `${n > 0 ? '+' : ''}${pct}%`
+    }
+    return `${n > 0 ? '+' : ''}${n.toFixed(2).replace('.', ',')}%`
+  }
+  // Número inteiro
+  if (Number.isInteger(n)) return n.toLocaleString('pt-BR')
+  // Decimal genérico
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function findMetrica(metricas: Record<string, unknown>, targetLabel: string): [string, unknown] | null {
+  const normTarget = norm(targetLabel)
+  for (const [k, v] of Object.entries(metricas)) {
+    if (norm(k) === normTarget) return [k, v]
+  }
+  // Partial match fallback
+  for (const [k, v] of Object.entries(metricas)) {
+    if (norm(k).includes(normTarget) || normTarget.includes(norm(k))) return [k, v]
+  }
+  return null
+}
+
+function formatRefDate(iso: string) {
+  const [y, m] = iso.split('-')
+  const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+  return `${months[parseInt(m) - 1]}/${y}`
 }
 
 function statusLabel(score: number) {
@@ -31,9 +103,35 @@ function statusLabel(score: number) {
   return { label: 'Crítico', bg: '#FEF2F2', text: '#EF4444' }
 }
 
-export default function ConsultorClient({ resultados, dateDisplay }: Props) {
+interface Resultado {
+  id_carteira: string
+  consultor_nome: string
+  pilar_key: string
+  score_planilha: number
+  total_a_reverter: number | null
+  metricas: Record<string, unknown> | null
+}
+
+interface PontosMax {
+  pilar_key: string
+  pontos_max: number
+}
+
+interface Props {
+  resultados: Resultado[]
+  dateDisplay: string
+  dataReferencia: string
+  pontosMax: PontosMax[]
+}
+
+export default function ConsultorClient({ resultados, dateDisplay, dataReferencia, pontosMax }: Props) {
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const maxMap = useMemo(() =>
+    Object.fromEntries(pontosMax.map(p => [p.pilar_key, p.pontos_max])),
+    [pontosMax]
+  )
 
   const consultores = useMemo(() => {
     const map = new Map<string, string>()
@@ -47,12 +145,8 @@ export default function ConsultorClient({ resultados, dateDisplay }: Props) {
     ? consultores.filter(c => c.nome.toLowerCase().includes(search.toLowerCase()))
     : consultores
 
-  const selected = selectedId
-    ? resultados.filter(r => r.id_carteira === selectedId)
-    : null
-
-  const scoresByPilar = selected
-    ? Object.fromEntries(selected.map(r => [r.pilar_key, r]))
+  const scoresByPilar = selectedId
+    ? Object.fromEntries(resultados.filter(r => r.id_carteira === selectedId).map(r => [r.pilar_key, r]))
     : null
 
   const totalScore = scoresByPilar
@@ -60,6 +154,7 @@ export default function ConsultorClient({ resultados, dateDisplay }: Props) {
     : null
 
   const selectedNome = selectedId ? consultores.find(c => c.id === selectedId)?.nome : null
+  const refLabel = formatRefDate(dataReferencia)
 
   return (
     <div>
@@ -69,8 +164,8 @@ export default function ConsultorClient({ resultados, dateDisplay }: Props) {
       </div>
 
       <div className="flex gap-5 items-start">
-        {/* Lista de consultores */}
-        <div className="w-64 flex-shrink-0 bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden">
+        {/* Lista */}
+        <div className="w-60 flex-shrink-0 bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden">
           <div className="px-3 py-3 border-b border-[#F3F4F6]">
             <input
               type="text"
@@ -80,15 +175,13 @@ export default function ConsultorClient({ resultados, dateDisplay }: Props) {
               className="w-full text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl px-3 py-2 text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
             />
           </div>
-          <div className="overflow-y-auto max-h-[60vh] divide-y divide-[#F9FAFB]">
+          <div className="overflow-y-auto max-h-[70vh] divide-y divide-[#F9FAFB]">
             {filtered.length === 0 ? (
               <p className="text-sm text-[#9CA3AF] text-center py-8">Nenhum resultado</p>
             ) : (
               filtered.map(c => (
-                <button
-                  key={c.id}
-                  onClick={() => setSelectedId(c.id)}
-                  className={`w-full text-left px-4 py-3 text-sm transition-colors ${
+                <button key={c.id} onClick={() => setSelectedId(c.id)}
+                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
                     selectedId === c.id
                       ? 'bg-[#F0FDF4] text-[#10B981] font-semibold'
                       : 'text-[#374151] hover:bg-[#F9FAFB]'
@@ -101,8 +194,8 @@ export default function ConsultorClient({ resultados, dateDisplay }: Props) {
           </div>
         </div>
 
-        {/* Detalhe do consultor */}
-        <div className="flex-1">
+        {/* Detalhe */}
+        <div className="flex-1 min-w-0">
           {!selectedId ? (
             <div className="bg-white rounded-2xl border border-[#E5E7EB] p-12 text-center">
               <div className="w-12 h-12 rounded-2xl bg-[#F0FDF4] flex items-center justify-center mx-auto mb-3">
@@ -111,15 +204,14 @@ export default function ConsultorClient({ resultados, dateDisplay }: Props) {
                 </svg>
               </div>
               <p className="font-semibold text-[#111827]">Selecione um consultor</p>
-              <p className="text-sm text-[#6B7280] mt-1">Escolha na lista à esquerda</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Header do consultor */}
-              <div className="bg-white rounded-2xl border border-[#E5E7EB] px-6 py-5 flex items-center justify-between gap-4 flex-wrap">
+              {/* Header total */}
+              <div className="bg-white rounded-2xl border border-[#E5E7EB] px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
                 <div>
                   <p className="text-lg font-bold text-[#111827]">{selectedNome}</p>
-                  <p className="text-sm text-[#6B7280] mt-0.5">Cart. {selectedId}</p>
+                  <p className="text-sm text-[#6B7280]">Carteira {selectedId} · {dateDisplay}</p>
                 </div>
                 {totalScore !== null && (() => {
                   const st = statusLabel(totalScore)
@@ -127,7 +219,7 @@ export default function ConsultorClient({ resultados, dateDisplay }: Props) {
                     <div className="text-right">
                       <p className="text-xs text-[#6B7280] mb-1">Score Total</p>
                       <span className="text-2xl font-bold px-4 py-1.5 rounded-xl inline-block" style={{ background: st.bg, color: st.text }}>
-                        {totalScore.toFixed(1)}
+                        {totalScore.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                       <p className="text-xs mt-1 font-medium" style={{ color: st.text }}>{st.label}</p>
                     </div>
@@ -136,39 +228,67 @@ export default function ConsultorClient({ resultados, dateDisplay }: Props) {
               </div>
 
               {/* Cards por pilar */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {PILARES.map(pilar => {
                   const color = PILAR_COLOR[pilar]
                   const r = scoresByPilar?.[pilar]
+                  const pontos = maxMap[pilar] ?? 0
+                  const scoreStr = r
+                    ? `${r.score_planilha.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/${pontos % 1 === 0 ? pontos : pontos.toFixed(1)}`
+                    : null
+                  const cols = PILAR_COLS[pilar] ?? []
+                  const metricas = r?.metricas ?? {}
+
                   return (
-                    <div key={pilar} className="bg-white rounded-2xl border border-[#E5E7EB] p-5" style={{ borderLeft: `3px solid ${color}` }}>
-                      <div className="flex items-center justify-between mb-3">
-                        <p className="text-sm font-semibold text-[#111827]">{PILAR_LABEL[pilar]}</p>
-                        {r ? (
-                          <span className="text-base font-bold" style={{ color }}>{r.score_planilha.toFixed(1)}</span>
+                    <div key={pilar} className="bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden" style={{ borderLeft: `3px solid ${color}` }}>
+                      {/* Cabeçalho do card */}
+                      <div className="px-4 py-3 flex items-center justify-between border-b border-[#F3F4F6]">
+                        <div>
+                          <p className="text-sm font-bold" style={{ color }}>{PILAR_LABEL[pilar]}</p>
+                          {pilar === 'net_churn' && (
+                            <p className="text-[10px] text-[#9CA3AF]">↓ quanto menor, melhor</p>
+                          )}
+                        </div>
+                        {scoreStr ? (
+                          <span className="text-xs font-bold px-2.5 py-1 rounded-lg" style={{ background: `${color}18`, color }}>
+                            {scoreStr}
+                          </span>
                         ) : (
-                          <span className="text-sm text-[#D1D5DB]">—</span>
+                          <span className="text-xs text-[#D1D5DB]">sem dados</span>
                         )}
                       </div>
-                      {r && (
-                        <>
-                          <div className="w-full bg-[#F3F4F6] rounded-full h-1.5 mb-2">
-                            <div
-                              className="h-1.5 rounded-full transition-all"
-                              style={{ width: `${Math.min((r.score_planilha / 5) * 100, 100)}%`, background: color }}
-                            />
+
+                      {!r ? (
+                        <div className="px-4 py-6 text-center text-sm text-[#9CA3AF]">Sem dados para este pilar</div>
+                      ) : (
+                        <div className="px-4 py-1">
+                          {/* Ref */}
+                          <div className="flex items-center justify-between py-2 border-b border-[#F9FAFB]">
+                            <span className="text-xs text-[#9CA3AF]">Ref.:</span>
+                            <span className="text-xs font-medium text-[#6B7280]">{refLabel}</span>
                           </div>
-                          {pilar === 'net_churn' && (
-                            <p className="text-[10px] text-[#9CA3AF] mb-1">↓ quanto menor, melhor</p>
-                          )}
-                          {r.total_a_reverter != null && r.total_a_reverter > 0 && (
-                            <p className="text-[11px] text-[#F59E0B] font-medium">
-                              Falta atingir: {Math.abs(r.total_a_reverter) < 2
-                                ? `${(r.total_a_reverter * 100).toFixed(1)}%`
-                                : String(r.total_a_reverter)}
-                            </p>
-                          )}
-                        </>
+
+                          {/* Linhas de métricas */}
+                          {cols.map(label => {
+                            const found = findMetrica(metricas, label)
+                            if (!found) return null
+                            const [key, val] = found
+                            const isReverter = REVERTER_KEYS.has(norm(key))
+                            const numVal = Number(val)
+                            if (isReverter && (isNaN(numVal) || numVal <= 0)) return null
+                            const formatted = formatVal(key, val)
+                            if (formatted === '—') return null
+
+                            return (
+                              <div key={label} className="flex items-center justify-between py-1.5 border-b border-[#F9FAFB] last:border-0">
+                                <span className="text-xs text-[#6B7280] leading-tight pr-2">{key}</span>
+                                <span className={`text-xs font-semibold whitespace-nowrap ${isReverter && numVal > 0 ? 'text-[#F59E0B]' : 'text-[#111827]'}`}>
+                                  {formatted}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
                       )}
                     </div>
                   )
