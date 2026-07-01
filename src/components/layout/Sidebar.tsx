@@ -69,7 +69,7 @@ const NAV: NavItem[] = [
   { href: '/dashboard/consultor', label: 'Consultor',      roles: ['admin','dono','lider'],        icon: <IconUser /> },
   { href: '/dashboard/comparar',  label: 'Comparar Datas', roles: ['admin','dono','lider'],        icon: <IconActivity /> },
   { href: '/dashboard/alertas',   label: 'Alertas',        roles: ['admin','dono','lider'],        icon: <IconAlert /> },
-  { href: '/dashboard/meu-score', label: 'Meu Score',      roles: ['consultor'],                   icon: <IconActivity /> },
+  { href: '/dashboard/meu-score', label: 'Meu Desempenho', roles: ['consultor'],                   icon: <IconActivity /> },
   { href: '/dashboard/upload',    label: 'Upar Planilha',    roles: ['admin','dono'],              icon: <IconUpload /> },
   { href: '/dashboard/historico', label: 'Histórico',        roles: ['admin','dono'],              icon: <IconClock /> },
   { href: '/dashboard/metas',     label: 'Configurar Metas', roles: ['admin','dono'],              icon: <IconSettings /> },
@@ -94,10 +94,8 @@ export default function Sidebar({ role }: { role: UserRole }) {
   const pathname = usePathname()
   const visible = NAV.filter(item => item.roles.includes(role))
 
-  const gerencial = visible.filter(i => ['admin','dono','lider'].some(r => i.roles.includes(r as UserRole)) && !['admin','dono'].every(r => !i.roles.includes(r as UserRole) || i.href === '/dashboard/upload' || i.href === '/dashboard/metas' || i.href === '/dashboard/usuarios'))
   const adminItems = visible.filter(i => i.href === '/dashboard/upload' || i.href === '/dashboard/historico' || i.href === '/dashboard/metas' || i.href === '/dashboard/usuarios')
-  const consultorItems = visible.filter(i => i.href === '/dashboard/meu-score')
-  const mainItems = visible.filter(i => !adminItems.includes(i) && !consultorItems.includes(i))
+  const mainItems = visible.filter(i => !adminItems.includes(i))
 
   return (
     <aside className="fixed left-0 top-0 h-full w-60 bg-[#111827] flex flex-col z-40 border-r border-white/5">
