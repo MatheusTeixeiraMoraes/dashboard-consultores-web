@@ -12,6 +12,10 @@ export async function criarUsuario(data: {
   id_carteira: string
   senha: string
 }): Promise<{ ok: boolean; error?: string; profile?: Profile }> {
+  // DEBUG TEMPORÁRIO
+  const keyPresente = !!process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!keyPresente) return { ok: false, error: 'SERVICE_ROLE_KEY ausente no servidor' }
+
   try {
   const me = await getProfile()
   if (!me || !canManageUsers(me.role, data.role)) {
