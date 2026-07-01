@@ -13,12 +13,14 @@ const PILARES: { key: PilarKey; label: string; color: string; hint: string }[] =
   { key: 'produtividade', label: 'Produtividade',         color: '#818cf8', hint: 'Planilha de Produtividade' },
 ]
 
-// Normaliza cabeçalhos para matching flexível
+function today() {
+  return new Date().toISOString().split('T')[0]
+}
+
 function norm(s: string) {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim()
 }
 
-// Tenta encontrar coluna por lista de candidatos
 function findCol(headers: string[], candidates: string[]): string | null {
   for (const h of headers) {
     for (const c of candidates) {
@@ -72,8 +74,13 @@ interface UploadState {
   count?: number
 }
 
+function formatDateBR(iso: string) {
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
 export default function UploadClient({ uploadedBy }: { uploadedBy: string }) {
-  const [date, setDate] = useState('')
+  const [date, setDate] = useState(today)
   const [states, setStates] = useState<Record<PilarKey, UploadState>>(
     () => Object.fromEntries(PILARES.map(p => [p.key, { status: 'idle' }])) as Record<PilarKey, UploadState>
   )
@@ -84,11 +91,6 @@ export default function UploadClient({ uploadedBy }: { uploadedBy: string }) {
   }
 
   async function handleFile(pilarKey: PilarKey, file: File) {
-    if (!date) {
-      setStateFor(pilarKey, { status: 'error', message: 'Selecione a data de referência antes de fazer upload.' })
-      return
-    }
-
     setStateFor(pilarKey, { status: 'parsing' })
     let rows: ParsedRow[]
     try {
@@ -107,7 +109,7 @@ export default function UploadClient({ uploadedBy }: { uploadedBy: string }) {
         uploaded_by: uploadedBy,
         pilar_key: pilarKey,
         filename: file.name,
-        mes_referencia: date + '-01',
+        data_referencia: date,
         record_count: rows.length,
       })
       .select('id')
@@ -125,7 +127,7 @@ export default function UploadClient({ uploadedBy }: { uploadedBy: string }) {
       pilar_key: pilarKey,
       valor_metrica: r.valor_metrica,
       score_planilha: r.score_planilha,
-      mes_referencia: date + '-01',
+      data_referencia: date,
     }))
 
     const { error: recErr } = await supabase.from('score_consultor_resultados').insert(records)
@@ -147,18 +149,24 @@ export default function UploadClient({ uploadedBy }: { uploadedBy: string }) {
         </p>
       </div>
 
-      {/* Seletor de mês */}
-      <div className="bg-white rounded-2xl border border-[#E5E7EB] p-5 mb-6 flex items-center gap-4">
+      {/* Seletor de data */}
+      <div className="bg-white rounded-2xl border border-[#E5E7EB] p-5 mb-6 flex items-center gap-4 flex-wrap">
         <div>
-          <p className="text-sm font-semibold text-[#111827] mb-1">Mês de referência</p>
-          <p className="text-xs text-[#6B7280]">Selecione o mês ao qual as planilhas se referem</p>
+          <p className="text-sm font-semibold text-[#111827]">Data de referência</p>
+          <p className="text-xs text-[#6B7280] mt-0.5">
+            Data em que a planilha está sendo enviada — preenchida automaticamente com hoje
+          </p>
         </div>
-        <input
-          type="month"
-          value={date}
-          onChange={e => setDate(e.target.value)}
-          className="ml-auto border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-        />
+        <div className="ml-auto flex items-center gap-3">
+          <span className="text-sm text-[#6B7280]">{formatDateBR(date)}</span>
+          <input
+            type="date"
+            value={date}
+            max={today()}
+            onChange={e => setDate(e.target.value)}
+            className="border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+          />
+        </div>
       </div>
 
       {/* Cards dos pilares */}
@@ -178,10 +186,9 @@ export default function UploadClient({ uploadedBy }: { uploadedBy: string }) {
                 </div>
               </div>
 
-              {/* Status */}
               {state.status === 'ok' && (
                 <div className="text-xs text-[#10B981] bg-[#F0FDF4] rounded-lg px-3 py-2 mb-3 flex items-center gap-1.5">
-                  <span>✓</span> {state.count} registros salvos com sucesso
+                  <span>✓</span> {state.count} registros salvos — {formatDateBR(date)}
                 </div>
               )}
               {state.status === 'error' && (
