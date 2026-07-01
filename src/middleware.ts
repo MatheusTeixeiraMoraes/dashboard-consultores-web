@@ -2,6 +2,13 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  // Rotas públicas — nunca redirecionar
+  if (pathname.startsWith('/login') || pathname === '/') {
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -23,21 +30,20 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/login')
-
-  if (!user && !isAuthRoute) {
-    return NextResponse.redirect(new URL('/login', request.url))
-  }
-
-  if (user && isAuthRoute) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    if (!user) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+  } catch {
+    // Se o Supabase falhar, deixa passar para evitar loop
+    return NextResponse.next({ request })
   }
 
   return supabaseResponse
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: ['/dashboard/:path*'],
 }
