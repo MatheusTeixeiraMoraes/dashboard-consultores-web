@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { criarUsuario, excluirUsuario } from './actions'
 import type { Profile, UserRole } from '@/lib/types'
 import { canManageUsers } from '@/lib/types'
 
@@ -69,12 +68,20 @@ export default function UsuariosClient({ usuarios, myRole, myId }: {
   async function handleDelete(userId: string) {
     setDeleting(userId)
     setDelErr(null)
-    const res = await excluirUsuario(userId)
-    if (res.ok) {
-      setLista(prev => prev.filter(u => u.id !== userId))
-      setConfirmDel(null)
-    } else {
-      setDelErr(res.error ?? 'Erro ao excluir')
+    try {
+      const res = await fetch('/api/usuarios/excluir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      }).then(r => r.json())
+      if (res.ok) {
+        setLista(prev => prev.filter(u => u.id !== userId))
+        setConfirmDel(null)
+      } else {
+        setDelErr(res.error ?? 'Erro ao excluir')
+      }
+    } catch {
+      setDelErr('Erro de comunicação com o servidor')
     }
     setDeleting(null)
   }
@@ -85,9 +92,13 @@ export default function UsuariosClient({ usuarios, myRole, myId }: {
     setCreating(true)
     setCreateErr(null)
     try {
-      const res = await criarUsuario(createForm)
+      const res = await fetch('/api/usuarios/criar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(createForm),
+      }).then(r => r.json())
       if (res.ok && res.profile) {
-        setLista(prev => [...prev, res.profile!].sort((a, b) => a.nome.localeCompare(b.nome)))
+        setLista(prev => [...prev, res.profile as Profile].sort((a, b) => a.nome.localeCompare(b.nome)))
         setShowModal(false)
         setCreateForm(EMPTY_FORM)
       } else {
