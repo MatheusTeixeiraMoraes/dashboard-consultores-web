@@ -22,9 +22,18 @@ const PILAR_COLOR: Record<string, string> = {
   aderencia: '#2dd4bf', awareness: '#f472b6', produtividade: '#818cf8',
 }
 
+// Labels amigáveis para colunas brutas da planilha
+const COLUMN_DISPLAY_LABELS: Record<string, string> = {
+  'pv total mes atual':      'TPV atual',
+  'pv total mes passado':    'TPV anterior',
+  'tpv medio mes atual':     'TPV médio atual',
+  'tpv medio mes passado':   'TPV médio anterior',
+}
+
 // Colunas de detalhe por pilar
 const PILAR_COLS: Record<string, string[]> = {
-  tpv: ['PV Total mês atual', 'PV Total mês passado', 'TPV médio mês atual', 'TPV médio mês passado', 'Variação de TPV versus mês passado'],
+  // "Variação de TPV" omitida — calculamos em R$ direto no card
+  tpv: ['PV Total mês atual', 'PV Total mês passado', 'TPV médio mês atual', 'TPV médio mês passado'],
   net_churn: ['Sellers ativos (atual)', 'Sellers ativos (passado)', 'Sellers em churn', 'Sellers reativos', 'Objetivo Final', 'Total a Reverter'],
   acionaveis: ['Total Acionáveis (Tarefas)', 'Total Acionáveis (Revertido)', 'Objetivo Final', 'Total a Reverter'],
   aderencia: ['Sellers agendados', 'Sellers aderentes à agenda', 'Sellers visitados', 'Total a Reverter'],
@@ -436,14 +445,42 @@ export default function ConsultorClient({ resultados, dateDisplay, dataReferenci
                                   if (isReverter && (isNaN(numVal) || numVal <= 0)) return null
                                   const formatted = formatVal(key, val)
                                   if (formatted === '—') return null
-                                  return (
+
+                                  const displayLabel = COLUMN_DISPLAY_LABELS[norm(key)] ?? key
+
+                                  const rows = [
                                     <div key={label} className="flex items-center justify-between border-t border-[#F9FAFB] pt-1.5">
-                                      <span className="text-[11px] text-[#6B7280] leading-tight pr-2">{key}</span>
+                                      <span className="text-[11px] text-[#6B7280] leading-tight pr-2">{displayLabel}:</span>
                                       <span className={`text-[11px] font-semibold whitespace-nowrap ${isReverter && numVal > 0 ? 'text-[#F59E0B]' : 'text-[#111827]'}`}>
                                         {formatted}
                                       </span>
-                                    </div>
-                                  )
+                                    </div>,
+                                  ]
+
+                                  // Após "PV Total mês passado" no TPV: injeta linha de variação em R$
+                                  if (pilar === 'tpv' && norm(label) === norm('PV Total mês passado')) {
+                                    const atualEntry = findMetrica(metricas, 'PV Total mês atual')
+                                    const passadoEntry = findMetrica(metricas, 'PV Total mês passado')
+                                    if (atualEntry && passadoEntry) {
+                                      const diff = Number(atualEntry[1]) - Number(passadoEntry[1])
+                                      if (!isNaN(diff) && diff !== 0) {
+                                        const absDiff = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(Math.abs(diff))
+                                        const isQueda = diff < 0
+                                        rows.push(
+                                          <div key="tpv-variacao" className="flex items-center justify-between border-t border-[#F9FAFB] pt-1.5">
+                                            <span className="text-[11px] leading-tight pr-2" style={{ color: isQueda ? '#EF4444' : '#10B981' }}>
+                                              {isQueda ? '↓ Queda de' : '↑ Crescimento de'}
+                                            </span>
+                                            <span className="text-[11px] font-semibold whitespace-nowrap" style={{ color: isQueda ? '#EF4444' : '#10B981' }}>
+                                              {absDiff}
+                                            </span>
+                                          </div>
+                                        )
+                                      }
+                                    }
+                                  }
+
+                                  return rows
                                 })}
                               </div>
                             )}
