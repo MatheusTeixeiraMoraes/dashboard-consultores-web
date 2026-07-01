@@ -12,6 +12,16 @@ const PILAR_COLOR: Record<string, string> = {
   aderencia: '#2dd4bf', awareness: '#f472b6', produtividade: '#818cf8',
 }
 
+// Rótulo da métrica principal de cada pilar (exibido na linha do consultor)
+const PILAR_METRICA_LABEL: Record<string, string> = {
+  tpv: '% Obj.',
+  net_churn: 'Net Churn',
+  acionaveis: '% Revertido',
+  aderencia: 'Aderência',
+  awareness: 'Awareness',
+  produtividade: 'Prod/DU',
+}
+
 function statusStyle(score: number) {
   if (score >= 4.5) return { bg: '#F0FDF4', text: '#10B981' }
   if (score >= 3.0) return { bg: '#FFFBEB', text: '#F59E0B' }
@@ -25,6 +35,19 @@ function fmtMeta(meta: number, unidade: string): string {
   }
   if (Number.isInteger(meta)) return String(meta)
   return meta.toFixed(1).replace('.', ',')
+}
+
+function fmtValorMetrica(pilar: string, val: number): string {
+  if (val == null || isNaN(val)) return '—'
+  if (pilar === 'produtividade') {
+    if (Number.isInteger(val)) return String(val)
+    return val.toFixed(1).replace('.', ',')
+  }
+  // Pilares de %: valores ≤ 5 são fração decimal (0.55 → 55%)
+  if (Math.abs(val) > 0 && Math.abs(val) <= 5) {
+    return `${(val * 100).toFixed(1).replace('.', ',')}%`
+  }
+  return `${val.toFixed(1).replace('.', ',')}%`
 }
 
 export default async function AreaPage() {
@@ -65,17 +88,26 @@ export default async function AreaPage() {
 
   const { data: resultados } = await supabase
     .from('score_consultor_resultados')
-    .select('id_carteira, consultor_nome, pilar_key, score_planilha, total_a_reverter')
+    .select('id_carteira, consultor_nome, pilar_key, score_planilha, total_a_reverter, valor_metrica')
     .in('upload_id', idList.length > 0 ? idList : ['none'])
 
   const metaMap = Object.fromEntries(
     (pilaresConfig ?? []).map(p => [p.pilar_key, { meta: p.meta, unidade: p.unidade, tipo_comp: p.tipo_comp, pontos_max: p.pontos_max }])
   )
 
-  const byPilar: Record<string, Array<{ id: string; nome: string; score: number; reverter: number | null }>> = {}
+  const byPilar: Record<string, Array<{
+    id: string; nome: string; score: number; reverter: number | null; valorMetrica: number | null
+  }>> = {}
+
   for (const r of resultados ?? []) {
     if (!byPilar[r.pilar_key]) byPilar[r.pilar_key] = []
-    byPilar[r.pilar_key].push({ id: r.id_carteira, nome: r.consultor_nome, score: r.score_planilha, reverter: r.total_a_reverter })
+    byPilar[r.pilar_key].push({
+      id: r.id_carteira,
+      nome: r.consultor_nome,
+      score: r.score_planilha,
+      reverter: r.total_a_reverter,
+      valorMetrica: r.valor_metrica ?? null,
+    })
   }
   for (const key of Object.keys(byPilar)) {
     byPilar[key].sort((a, b) => b.score - a.score)
@@ -120,7 +152,7 @@ export default async function AreaPage() {
                 </div>
                 {avg !== null && (
                   <div className="text-right">
-                    <p className="text-xs text-[#6B7280]">Média</p>
+                    <p className="text-xs text-[#6B7280]">Média score</p>
                     <p className="text-sm font-bold" style={{ color }}>{avg.toFixed(2)}</p>
                   </div>
                 )}
@@ -132,16 +164,25 @@ export default async function AreaPage() {
                 <div className="divide-y divide-[#F9FAFB]">
                   {consultores.map((c, i) => {
                     const st = statusStyle(c.score)
+                    const metricaFmt = c.valorMetrica != null ? fmtValorMetrica(pilar, c.valorMetrica) : null
                     return (
-                      <div key={c.id} className="px-5 py-3 flex items-center gap-3">
-                        <span className="text-xs font-medium text-[#9CA3AF] w-5 text-center">{i + 1}</span>
-                        <p className="flex-1 text-sm text-[#111827] truncate">{c.nome}</p>
+                      <div key={c.id} className="px-5 py-2.5 flex items-center gap-3">
+                        <span className="text-xs font-medium text-[#9CA3AF] w-5 text-center flex-shrink-0">{i + 1}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-[#111827] truncate leading-tight">{c.nome}</p>
+                          {metricaFmt && (
+                            <p className="text-[11px] text-[#6B7280] mt-0.5">
+                              {PILAR_METRICA_LABEL[pilar]}:{' '}
+                              <span className="font-semibold text-[#374151]">{metricaFmt}</span>
+                            </p>
+                          )}
+                        </div>
                         {c.reverter != null && c.reverter > 0 && (
-                          <p className="text-[11px] text-[#F59E0B]">
+                          <p className="text-[11px] text-[#F59E0B] flex-shrink-0">
                             falta {Math.abs(c.reverter) < 2 ? `${(c.reverter * 100).toFixed(1)}%` : String(c.reverter)}
                           </p>
                         )}
-                        <span className="text-sm font-bold px-2.5 py-0.5 rounded-lg" style={{ background: st.bg, color: st.text }}>
+                        <span className="text-sm font-bold px-2.5 py-0.5 rounded-lg flex-shrink-0" style={{ background: st.bg, color: st.text }}>
                           {c.score.toFixed(1)}
                         </span>
                       </div>
