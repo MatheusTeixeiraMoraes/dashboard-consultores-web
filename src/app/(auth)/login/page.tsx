@@ -1,39 +1,30 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { loginAction } from './actions'
 
 export default function LoginPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError('')
     setLoading(true)
 
-    const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const formData = new FormData(e.currentTarget)
+    const result = await loginAction(formData)
 
-    if (error) {
-      setError('E-mail ou senha incorretos.')
+    if (result?.error) {
+      setError(result.error)
       setLoading(false)
-      return
     }
-
-    // Hard redirect garante que os cookies de sessão são enviados na próxima request
-    window.location.href = '/dashboard'
   }
 
   return (
     <div className="min-h-screen bg-[#111827] flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
 
-        {/* Logo / Brand */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#10B981] mb-4">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -44,7 +35,6 @@ export default function LoginPage() {
           <p className="text-sm text-gray-400 mt-1">Consultores — Mercado Pago</p>
         </div>
 
-        {/* Card de login */}
         <div className="bg-[#1F2937] rounded-2xl p-7 border border-white/10">
           <h2 className="text-base font-semibold text-white mb-5">Entrar na sua conta</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -54,11 +44,10 @@ export default function LoginPage() {
               </label>
               <input
                 id="email"
+                name="email"
                 type="email"
                 autoComplete="email"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-[#111827] border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent transition"
                 placeholder="seu@email.com"
               />
@@ -69,11 +58,10 @@ export default function LoginPage() {
               </label>
               <input
                 id="password"
+                name="password"
                 type="password"
                 autoComplete="current-password"
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-[#111827] border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent transition"
                 placeholder="••••••••"
               />
