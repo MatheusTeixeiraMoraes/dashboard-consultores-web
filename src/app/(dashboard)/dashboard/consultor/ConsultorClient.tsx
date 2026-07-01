@@ -379,11 +379,25 @@ export default function ConsultorClient({ resultados, dateDisplay, dataReferenci
                         const cols = PILAR_COLS[pilar] ?? []
                         const metricas = r?.metricas ?? {}
 
+                        // Para TPV, valor_metrica pode vir zerado do banco.
+                        // Nesse caso, recalcula: (PV Total atual ÷ PV Total passado) × 100,
+                        // ou (TPV médio atual ÷ TPV médio passado) × 100 como fallback.
+                        let efVm = r?.valor_metrica ?? 0
+                        if (pilar === 'tpv' && efVm === 0) {
+                          const atE = findMetrica(metricas, 'PV Total mês atual') ?? findMetrica(metricas, 'TPV médio mês atual')
+                          const paE = findMetrica(metricas, 'PV Total mês passado') ?? findMetrica(metricas, 'TPV médio mês passado')
+                          if (atE && paE) {
+                            const a = Number(atE[1])
+                            const p = Number(paE[1])
+                            if (!isNaN(a) && !isNaN(p) && p !== 0) efVm = (a / p) * 100
+                          }
+                        }
+
                         const faltam = r && metaCfg
-                          ? calcFaltam(pilar, r.valor_metrica, metaCfg.meta, metaCfg.tipo_comp)
+                          ? calcFaltam(pilar, efVm, metaCfg.meta, metaCfg.tipo_comp)
                           : null
                         const hitMeta = faltam !== null && faltam <= 0
-                        const valorFmt = r ? fmtValorMetrica(pilar, r.valor_metrica) : null
+                        const valorFmt = r ? fmtValorMetrica(pilar, efVm) : null
 
                         return (
                           <div key={pilar} className="bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden" style={{ borderLeft: `3px solid ${color}` }}>
