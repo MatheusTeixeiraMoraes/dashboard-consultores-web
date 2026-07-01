@@ -6,7 +6,6 @@ import CompararClient from './CompararClient'
 export default async function CompararPage() {
   const profile = await getProfile()
   if (!profile) redirect('/login')
-  if (profile.role === 'consultor') redirect('/dashboard/meu-score')
 
   const supabase = await createClient()
 
@@ -17,5 +16,10 @@ export default async function CompararPage() {
 
   const dates = [...new Set((uploads ?? []).map(u => u.data_referencia as string))]
 
-  return <CompararClient dates={dates} />
+  return (
+    <CompararClient
+      dates={dates}
+      idCarteira={profile.role === 'consultor' ? (profile.id_carteira ?? null) : null}
+    />
+  )
 }

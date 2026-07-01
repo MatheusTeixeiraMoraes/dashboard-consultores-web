@@ -99,7 +99,7 @@ function DeltaBadge({ delta }: { delta: number | null }) {
   )
 }
 
-export default function CompararClient({ dates }: { dates: string[] }) {
+export default function CompararClient({ dates, idCarteira }: { dates: string[]; idCarteira?: string | null }) {
   const [dateA, setDateA] = useState(dates[1] ?? dates[0] ?? '')
   const [dateB, setDateB] = useState(dates[0] ?? '')
   const [rows, setRows] = useState<ConsultorRow[] | null>(null)
@@ -109,7 +109,9 @@ export default function CompararClient({ dates }: { dates: string[] }) {
     if (!dateA || !dateB || dateA === dateB) return
     setLoading(true)
     const [a, b] = await Promise.all([fetchResultados(dateA), fetchResultados(dateB)])
-    setRows(buildRows(a, b))
+    let built = buildRows(a, b)
+    if (idCarteira) built = built.filter(r => r.id === idCarteira)
+    setRows(built)
     setLoading(false)
   }
 
