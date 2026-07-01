@@ -158,9 +158,12 @@ export default function ConsultorClient({ resultados, dateDisplay }: Props) {
                               style={{ width: `${Math.min((r.score_planilha / 5) * 100, 100)}%`, background: color }}
                             />
                           </div>
-                          {r.total_a_reverter != null && (
-                            <p className="text-[11px] text-[#9CA3AF]">
-                              A reverter: {Math.abs(r.total_a_reverter) < 2
+                          {pilar === 'net_churn' && (
+                            <p className="text-[10px] text-[#9CA3AF] mb-1">↓ quanto menor, melhor</p>
+                          )}
+                          {r.total_a_reverter != null && r.total_a_reverter > 0 && (
+                            <p className="text-[11px] text-[#F59E0B] font-medium">
+                              Falta atingir: {Math.abs(r.total_a_reverter) < 2
                                 ? `${(r.total_a_reverter * 100).toFixed(1)}%`
                                 : String(r.total_a_reverter)}
                             </p>

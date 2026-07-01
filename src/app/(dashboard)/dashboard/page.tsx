@@ -142,8 +142,10 @@ export default async function GeralPage() {
                           {score !== undefined ? (
                             <div>
                               <p className="text-sm font-semibold text-[#111827]">{score.toFixed(1)}</p>
-                              {reverter != null && (
-                                <p className="text-[10px] text-[#6B7280] mt-0.5">{reverter > 0 ? '+' : ''}{typeof reverter === 'number' && Math.abs(reverter) < 2 ? `${(reverter * 100).toFixed(1)}%` : reverter}</p>
+                              {reverter != null && reverter > 0 && (
+                                <p className="text-[10px] text-[#F59E0B] mt-0.5">
+                                  falta {Math.abs(reverter) < 2 ? `${(reverter * 100).toFixed(1)}%` : String(reverter)}
+                                </p>
                               )}
                             </div>
                           ) : (

@@ -92,7 +92,12 @@ export default async function AreaPage() {
                   <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${color}20` }}>
                     <div className="w-2 h-2 rounded-full" style={{ background: color }} />
                   </div>
-                  <p className="font-semibold text-[#111827] text-sm">{PILAR_LABEL[pilar]}</p>
+                  <div>
+                    <p className="font-semibold text-[#111827] text-sm">{PILAR_LABEL[pilar]}</p>
+                    {pilar === 'net_churn' && (
+                      <p className="text-[10px] text-[#9CA3AF]">↓ quanto menor, melhor</p>
+                    )}
+                  </div>
                 </div>
                 {avg !== null && (
                   <div className="text-right">
@@ -112,9 +117,9 @@ export default async function AreaPage() {
                       <div key={c.id} className="px-5 py-3 flex items-center gap-3">
                         <span className="text-xs font-medium text-[#9CA3AF] w-5 text-center">{i + 1}</span>
                         <p className="flex-1 text-sm text-[#111827] truncate">{c.nome}</p>
-                        {c.reverter != null && (
-                          <p className="text-[11px] text-[#9CA3AF]">
-                            rev: {Math.abs(c.reverter) < 2 ? `${(c.reverter * 100).toFixed(1)}%` : String(c.reverter)}
+                        {c.reverter != null && c.reverter > 0 && (
+                          <p className="text-[11px] text-[#F59E0B]">
+                            falta {Math.abs(c.reverter) < 2 ? `${(c.reverter * 100).toFixed(1)}%` : String(c.reverter)}
                           </p>
                         )}
                         <span className="text-sm font-bold px-2.5 py-0.5 rounded-lg" style={{ background: st.bg, color: st.text }}>
