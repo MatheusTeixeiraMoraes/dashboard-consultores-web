@@ -4,7 +4,6 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Rotas públicas — nunca redirecionar
   if (pathname.startsWith('/login') || pathname === '/') {
     return NextResponse.next({ request })
   }
@@ -16,9 +15,7 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
+        getAll() { return request.cookies.getAll() },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           supabaseResponse = NextResponse.next({ request })
@@ -30,15 +27,12 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  try {
-    const { data: { user } } = await supabase.auth.getUser()
+  // getSession lê o JWT local (sem chamada de rede) — rápido para redirect check
+  // A verificação real do token acontece no layout via getUser()
+  const { data: { session } } = await supabase.auth.getSession()
 
-    if (!user) {
-      return NextResponse.redirect(new URL('/login', request.url))
-    }
-  } catch {
-    // Se o Supabase falhar, deixa passar para evitar loop
-    return NextResponse.next({ request })
+  if (!session) {
+    return NextResponse.redirect(new URL('/login', request.url))
   }
 
   return supabaseResponse
