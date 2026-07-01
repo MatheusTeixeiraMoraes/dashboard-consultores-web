@@ -53,6 +53,7 @@ function fmtValorMetrica(pilar: string, val: number): string {
 export default async function AreaPage() {
   const profile = await getProfile()
   if (!profile) redirect('/login')
+  if (profile.role === 'consultor') redirect('/dashboard/meu-score')
 
   const supabase = await createClient()
 
