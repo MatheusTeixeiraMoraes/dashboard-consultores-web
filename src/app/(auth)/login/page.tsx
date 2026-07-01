@@ -25,8 +25,8 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/dashboard')
-    router.refresh()
+    // Hard redirect garante que os cookies de sessão são enviados na próxima request
+    window.location.href = '/dashboard'
   }
 
   return (
