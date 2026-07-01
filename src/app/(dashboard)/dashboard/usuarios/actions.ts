@@ -27,7 +27,9 @@ export async function criarUsuario(data: {
   })
 
   if (authErr || !authData.user) {
-    return { ok: false, error: authErr?.message ?? 'Erro ao criar usuário' }
+    const msg = authErr?.message || authErr?.name || String(authErr) || 'Erro ao criar usuário'
+    console.error('[criarUsuario] authErr:', JSON.stringify(authErr, null, 2))
+    return { ok: false, error: msg }
   }
 
   const { data: prof, error: profErr } = await admin
@@ -50,7 +52,9 @@ export async function criarUsuario(data: {
 
   return { ok: true, profile: prof as Profile }
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Erro inesperado' }
+    const msg = err instanceof Error ? err.message : (typeof err === 'string' ? err : String(err))
+    console.error('[criarUsuario] catch:', msg)
+    return { ok: false, error: msg || 'Erro inesperado' }
   }
 }
 

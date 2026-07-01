@@ -84,13 +84,17 @@ export default function UsuariosClient({ usuarios, myRole, myId }: {
     e.preventDefault()
     setCreating(true)
     setCreateErr(null)
-    const res = await criarUsuario(createForm)
-    if (res.ok && res.profile) {
-      setLista(prev => [...prev, res.profile!].sort((a, b) => a.nome.localeCompare(b.nome)))
-      setShowModal(false)
-      setCreateForm(EMPTY_FORM)
-    } else {
-      setCreateErr(res.error ?? 'Erro ao criar usuário')
+    try {
+      const res = await criarUsuario(createForm)
+      if (res.ok && res.profile) {
+        setLista(prev => [...prev, res.profile!].sort((a, b) => a.nome.localeCompare(b.nome)))
+        setShowModal(false)
+        setCreateForm(EMPTY_FORM)
+      } else {
+        setCreateErr(typeof res.error === 'string' ? res.error : 'Erro ao criar usuário')
+      }
+    } catch (e) {
+      setCreateErr(e instanceof Error ? e.message : 'Erro de comunicação com o servidor')
     }
     setCreating(false)
   }
