@@ -18,6 +18,15 @@ function statusStyle(score: number) {
   return { bg: '#FEF2F2', text: '#EF4444' }
 }
 
+function fmtMeta(meta: number, unidade: string): string {
+  if (unidade === '%') {
+    const digits = Math.abs(meta) % 1 === 0 ? 0 : 2
+    return `${meta.toFixed(digits).replace('.', ',')}%`
+  }
+  if (Number.isInteger(meta)) return String(meta)
+  return meta.toFixed(1).replace('.', ',')
+}
+
 export default async function AreaPage() {
   const profile = await getProfile()
   if (!profile) redirect('/login')
@@ -47,10 +56,10 @@ export default async function AreaPage() {
     )
   }
 
-  const { data: uploadIds } = await supabase
-    .from('score_uploads')
-    .select('id, pilar_key')
-    .eq('data_referencia', latestDate)
+  const [{ data: uploadIds }, { data: pilaresConfig }] = await Promise.all([
+    supabase.from('score_uploads').select('id, pilar_key').eq('data_referencia', latestDate),
+    supabase.from('pillar_config').select('pilar_key, meta, unidade, tipo_comp, pontos_max'),
+  ])
 
   const idList = (uploadIds ?? []).map(u => u.id)
 
@@ -58,6 +67,10 @@ export default async function AreaPage() {
     .from('score_consultor_resultados')
     .select('id_carteira, consultor_nome, pilar_key, score_planilha, total_a_reverter')
     .in('upload_id', idList.length > 0 ? idList : ['none'])
+
+  const metaMap = Object.fromEntries(
+    (pilaresConfig ?? []).map(p => [p.pilar_key, { meta: p.meta, unidade: p.unidade, tipo_comp: p.tipo_comp, pontos_max: p.pontos_max }])
+  )
 
   const byPilar: Record<string, Array<{ id: string; nome: string; score: number; reverter: number | null }>> = {}
   for (const r of resultados ?? []) {
@@ -84,6 +97,7 @@ export default async function AreaPage() {
           const avg = consultores.length > 0
             ? consultores.reduce((s, c) => s + c.score, 0) / consultores.length
             : null
+          const mc = metaMap[pilar]
 
           return (
             <div key={pilar} className="bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden" style={{ borderTop: `3px solid ${color}` }}>
@@ -96,6 +110,11 @@ export default async function AreaPage() {
                     <p className="font-semibold text-[#111827] text-sm">{PILAR_LABEL[pilar]}</p>
                     {pilar === 'net_churn' && (
                       <p className="text-[10px] text-[#9CA3AF]">↓ quanto menor, melhor</p>
+                    )}
+                    {mc && (
+                      <p className="text-[11px] text-[#9CA3AF] mt-0.5">
+                        Meta: <span className="font-semibold text-[#6B7280]">{fmtMeta(mc.meta, mc.unidade)}</span>
+                      </p>
                     )}
                   </div>
                 </div>

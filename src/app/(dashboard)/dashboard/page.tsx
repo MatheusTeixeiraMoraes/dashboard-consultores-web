@@ -54,11 +54,23 @@ export default async function GeralPage() {
     )
   }
 
-  // Busca o upload mais recente por pilar na data mais recente
-  const { data: uploadIds } = await supabase
-    .from('score_uploads')
-    .select('id, pilar_key')
-    .eq('data_referencia', latestDate)
+  const [{ data: uploadIds }, { data: pilaresConfig }] = await Promise.all([
+    supabase.from('score_uploads').select('id, pilar_key').eq('data_referencia', latestDate),
+    supabase.from('pillar_config').select('pilar_key, meta, unidade'),
+  ])
+
+  const metaMap = Object.fromEntries(
+    (pilaresConfig ?? []).map(p => [p.pilar_key, { meta: p.meta, unidade: p.unidade }])
+  )
+
+  function fmtMeta(meta: number, unidade: string): string {
+    if (unidade === '%') {
+      const digits = Math.abs(meta) % 1 === 0 ? 0 : 2
+      return `${meta.toFixed(digits).replace('.', ',')}%`
+    }
+    if (Number.isInteger(meta)) return String(meta)
+    return meta.toFixed(1).replace('.', ',')
+  }
 
   const uploadIdList = (uploadIds ?? []).map(u => u.id)
 
@@ -112,11 +124,19 @@ export default async function GeralPage() {
                 <th className="text-left px-4 py-3 font-semibold text-[#6B7280] text-xs uppercase tracking-wider w-8">#</th>
                 <th className="text-left px-4 py-3 font-semibold text-[#6B7280] text-xs uppercase tracking-wider">Consultor</th>
                 <th className="text-center px-3 py-3 font-semibold text-[#6B7280] text-xs uppercase tracking-wider">Score</th>
-                {PILARES.map(p => (
-                  <th key={p} className="text-center px-2 py-3 font-semibold text-xs uppercase tracking-wider" style={{ color: PILAR_COLOR[p] }}>
-                    {PILAR_LABEL[p]}
-                  </th>
-                ))}
+                {PILARES.map(p => {
+                  const mc = metaMap[p]
+                  return (
+                    <th key={p} className="text-center px-2 py-3 font-semibold text-xs uppercase tracking-wider" style={{ color: PILAR_COLOR[p] }}>
+                      {PILAR_LABEL[p]}
+                      {mc && (
+                        <div className="text-[10px] font-normal text-[#9CA3AF] normal-case tracking-normal mt-0.5">
+                          meta {fmtMeta(mc.meta, mc.unidade)}
+                        </div>
+                      )}
+                    </th>
+                  )
+                })}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F3F4F6]">

@@ -14,7 +14,6 @@ const PILAR_COLOR: Record<string, string> = {
   aderencia: '#2dd4bf', awareness: '#f472b6', produtividade: '#818cf8',
 }
 
-// Ordem preferida de exibição por pilar — nomes exatos das colunas da planilha (norm matching)
 const PILAR_COLS: Record<string, string[]> = {
   tpv: [
     'PV Total mês atual', 'PV Total mês passado',
@@ -44,12 +43,10 @@ const PILAR_COLS: Record<string, string[]> = {
   ],
 }
 
-// Colunas que representam "total a reverter" (mostrar em âmbar apenas se > 0)
 const REVERTER_KEYS = new Set([
   'total a reverter', '% total a realizar', 'total media a realizar', 'total medio a realizar',
 ])
 
-// Colunas de currency (R$)
 const CURRENCY_KEYS = /tpv total|tpv medio|tpv médio/i
 
 function norm(s: string) {
@@ -61,11 +58,9 @@ function formatVal(key: string, val: unknown): string {
   const n = Number(val)
   if (isNaN(n)) return String(val)
 
-  // Currency: colunas de TPV/PV Total
   if (CURRENCY_KEYS.test(key)) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(n)
   }
-  // Percentual: apenas se o nome da coluna tem "%" literal OU é coluna de variação
   const isPercent = key.includes('%') || /variacao|variação/i.test(norm(key))
   if (isPercent) {
     if (Math.abs(n) > 0 && Math.abs(n) <= 5) {
@@ -73,10 +68,18 @@ function formatVal(key: string, val: unknown): string {
     }
     return `${n >= 0 ? '+' : ''}${n.toFixed(2).replace('.', ',')}%`
   }
-  // Número inteiro
   if (Number.isInteger(n)) return n.toLocaleString('pt-BR')
-  // Decimal genérico
   return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function fmtMeta(meta: number, unidade: string): string {
+  if (unidade === '%') {
+    const abs = Math.abs(meta)
+    const digits = abs % 1 === 0 ? 0 : 2
+    return `${meta.toFixed(digits).replace('.', ',')}%`
+  }
+  if (Number.isInteger(meta)) return String(meta)
+  return meta.toFixed(1).replace('.', ',')
 }
 
 function findMetrica(metricas: Record<string, unknown>, targetLabel: string): [string, unknown] | null {
@@ -105,28 +108,37 @@ interface Resultado {
   pilar_key: string
   score_planilha: number
   total_a_reverter: number | null
+  valor_metrica: number
   metricas: Record<string, unknown> | null
 }
 
-interface PontosMax {
+interface PilarConfigMin {
   pilar_key: string
   pontos_max: number
+  meta: number
+  tipo_comp: string
+  unidade: string
 }
 
 interface Props {
   resultados: Resultado[]
   dateDisplay: string
   dataReferencia: string
-  pontosMax: PontosMax[]
+  pilaresConfig: PilarConfigMin[]
 }
 
-export default function ConsultorClient({ resultados, dateDisplay, dataReferencia, pontosMax }: Props) {
+export default function ConsultorClient({ resultados, dateDisplay, dataReferencia, pilaresConfig }: Props) {
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const maxMap = useMemo(() =>
-    Object.fromEntries(pontosMax.map(p => [p.pilar_key, p.pontos_max])),
-    [pontosMax]
+    Object.fromEntries(pilaresConfig.map(p => [p.pilar_key, p.pontos_max])),
+    [pilaresConfig]
+  )
+
+  const metaMap = useMemo(() =>
+    Object.fromEntries(pilaresConfig.map(p => [p.pilar_key, { meta: p.meta, unidade: p.unidade, tipo_comp: p.tipo_comp }])),
+    [pilaresConfig]
   )
 
   const consultores = useMemo(() => {
@@ -229,24 +241,39 @@ export default function ConsultorClient({ resultados, dateDisplay, dataReferenci
                   const color = PILAR_COLOR[pilar]
                   const r = scoresByPilar?.[pilar]
                   const pontos = maxMap[pilar] ?? 0
+                  const metaCfg = metaMap[pilar]
                   const scoreStr = r
                     ? `${r.score_planilha.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/${pontos % 1 === 0 ? pontos : pontos.toFixed(1)}`
                     : null
+                  const hitMeta = r ? r.score_planilha >= pontos : false
                   const cols = PILAR_COLS[pilar] ?? []
                   const metricas = r?.metricas ?? {}
 
                   return (
                     <div key={pilar} className="bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden" style={{ borderLeft: `3px solid ${color}` }}>
                       {/* Cabeçalho do card */}
-                      <div className="px-4 py-3 flex items-center justify-between border-b border-[#F3F4F6]">
+                      <div className="px-4 py-3 flex items-start justify-between border-b border-[#F3F4F6]">
                         <div>
                           <p className="text-sm font-bold" style={{ color }}>{PILAR_LABEL[pilar]}</p>
                           {pilar === 'net_churn' && (
                             <p className="text-[10px] text-[#9CA3AF]">↓ quanto menor, melhor</p>
                           )}
+                          {metaCfg && (
+                            <p className="text-[11px] mt-0.5" style={{ color: '#6B7280' }}>
+                              Meta:{' '}
+                              <span className="font-semibold" style={{ color: hitMeta && r ? '#10B981' : '#F59E0B' }}>
+                                {fmtMeta(metaCfg.meta, metaCfg.unidade)}
+                              </span>
+                              {r && (
+                                <span className="ml-1.5 font-bold" style={{ color: hitMeta ? '#10B981' : '#EF4444' }}>
+                                  {hitMeta ? '✓' : '✗'}
+                                </span>
+                              )}
+                            </p>
+                          )}
                         </div>
                         {scoreStr ? (
-                          <span className="text-xs font-bold px-2.5 py-1 rounded-lg" style={{ background: `${color}18`, color }}>
+                          <span className="text-xs font-bold px-2.5 py-1 rounded-lg flex-shrink-0" style={{ background: `${color}18`, color }}>
                             {scoreStr}
                           </span>
                         ) : (
