@@ -51,6 +51,11 @@ const IconUsers = () => (
     <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
   </svg>
 )
+const IconClock = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+  </svg>
+)
 
 const NAV: NavItem[] = [
   { href: '/dashboard',           label: 'Visão Geral',    roles: ['admin','dono','lider'],        icon: <IconGrid /> },
@@ -58,9 +63,10 @@ const NAV: NavItem[] = [
   { href: '/dashboard/consultor', label: 'Consultor',      roles: ['admin','dono','lider'],        icon: <IconUser /> },
   { href: '/dashboard/comparar',  label: 'Comparar Datas', roles: ['admin','dono','lider'],        icon: <IconActivity /> },
   { href: '/dashboard/meu-score', label: 'Meu Score',      roles: ['consultor'],                   icon: <IconActivity /> },
-  { href: '/dashboard/upload',    label: 'Upar Planilha',  roles: ['admin','dono'],                icon: <IconUpload /> },
+  { href: '/dashboard/upload',    label: 'Upar Planilha',    roles: ['admin','dono'],              icon: <IconUpload /> },
+  { href: '/dashboard/historico', label: 'Histórico',        roles: ['admin','dono'],              icon: <IconClock /> },
   { href: '/dashboard/metas',     label: 'Configurar Metas', roles: ['admin','dono'],              icon: <IconSettings /> },
-  { href: '/dashboard/usuarios',  label: 'Usuários',       roles: ['admin','dono'],                icon: <IconUsers /> },
+  { href: '/dashboard/usuarios',  label: 'Usuários',         roles: ['admin','dono'],              icon: <IconUsers /> },
 ]
 
 const ROLE_LABEL: Record<UserRole, string> = {
@@ -82,7 +88,7 @@ export default function Sidebar({ role }: { role: UserRole }) {
   const visible = NAV.filter(item => item.roles.includes(role))
 
   const gerencial = visible.filter(i => ['admin','dono','lider'].some(r => i.roles.includes(r as UserRole)) && !['admin','dono'].every(r => !i.roles.includes(r as UserRole) || i.href === '/dashboard/upload' || i.href === '/dashboard/metas' || i.href === '/dashboard/usuarios'))
-  const adminItems = visible.filter(i => i.href === '/dashboard/upload' || i.href === '/dashboard/metas' || i.href === '/dashboard/usuarios')
+  const adminItems = visible.filter(i => i.href === '/dashboard/upload' || i.href === '/dashboard/historico' || i.href === '/dashboard/metas' || i.href === '/dashboard/usuarios')
   const consultorItems = visible.filter(i => i.href === '/dashboard/meu-score')
   const mainItems = visible.filter(i => !adminItems.includes(i) && !consultorItems.includes(i))
 
