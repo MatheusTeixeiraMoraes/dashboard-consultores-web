@@ -14,33 +14,32 @@ const PILAR_COLOR: Record<string, string> = {
   aderencia: '#2dd4bf', awareness: '#f472b6', produtividade: '#818cf8',
 }
 
-// Ordem preferida de exibição por pilar (nomes aproximados — usa matching normalizado)
+// Ordem preferida de exibição por pilar — nomes exatos das colunas da planilha (norm matching)
 const PILAR_COLS: Record<string, string[]> = {
   tpv: [
-    'TPV Total (mês atual)', 'TPV Total (mês passado)',
-    'TPV Médio (mês atual)', 'TPV Médio (mês passado)',
-    'Variação de TPV', '% Objetivo Maio', '% Total a Realizar',
+    'PV Total mês atual', 'PV Total mês passado',
+    'TPV médio mês atual', 'TPV médio mês passado',
+    'Variação de TPV versus mês passado', '% Objetivo Maio', '% Total a Realizar',
   ],
   net_churn: [
     'Sellers ativos (atual)', 'Sellers ativos (passado)',
     'Sellers em churn', 'Sellers reativos',
-    '%Net churn', '% Objetivo', 'Objetivo Final', 'Total a Reverter',
+    '%Net churn', '% Objetivo Maio', 'Objetivo Final', 'Total a Reverter',
   ],
   acionaveis: [
     'Total Acionáveis (Tarefas)', 'Total Acionáveis (Revertido)',
-    'Total Acionáveis %Tarefa-Revertido', '% Objetivo', 'Objetivo Final', 'Total a Reverter',
+    'Total Acionáveis %Tarefa-Revertido', '% Objetivo Maio', 'Objetivo Final', 'Total a Reverter',
   ],
   aderencia: [
-    'Sellers agendados', 'Sellers aderentes', 'Sellers visitados',
+    'Sellers agendados', 'Sellers aderentes à agenda', 'Sellers visitados',
     '%Aderência à agenda', '% Objetivo', 'Total a Reverter',
   ],
   awareness: [
-    'Sellers visitados', 'Sellers que responderam',
+    'Sellers visitados', 'Sellers que responderam pesquisa',
     '%Awareness', '% Objetivo', 'Total a Reverter',
   ],
   produtividade: [
     'Visitas', 'Visitas efetivas', 'Sellers visitados',
-    'Visitas / dia útil', 'Visitas efetivas / dia útil',
     'Prod média por dia útil', 'Produtividade média (objetivo)', 'Total Média a Realizar',
   ],
 }
@@ -62,16 +61,17 @@ function formatVal(key: string, val: unknown): string {
   const n = Number(val)
   if (isNaN(n)) return String(val)
 
+  // Currency: colunas de TPV/PV Total
   if (CURRENCY_KEYS.test(key)) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(n)
   }
-  // Percentuais: valores entre -5 e 5 provavelmente são decimais (0.02 = 2%)
-  if (/%|churn|aderencia|awareness|objetivo|variacao|variação|realizar/i.test(norm(key))) {
-    if (Math.abs(n) <= 5 && n !== 0) {
-      const pct = (n * 100).toFixed(2).replace('.', ',')
-      return `${n > 0 ? '+' : ''}${pct}%`
+  // Percentual: apenas se o nome da coluna tem "%" literal OU é coluna de variação
+  const isPercent = key.includes('%') || /variacao|variação/i.test(norm(key))
+  if (isPercent) {
+    if (Math.abs(n) > 0 && Math.abs(n) <= 5) {
+      return `${n > 0 ? '+' : ''}${(n * 100).toFixed(2).replace('.', ',')}%`
     }
-    return `${n > 0 ? '+' : ''}${n.toFixed(2).replace('.', ',')}%`
+    return `${n >= 0 ? '+' : ''}${n.toFixed(2).replace('.', ',')}%`
   }
   // Número inteiro
   if (Number.isInteger(n)) return n.toLocaleString('pt-BR')
@@ -83,10 +83,6 @@ function findMetrica(metricas: Record<string, unknown>, targetLabel: string): [s
   const normTarget = norm(targetLabel)
   for (const [k, v] of Object.entries(metricas)) {
     if (norm(k) === normTarget) return [k, v]
-  }
-  // Partial match fallback
-  for (const [k, v] of Object.entries(metricas)) {
-    if (norm(k).includes(normTarget) || normTarget.includes(norm(k))) return [k, v]
   }
   return null
 }
