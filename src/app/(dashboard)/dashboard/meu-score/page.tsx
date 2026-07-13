@@ -62,7 +62,7 @@ export default async function MeuScorePage() {
 
   const { data: resultados } = await supabase
     .from('score_consultor_resultados')
-    .select('id_carteira, consultor_nome, pilar_key, score_planilha, total_a_reverter, metricas, valor_metrica')
+    .select('id_carteira, consultor_nome, pilar_key, score_planilha, metricas, valor_metrica')
     .in('upload_id', idList.length > 0 ? idList : ['none'])
     .eq('id_carteira', profile.id_carteira)
 

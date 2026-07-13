@@ -3,32 +3,13 @@
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { PilarKey } from '@/lib/types'
-
-const PILAR_CONFIG: Record<PilarKey, {
-  label: string
-  color: string
-  scoreCol: string
-  valorCol: string
-  reverterCol: string | null
-}> = {
-  tpv:           { label: 'TPV',                   color: '#60a5fa', scoreCol: 'SCORE tpv',                      valorCol: '% Objetivo Maio',                   reverterCol: '% Total a Realizar' },
-  net_churn:     { label: 'Net Churn',             color: '#c084fc', scoreCol: 'SCORE net churn',                valorCol: '%Net churn',                        reverterCol: 'Total a Reverter' },
-  acionaveis:    { label: 'Acionáveis Comerciais', color: '#fb923c', scoreCol: 'SCORE acionáveis comerciais',    valorCol: 'Total Acionáveis %Tarefa-Revertido', reverterCol: 'Total a Reverter' },
-  aderencia:     { label: 'Aderência a Agenda',    color: '#2dd4bf', scoreCol: 'SCORE aderência à agenda',       valorCol: '%Aderência à agenda',               reverterCol: 'Total a Reverter' },
-  awareness:     { label: 'Awareness',             color: '#f472b6', scoreCol: 'SCORE pesquisa',                 valorCol: '%Awareness',                        reverterCol: 'Total a Reverter' },
-  produtividade: { label: 'Produtividade',         color: '#818cf8', scoreCol: 'SCORE prod',                     valorCol: 'Prod média por dia útil',           reverterCol: 'Total Média a Realizar' },
-}
+import {
+  PILARES as PILAR_SPECS, PILAR_KEYS, COL_CARTEIRA, COL_NOME,
+  findCol, escalaPercentual,
+} from '@/lib/pilares'
 
 function today() {
   return new Date().toISOString().split('T')[0]
-}
-
-function norm(s: string) {
-  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
-}
-
-function findColExact(headers: string[], target: string): string | null {
-  return headers.find(h => h === target) ?? headers.find(h => norm(h) === norm(target)) ?? null
 }
 
 interface ParsedRow {
@@ -36,12 +17,17 @@ interface ParsedRow {
   consultor_nome: string
   valor_metrica: number
   score_planilha: number
-  total_a_reverter: number | null
   metricas: Record<string, unknown>
 }
 
-const SKIP_COLS = new Set(['id carteira', 'executivo'])
-
+/**
+ * Lê a planilha de um pilar e devolve as linhas já normalizadas.
+ *
+ * As colunas de percentual são convertidas para a escala 0–100 AQUI, olhando a
+ * coluna inteira (ver escalaPercentual). É a única conversão do sistema: o que
+ * entra no banco já está pronto pra exibir, e nenhuma tela precisa adivinhar
+ * escala depois.
+ */
 async function parsePilarFile(file: File, pilarKey: PilarKey): Promise<ParsedRow[]> {
   const { read, utils } = await import('xlsx')
   const buf = await file.arrayBuffer()
@@ -52,36 +38,52 @@ async function parsePilarFile(file: File, pilarKey: PilarKey): Promise<ParsedRow
   if (rows.length === 0) throw new Error('Planilha vazia.')
 
   const headers = Object.keys(rows[0])
-  const cfg = PILAR_CONFIG[pilarKey]
+  const spec = PILAR_SPECS[pilarKey]
 
-  const colCarteira = findColExact(headers, 'ID Carteira')
-  const colNome     = findColExact(headers, 'Executivo')
-  const colScore    = findColExact(headers, cfg.scoreCol)
-  const colValor    = findColExact(headers, cfg.valorCol)
-  const colReverter = cfg.reverterCol ? findColExact(headers, cfg.reverterCol) : null
+  const colCarteira = findCol(headers, COL_CARTEIRA)
+  const colNome     = findCol(headers, COL_NOME)
+  const colScore    = findCol(headers, spec.scoreCol)
 
-  if (!colCarteira) throw new Error(`Coluna "ID Carteira" não encontrada.\nColunas: ${headers.join(', ')}`)
-  if (!colNome)     throw new Error(`Coluna "Executivo" não encontrada.`)
-  if (!colScore)    throw new Error(`Coluna "${cfg.scoreCol}" não encontrada.\nColunas: ${headers.join(', ')}`)
+  if (!colCarteira) throw new Error(`Coluna "${COL_CARTEIRA}" não encontrada.\nColunas: ${headers.join(', ')}`)
+  if (!colNome)     throw new Error(`Coluna "${COL_NOME}" não encontrada.\nColunas: ${headers.join(', ')}`)
+  if (!colScore)    throw new Error(`Coluna "${spec.scoreCol}" não encontrada.\nColunas: ${headers.join(', ')}`)
 
-  // Colunas a omitir do JSON (já têm campos dedicados)
-  const skipSet = new Set([colCarteira, colNome, colScore].map(c => c?.toLowerCase()))
+  const validas = rows.filter(r => String(r[colCarteira] ?? '').trim() !== '')
+  if (validas.length === 0) throw new Error('Nenhuma linha com ID Carteira preenchido.')
 
-  return rows
-    .filter(r => r[colCarteira] !== '' && r[colCarteira] != null)
+  // Resolve cada coluna do contrato e, nas de percentual, decide a escala
+  // olhando todos os valores daquela coluna.
+  const resolvidas = spec.cols.map(c => {
+    const header = findCol(headers, c.col)
+    const fator = header && c.type === 'percent'
+      ? escalaPercentual(validas.map(r => Number(r[header])))
+      : 1
+    return { ...c, header, fator }
+  })
+
+  const faltando = resolvidas.filter(c => !c.header).map(c => c.col)
+  if (faltando.length > 0) {
+    throw new Error(
+      `Coluna(s) não encontrada(s): ${faltando.join(', ')}.\n\n` +
+      `A planilha veio com: ${headers.join(', ')}`
+    )
+  }
+
+  const colValor = resolvidas.find(c => c.col === spec.valorCol)
+
+  return validas
     .map(r => {
       const metricas: Record<string, unknown> = {}
-      for (const col of headers) {
-        if (!skipSet.has(col.toLowerCase()) && !SKIP_COLS.has(norm(col))) {
-          metricas[col] = r[col]
-        }
+      for (const c of resolvidas) {
+        const raw = r[c.header!]
+        const n = Number(raw)
+        metricas[c.col] = raw === '' || raw == null || !Number.isFinite(n) ? raw : n * c.fator
       }
       return {
-        id_carteira:      String(r[colCarteira]).trim(),
-        consultor_nome:   String(r[colNome!]).trim(),
-        valor_metrica:    colValor ? Number(r[colValor]) || 0 : 0,
-        score_planilha:   Number(r[colScore]) || 0,
-        total_a_reverter: colReverter ? (Number(r[colReverter]) || null) : null,
+        id_carteira:    String(r[colCarteira]).trim(),
+        consultor_nome: String(r[colNome]).trim(),
+        valor_metrica:  colValor ? Number(metricas[colValor.col]) || 0 : 0,
+        score_planilha: Number(r[colScore]) || 0,
         metricas,
       }
     })
@@ -99,7 +101,7 @@ function formatDateBR(iso: string) {
   return `${d}/${m}/${y}`
 }
 
-const PILARES = Object.entries(PILAR_CONFIG) as [PilarKey, typeof PILAR_CONFIG[PilarKey]][]
+const PILARES = PILAR_KEYS.map(k => [k, PILAR_SPECS[k]] as const)
 
 export default function UploadClient({ uploadedBy }: { uploadedBy: string }) {
   const [date, setDate] = useState(today)
@@ -127,6 +129,18 @@ export default function UploadClient({ uploadedBy }: { uploadedBy: string }) {
     setStateFor(pilarKey, { status: 'saving' })
     const supabase = createClient()
 
+    // Upsert: remove upload anterior do mesmo pilar+data (evita duplicatas)
+    const { data: existing } = await supabase
+      .from('score_uploads')
+      .select('id')
+      .eq('pilar_key', pilarKey)
+      .eq('data_referencia', date)
+    if (existing && existing.length > 0) {
+      const ids = existing.map((u: { id: string }) => u.id)
+      await supabase.from('score_consultor_resultados').delete().in('upload_id', ids)
+      await supabase.from('score_uploads').delete().in('id', ids)
+    }
+
     const { data: upload, error: uploadErr } = await supabase
       .from('score_uploads')
       .insert({ uploaded_by: uploadedBy, pilar_key: pilarKey, filename: file.name, data_referencia: date, record_count: rows.length })
@@ -145,7 +159,6 @@ export default function UploadClient({ uploadedBy }: { uploadedBy: string }) {
         pilar_key: pilarKey,
         valor_metrica: r.valor_metrica,
         score_planilha: r.score_planilha,
-        total_a_reverter: r.total_a_reverter,
         data_referencia: date,
         metricas: r.metricas,
       }))

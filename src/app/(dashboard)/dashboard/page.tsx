@@ -52,23 +52,21 @@ export default async function GeralPage() {
 
   const { data: resultados } = await supabase
     .from('score_consultor_resultados')
-    .select('id_carteira, consultor_nome, pilar_key, score_planilha, total_a_reverter')
+    .select('id_carteira, consultor_nome, pilar_key, score_planilha')
     .in('upload_id', uploadIdList.length > 0 ? uploadIdList : ['none'])
 
   const consultoresMap = new Map<string, {
     nome: string
     scores: Record<string, number>
-    reverter: Record<string, number | null>
     total: number
   }>()
 
   for (const r of resultados ?? []) {
     if (!consultoresMap.has(r.id_carteira)) {
-      consultoresMap.set(r.id_carteira, { nome: r.consultor_nome, scores: {}, reverter: {}, total: 0 })
+      consultoresMap.set(r.id_carteira, { nome: r.consultor_nome, scores: {}, total: 0 })
     }
     const c = consultoresMap.get(r.id_carteira)!
     c.scores[r.pilar_key] = r.score_planilha
-    c.reverter[r.pilar_key] = r.total_a_reverter
     c.total += r.score_planilha
   }
 

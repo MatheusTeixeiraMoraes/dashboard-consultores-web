@@ -1,34 +1,54 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { PillarConfig } from '@/lib/types'
 
 const CAT_LABEL: Record<string, string> = { atuacao: 'Atuação', resultado: 'Resultado' }
 const CAT_COLOR: Record<string, string> = { atuacao: '#3B82F6', resultado: '#10B981' }
 
+/** 'numero' é o enum do banco, não uma unidade pra mostrar em tela. */
+function sufixoUnidade(unidade: string) {
+  return unidade === '%' ? '%' : ''
+}
+
 export default function MetasClient({ pilares, profileId }: { pilares: PillarConfig[]; profileId: string }) {
+  const router = useRouter()
   const [values, setValues] = useState<Record<string, string>>(
     Object.fromEntries(pilares.map(p => [p.pilar_key, String(p.meta)]))
   )
   const [saving, setSaving] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
+  const [erro, setErro] = useState<Record<string, string>>({})
 
   async function handleSave(pilar: PillarConfig) {
     const novaMeta = parseFloat(values[pilar.pilar_key])
-    if (isNaN(novaMeta)) return
+    if (isNaN(novaMeta)) {
+      setErro(prev => ({ ...prev, [pilar.pilar_key]: 'Informe um número válido.' }))
+      return
+    }
+
     setSaving(pilar.pilar_key)
+    setErro(prev => ({ ...prev, [pilar.pilar_key]: '' }))
 
     const supabase = createClient()
-    await supabase.from('pillar_config').update({
+    const { error } = await supabase.from('pillar_config').update({
       meta: novaMeta,
       updated_at: new Date().toISOString(),
       updated_by: profileId,
     }).eq('pilar_key', pilar.pilar_key)
 
     setSaving(null)
+
+    if (error) {
+      setErro(prev => ({ ...prev, [pilar.pilar_key]: error.message }))
+      return
+    }
+
     setSaved(pilar.pilar_key)
     setTimeout(() => setSaved(null), 2000)
+    router.refresh()
   }
 
   const grupos = ['atuacao', 'resultado'] as const
@@ -38,7 +58,8 @@ export default function MetasClient({ pilares, profileId }: { pilares: PillarCon
       <div className="mb-6">
         <h1 className="text-xl font-bold text-[#111827]">Configurar Metas</h1>
         <p className="text-sm text-[#6B7280] mt-0.5">
-          Ajuste as metas de cada pilar. Alterações aplicadas imediatamente nos próximos cálculos.
+          A meta não altera o score — esse vem pronto da planilha. Ela define o selo
+          &quot;Meta atingida&quot; e o &quot;Faltam X&quot; exibidos nos cards.
         </p>
       </div>
 
@@ -73,7 +94,12 @@ export default function MetasClient({ pilares, profileId }: { pilares: PillarCon
 
                     <div className="space-y-3">
                       <div>
-                        <label className="text-xs text-[#6B7280] mb-1 block">Meta atual</label>
+                        <label className="text-xs text-[#6B7280] mb-1 block">
+                          Meta atual{' '}
+                          <span className="text-[#9CA3AF]">
+                            (atinge com {pilar.tipo_comp === 'le' ? '≤' : '≥'})
+                          </span>
+                        </label>
                         <div className="flex items-center gap-2">
                           <input
                             type="number"
@@ -82,9 +108,15 @@ export default function MetasClient({ pilares, profileId }: { pilares: PillarCon
                             onChange={e => setValues(prev => ({ ...prev, [pilar.pilar_key]: e.target.value }))}
                             className="flex-1 border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                           />
-                          <span className="text-sm text-[#6B7280]">{pilar.unidade}</span>
+                          <span className="text-sm text-[#6B7280] w-4">{sufixoUnidade(pilar.unidade)}</span>
                         </div>
                       </div>
+
+                      {erro[pilar.pilar_key] && (
+                        <p className="text-[11px] text-[#EF4444] bg-[#FEF2F2] rounded-lg px-2.5 py-1.5">
+                          {erro[pilar.pilar_key]}
+                        </p>
+                      )}
 
                       <button
                         onClick={() => handleSave(pilar)}

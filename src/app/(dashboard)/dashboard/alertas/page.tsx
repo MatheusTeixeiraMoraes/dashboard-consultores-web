@@ -44,24 +44,27 @@ function AlertCard({ c }: { c: Consultor }) {
         </span>
       </div>
 
+      {/* Score de cada pilar, como veio da planilha. Um pilar zerado é destacado
+          porque não somou nada — mas "zero" não quer dizer "abaixo da meta": a
+          comparação com a meta vive no card do consultor, não aqui. */}
       <div className="flex flex-wrap gap-2 mt-4">
         {PILARES.map(p => {
           const score = c.scores[p]
           if (score === undefined) return null
           const pilarColor = PILAR_COLOR[p]
-          const notHit = score === 0
+          const zerado = score === 0
           return (
             <div
               key={p}
               className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border"
               style={{
-                background: notHit ? '#FEF2F2' : `${pilarColor}12`,
-                color: notHit ? '#EF4444' : pilarColor,
-                borderColor: notHit ? '#FCA5A5' : `${pilarColor}30`,
+                background: zerado ? '#FEF2F2' : `${pilarColor}12`,
+                color: zerado ? '#EF4444' : pilarColor,
+                borderColor: zerado ? '#FCA5A5' : `${pilarColor}30`,
               }}
             >
               <span className="font-medium">{PILAR_LABEL[p]}</span>
-              <span className="font-bold">{score.toFixed(1)}</span>
+              <span className="font-bold">{score.toFixed(1).replace('.', ',')}</span>
             </div>
           )
         })}
@@ -90,7 +93,7 @@ export default async function AlertasPage() {
       <div>
         <div className="mb-6">
           <h1 className="text-xl font-bold text-[#111827]">Alertas</h1>
-          <p className="text-sm text-[#6B7280] mt-0.5">Consultores com performance crítica</p>
+          <p className="text-sm text-[#6B7280] mt-0.5">Performance abaixo da meta mínima</p>
         </div>
         <div className="bg-white rounded-2xl border border-[#E5E7EB] p-12 text-center">
           <p className="font-semibold text-[#111827]">Nenhum dado carregado ainda</p>

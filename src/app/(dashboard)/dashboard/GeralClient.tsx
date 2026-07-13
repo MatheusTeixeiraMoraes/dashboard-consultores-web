@@ -33,7 +33,6 @@ interface ConsultorData {
   nome: string
   total: number
   scores: Record<string, number>
-  reverter: Record<string, number | null>
 }
 
 interface Props {
@@ -174,18 +173,10 @@ export default function GeralClient({ ranking, dateDisplay, metaMap }: Props) {
                     </td>
                     {PILARES.map(p => {
                       const score = c.scores[p]
-                      const reverter = c.reverter[p]
                       return (
                         <td key={p} className="px-2 py-3 text-center">
                           {score !== undefined ? (
-                            <div>
-                              <p className="text-sm font-semibold text-[#111827]">{score.toFixed(1)}</p>
-                              {reverter != null && reverter > 0 && (
-                                <p className="text-[10px] text-[#F59E0B] mt-0.5">
-                                  falta {Math.abs(reverter) < 2 ? `${(reverter * 100).toFixed(1)}%` : String(reverter)}
-                                </p>
-                              )}
-                            </div>
+                            <p className="text-sm font-semibold text-[#111827]">{score.toFixed(1).replace('.', ',')}</p>
                           ) : (
                             <span className="text-[#D1D5DB]">—</span>
                           )}

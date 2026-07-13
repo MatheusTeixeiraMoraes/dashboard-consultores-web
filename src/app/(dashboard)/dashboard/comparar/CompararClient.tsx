@@ -21,7 +21,8 @@ interface ConsultorRow {
   nome: string
   scoreA: number
   scoreB: number
-  delta: number
+  /** null = as duas datas não têm os mesmos pilares; não dá pra comparar. */
+  delta: number | null
   pilares: Record<string, { a: number | null; b: number | null; delta: number | null }>
 }
 
@@ -56,7 +57,7 @@ function buildRows(a: Resultado[], b: Resultado[]): ConsultorRow[] {
       if (!map.has(r.id_carteira)) {
         map.set(r.id_carteira, {
           id: r.id_carteira, nome: r.consultor_nome,
-          scoreA: 0, scoreB: 0, delta: 0,
+          scoreA: 0, scoreB: 0, delta: null,
           pilares: Object.fromEntries(PILARES.map(p => [p, { a: null, b: null, delta: null }])),
         })
       }
@@ -82,7 +83,15 @@ function buildRows(a: Resultado[], b: Resultado[]): ConsultorRow[] {
     }
     row.scoreA = Math.min(sA, 10)
     row.scoreB = Math.min(sB, 10)
-    row.delta = row.scoreB - row.scoreA
+
+    // Só compara o total quando as duas datas têm os MESMOS pilares. Se uma
+    // delas veio incompleta, o pilar que falta entraria como 0 e o Δ mostraria
+    // uma queda que nunca existiu — melhor não afirmar nada.
+    const mesmosPilares = PILARES.every(p => {
+      const { a, b } = row.pilares[p]
+      return (a === null) === (b === null)
+    })
+    row.delta = mesmosPilares ? row.scoreB - row.scoreA : null
   }
 
   return Array.from(map.values()).sort((x, y) => y.scoreB - x.scoreB)
@@ -183,7 +192,7 @@ export default function CompararClient({ dates, idCarteira }: { dates: string[];
                 <th className="text-center px-3 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wider">Δ Total</th>
                 {PILARES.map(p => (
                   <th key={p} className="text-center px-2 py-3 text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">
-                    {PILAR_LABEL[p]}
+                    Δ {PILAR_LABEL[p]}
                   </th>
                 ))}
               </tr>
