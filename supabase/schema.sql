@@ -1,6 +1,13 @@
 -- ============================================================
--- LIMPEZA (caso já exista estrutura anterior)
+-- SCHEMA COMPLETO — dashboard de consultores
+--
+-- Este arquivo recria o banco DO ZERO. Os `drop table` abaixo APAGAM TODOS OS
+-- DADOS. Não rode isto num banco em uso: para alterar um banco que já existe,
+-- escreva uma migration em supabase/migrations/.
+--
+-- Última sincronização com produção: 13/07/2026
 -- ============================================================
+
 drop table if exists score_consultor_resultados cascade;
 drop table if exists score_uploads cascade;
 drop table if exists pillar_config cascade;
@@ -16,7 +23,13 @@ create type user_role as enum ('admin', 'dono', 'lider', 'consultor');
 
 -- ============================================================
 -- 2. PROFILES
--- Estende auth.users com role, nome e id_carteira
+-- Estende auth.users com role, nome e id_carteira.
+--
+-- NÃO existe trigger em auth.users criando o profile. Já existiu
+-- (on_auth_user_created -> handle_new_user) e foi removido: quando esse trigger
+-- falha, o Supabase aborta a criação do usuário com "Database error creating
+-- new user" e nenhuma pista do motivo. Hoje quem cria o profile é a rota
+-- /api/usuarios/criar, que insere depois do usuário e faz rollback se falhar.
 -- ============================================================
 create table profiles (
   id           uuid primary key references auth.users(id) on delete cascade,
@@ -29,22 +42,12 @@ create table profiles (
   updated_at   timestamptz not null default now()
 );
 
--- Cria profile automaticamente ao criar usuário no Supabase Auth
-create or replace function handle_new_user()
-returns trigger language plpgsql security definer as $$
-begin
-  insert into profiles (id, email)
-  values (new.id, new.email);
-  return new;
-end;
-$$;
-
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute function handle_new_user();
-
 -- ============================================================
--- 3. CONFIGURAÇÃO DOS PILARES (metas editáveis)
+-- 3. CONFIGURAÇÃO DOS PILARES (metas editáveis pela tela)
+--
+-- A meta NÃO calcula o score. O score vem pronto da planilha do Mercado Pago
+-- (coluna SCORE de cada pilar) e a curva de pontuação deles não é linear, então
+-- não é reproduzível. A meta serve só para o selo "Meta atingida" e o "Faltam X".
 -- ============================================================
 create table pillar_config (
   id           uuid primary key default gen_random_uuid(),
@@ -61,17 +64,20 @@ create table pillar_config (
   updated_by   uuid references profiles(id)
 );
 
--- Seed: valores oficiais do documento
+-- Metas vigentes em 13/07/2026. São editáveis em /dashboard/metas.
+-- net_churn: negativo = encolheu a carteira, então maior é melhor (tipo_comp 'ge').
 insert into pillar_config (pilar_key, label, categoria, meta, pontos_max, unidade, tipo_comp) values
-  ('awareness',      'Awareness',              'atuacao',   55.0,  1.5, '%',     'ge'),
-  ('produtividade',  'Produtividade',           'atuacao',    9.0,  0.5, 'numero','ge'),
-  ('aderencia',      'Aderência a Agenda',      'atuacao',   80.0,  1.0, '%',     'ge'),
-  ('net_churn',      'Net Churn',               'resultado', -1.59, 3.0, '%',     'ge'),
-  ('tpv',            'TPV',                     'resultado', 109.0, 1.0, '%',     'ge'),
-  ('acionaveis',     'Acionáveis Comerciais',   'resultado', 40.0,  3.0, '%',     'ge');
+  ('awareness',      'Awareness',              'atuacao',   47.5,  1.5, '%',     'ge'),
+  ('produtividade',  'Produtividade',           'atuacao',    6.0,  0.5, 'numero','ge'),
+  ('aderencia',      'Aderência a Agenda',      'atuacao',   60.0,  1.0, '%',     'ge'),
+  ('net_churn',      'Net Churn',               'resultado', -1.5,  3.0, '%',     'ge'),
+  ('tpv',            'TPV',                     'resultado', 106.0, 1.0, '%',     'ge'),
+  ('acionaveis',     'Acionáveis Comerciais',   'resultado',  22.4, 3.0, '%',     'ge');
 
 -- ============================================================
 -- 4. UPLOADS DE PLANILHA
+--
+-- Um upload = uma planilha de um pilar numa data de referência.
 -- ============================================================
 create table score_uploads (
   id               uuid primary key default gen_random_uuid(),
@@ -83,11 +89,22 @@ create table score_uploads (
   mes_referencia   date,
   data_referencia  date,
   record_count     int not null default 0,
-  uploaded_at      timestamptz not null default now()
+  uploaded_at      timestamptz not null default now(),
+
+  -- Impede dois lotes do mesmo pilar na mesma data.
+  -- O app apaga o lote anterior antes de reenviar, então em uso normal isto
+  -- nunca dispara. Existe para o caso anormal: um cliente desatualizado (aba
+  -- velha, deploy antigo) que insere sem apagar. Sem esta trava, ele empilha um
+  -- segundo lote em silêncio e as telas passam a somar dados repetidos.
+  constraint score_uploads_pilar_data_unico unique (pilar_key, data_referencia)
 );
 
 -- ============================================================
 -- 5. RESULTADOS POR CONSULTOR
+--
+-- `metricas` guarda as colunas da planilha como vieram (chaves = cabeçalhos
+-- exatos do .xlsx, ver src/lib/pilares.ts), com os percentuais já na escala
+-- 0–100. A normalização acontece uma única vez, no upload: as telas só formatam.
 -- ============================================================
 create table score_consultor_resultados (
   id               uuid primary key default gen_random_uuid(),
@@ -97,8 +114,13 @@ create table score_consultor_resultados (
   pilar_key        text not null,
   valor_metrica    numeric not null,
   score_planilha   numeric not null default 0,
+  metricas         jsonb,
   mes_referencia   date,
-  data_referencia  date
+  data_referencia  date,
+
+  -- Legado: vinha da coluna "Total a Reverter", que não existe mais nas
+  -- planilhas do MP. Nenhum código lê. Mantida só para não perder histórico.
+  total_a_reverter numeric
 );
 
 create index on score_consultor_resultados(upload_id);
@@ -108,7 +130,7 @@ create index on score_consultor_resultados(mes_referencia);
 create index on score_consultor_resultados(data_referencia);
 
 -- ============================================================
--- 6. FUNÇÃO HELPER — retorna role do usuário logado
+-- 6. FUNÇÃO HELPER — role do usuário logado
 -- ============================================================
 create or replace function get_my_role()
 returns user_role language sql security definer stable as $$
@@ -158,6 +180,11 @@ create policy "uploads: admin, dono e lider leem tudo" on score_uploads
 create policy "uploads: consultor lê (para acessar próprios resultados)" on score_uploads
   for select using (get_my_role() = 'consultor');
 
+-- Sem esta policy o upsert do upload falha EM SILÊNCIO: o RLS não devolve erro,
+-- só apaga zero linhas — e o lote antigo continua no banco, duplicando.
+create policy "uploads: admin e dono apagam" on score_uploads
+  for delete using (get_my_role() in ('admin', 'dono'));
+
 -- SCORE_CONSULTOR_RESULTADOS
 alter table score_consultor_resultados enable row level security;
 
@@ -172,3 +199,6 @@ create policy "resultados: consultor lê apenas os próprios" on score_consultor
 
 create policy "resultados: inserção via upload (admin e dono)" on score_consultor_resultados
   for insert with check (get_my_role() in ('admin', 'dono'));
+
+create policy "resultados: admin e dono apagam" on score_consultor_resultados
+  for delete using (get_my_role() in ('admin', 'dono'));

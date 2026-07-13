@@ -20,51 +20,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: 'Sem permissão para criar esse cargo' }, { status: 403 })
     }
 
-    const rawKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-    const keyDiag = `len=${rawKey.length} code0=${rawKey.charCodeAt(0)} starts_eyJ=${rawKey.startsWith('eyJ')}`
+    const admin = createAdminClient()
 
-    // Decode JWT payload para confirmar role sem expor a chave
-    let keyRole = '?'
-    try {
-      const payload = JSON.parse(Buffer.from(rawKey.split('.')[1], 'base64url').toString())
-      keyRole = payload.role ?? '?'
-    } catch {}
-
-    const createRes = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${rawKey}`,
-        'apikey': rawKey,
-      },
-      body: JSON.stringify({ email, password: senha, email_confirm: true }),
+    const { data: authUser, error: authErr } = await admin.auth.admin.createUser({
+      email,
+      password: senha,
+      email_confirm: true,
     })
 
-    if (!createRes.ok) {
-      let body = ''
-      try { body = await createRes.text() } catch {}
+    if (authErr || !authUser?.user) {
       return NextResponse.json(
-        { ok: false, error: `status=${createRes.status} body=${body.substring(0, 300)} [key:${keyDiag} role=${keyRole}]` },
+        { ok: false, error: authErr?.message ?? 'Falha ao criar usuário' },
         { status: 400 }
       )
     }
 
-    const authUser = await createRes.json() as { id: string }
-
-    const admin = createAdminClient()
-
+    // O profile é criado aqui, não por trigger em auth.users: um trigger que
+    // falhe derruba a criação do usuário inteira com "Database error creating
+    // new user", sem dizer o porquê. Aqui o erro é visível e reversível.
     const { data: prof, error: profErr } = await admin
       .from('profiles')
-      .upsert({ id: authUser.id, nome, email, role, id_carteira: id_carteira || null, ativo: true })
+      .upsert({ id: authUser.user.id, nome, email, role, id_carteira: id_carteira || null, ativo: true })
       .select()
       .single()
 
     if (profErr) {
-      await fetch(`${supabaseUrl}/auth/v1/admin/users/${authUser.id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${rawKey}`, 'apikey': rawKey },
-      })
+      // Sem profile o usuário fica órfão (loga e não é nada). Desfaz.
+      await admin.auth.admin.deleteUser(authUser.user.id)
       return NextResponse.json({ ok: false, error: profErr.message }, { status: 500 })
     }
 
