@@ -172,21 +172,36 @@ export function findCol(headers: string[], target: string): string | null {
 }
 
 /**
- * Converte uma coluna de percentual para a escala 0–100.
+ * Fator para levar uma coluna de percentual à escala 0–100 (×100 ou ×1).
  *
  * As planilhas do MP mandam percentuais como decimal (0,4615 = 46,15%), mas as
  * células vêm sem formato de porcentagem no Excel — não dá pra perguntar ao
- * arquivo. A decisão é tomada olhando a COLUNA INTEIRA, nunca a célula isolada:
- * se todos os valores cabem em [-1, 1], a coluna está em decimal e vira ×100.
- * Se algum estoura, já veio em 0–100 e passa direto.
+ * arquivo. A decisão é tomada olhando a COLUNA INTEIRA, nunca a célula isolada
+ * (decidir por célula transformaria 0,35% de net churn em 35%).
  *
- * Decidir por célula quebraria: um consultor com 0,35% de net churn viraria 35%.
+ * Usa a MEDIANA, não o maior valor. O "% Variação de TPV" é uma razão
+ * (atual ÷ passado) que orbita 1,0: quem cai fica < 1, quem cresce fica > 1.
+ * Com o corte no maior valor, bastava um consultor crescer para a coluna
+ * "estourar" 1,0 e ser tratada como já-em-0–100 — aí o TPV inteiro aparecia
+ * como 1,01% em vez de 100,79%. A mediana de uma coluna decimal fica sempre
+ * perto de 0–1 (a do TPV ~0,95, cresça quem crescer); uma coluna genuinamente
+ * em 0–100 tem mediana nas dezenas.
+ *
+ * Limitação: para métricas cujo valor típico é pequeno (net churn ~2%), decimal
+ * (0,02) e já-em-0–100 (2,0) são indistinguíveis por magnitude. Todas as
+ * planilhas vistas até hoje vêm em decimal; se um dia o MP mandar net churn em
+ * 0–100, esta coluna específica precisará de tratamento à parte.
  */
+const LIMIAR_ESCALA_0_100 = 5
+
 export function escalaPercentual(valores: number[]): 1 | 100 {
-  const validos = valores.filter(v => Number.isFinite(v) && v !== 0)
-  if (validos.length === 0) return 1
-  const max = Math.max(...validos.map(Math.abs))
-  return max <= 1 ? 100 : 1
+  const abs = valores
+    .filter(v => Number.isFinite(v) && v !== 0)
+    .map(Math.abs)
+    .sort((a, b) => a - b)
+  if (abs.length === 0) return 1
+  const mediana = abs[Math.floor(abs.length / 2)]
+  return mediana >= LIMIAR_ESCALA_0_100 ? 1 : 100
 }
 
 // ---------------------------------------------------------------------------
