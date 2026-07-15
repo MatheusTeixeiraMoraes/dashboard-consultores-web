@@ -3,8 +3,17 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { otimizarRota } from '@/lib/geo'
+import { otimizarRota, linksGoogleMaps, type Ponto } from '@/lib/geo'
 import type { Rota } from './page'
+
+function linksMapsDaRota(r: Rota): string[] {
+  const seq: Ponto[] = [
+    ...(r.partida_lat != null && r.partida_lng != null ? [{ lat: r.partida_lat, lng: r.partida_lng }] : []),
+    ...r.stops.filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lng)).map(s => ({ lat: s.lat, lng: s.lng })),
+    ...(r.chegada_lat != null && r.chegada_lng != null ? [{ lat: r.chegada_lat, lng: r.chegada_lng }] : []),
+  ]
+  return linksGoogleMaps(seq)
+}
 
 function fmtData(iso: string | null) {
   if (!iso) return 'sem data'
@@ -159,6 +168,33 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
                   ))}
                 </div>
               )}
+
+              {(() => {
+                const links = linksMapsDaRota(r)
+                if (links.length === 0) return null
+                return (
+                  <div className="flex items-center gap-2 flex-wrap mt-3 pt-3 border-t border-[#F3F4F6]">
+                    {links.length === 1 ? (
+                      <a href={links[0]} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 bg-[#4285F4] hover:bg-[#3367D6] text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
+                        Abrir no Google Maps
+                      </a>
+                    ) : (
+                      <>
+                        <span className="text-[11px] text-[#6B7280] inline-flex items-center gap-1">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4285F4" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
+                          Google Maps ({links.length} trechos):
+                        </span>
+                        {links.map((l, i) => (
+                          <a key={i} href={l} target="_blank" rel="noopener noreferrer"
+                            className="bg-[#4285F4] hover:bg-[#3367D6] text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg">{i + 1}</a>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
           ))}
         </div>

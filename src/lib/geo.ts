@@ -88,6 +88,28 @@ export async function geocodar(endereco: string): Promise<Ponto | null> {
 
 export const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
 
+// --- Link de navegação no Google Maps ---
+
+const MAX_PONTOS_MAPS = 10  // Google Maps do consumidor aguenta ~10 paradas por link
+
+/**
+ * Monta link(s) de direções do Google Maps para a sequência de pontos (partida →
+ * paradas na ordem → chegada). Se passar de ~10 pontos, quebra em trechos com 1
+ * ponto de sobreposição (o fim de um trecho é o começo do próximo), pra caber no
+ * limite do Maps sem perder continuidade.
+ */
+export function linksGoogleMaps(pontos: Ponto[]): string[] {
+  const validos = pontos.filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng))
+  if (validos.length < 2) return []
+  const links: string[] = []
+  for (let i = 0; i < validos.length - 1; i += MAX_PONTOS_MAPS - 1) {
+    const trecho = validos.slice(i, i + MAX_PONTOS_MAPS)
+    if (trecho.length < 2) break
+    links.push('https://www.google.com/maps/dir/' + trecho.map(p => `${p.lat},${p.lng}`).join('/'))
+  }
+  return links
+}
+
 // --- Otimização de rota via OSRM público (endpoint /trip resolve a ordem ótima) ---
 
 export interface RotaOtimizada {

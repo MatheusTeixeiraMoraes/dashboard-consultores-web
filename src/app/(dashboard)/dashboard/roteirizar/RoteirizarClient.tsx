@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
-  otimizarRota, receberDoRadar, limparEntregaDoRadar, geocodar,
+  otimizarRota, receberDoRadar, limparEntregaDoRadar, geocodar, linksGoogleMaps,
   type Ponto, type ClienteSelecionado,
 } from '@/lib/geo'
 import type { ClienteRadar } from '../radar/page'
@@ -192,6 +192,19 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
 
   const visiveis = filtrados.slice(0, MAX_CARDS)
 
+  // Links do Google Maps: partida (se houver) → paradas na ordem → chegada (se houver).
+  const linksMaps = useMemo(() => {
+    const partida = coord(partLat, partLng)
+    const chegada = coord(chegLat, chegLng)
+    const seq: Ponto[] = [
+      ...(partida ? [partida] : []),
+      ...stops.map(s => ({ lat: s.lat, lng: s.lng })),
+      ...(chegada ? [chegada] : []),
+    ]
+    return linksGoogleMaps(seq)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partLat, partLng, chegLat, chegLng, stops])
+
   return (
     <div className="max-w-4xl pb-4">
       <div className="mb-5">
@@ -261,9 +274,30 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
       {/* Rota gerada (ordem) */}
       {stops.length > 0 && (
         <div className="bg-white rounded-2xl border border-[#E5E7EB] p-5 mb-4">
-          <p className="text-sm font-semibold text-[#111827] mb-2">
-            {resultado ? 'Ordem da rota' : `Selecionados (${stops.length})`}
-          </p>
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+            <p className="text-sm font-semibold text-[#111827]">
+              {resultado ? 'Ordem da rota' : `Selecionados (${stops.length})`}
+            </p>
+            {linksMaps.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                {linksMaps.length === 1 ? (
+                  <a href={linksMaps[0]} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 bg-[#4285F4] hover:bg-[#3367D6] text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
+                    Abrir no Google Maps
+                  </a>
+                ) : (
+                  <>
+                    <span className="text-[11px] text-[#6B7280]">Google Maps ({linksMaps.length} trechos):</span>
+                    {linksMaps.map((l, i) => (
+                      <a key={i} href={l} target="_blank" rel="noopener noreferrer"
+                        className="bg-[#4285F4] hover:bg-[#3367D6] text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg">{i + 1}</a>
+                    ))}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
           <div className="flex flex-wrap gap-1.5">
             {stops.map((s, i) => (
               <span key={s.seller_id} className="inline-flex items-center gap-1.5 text-[11px] bg-[#F9FAFB] border border-[#F3F4F6] rounded-lg pl-2 pr-1 py-1 text-[#374151]">
