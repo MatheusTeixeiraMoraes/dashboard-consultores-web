@@ -67,6 +67,16 @@ const IconPin = () => (
     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
   </svg>
 )
+const IconRadar = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="2" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="10" />
+  </svg>
+)
+const IconRoute = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="6" cy="19" r="3" /><circle cx="18" cy="5" r="3" /><path d="M9 19h6a4 4 0 0 0 4-4V9M15 5H9a4 4 0 0 0-4 4v6" />
+  </svg>
+)
 
 const NAV: NavItem[] = [
   { href: '/dashboard',           label: 'Visão Geral',    roles: ['admin','dono','lider'],        icon: <IconGrid /> },
@@ -77,6 +87,9 @@ const NAV: NavItem[] = [
   { href: '/dashboard/meu-score', label: 'Meu Desempenho', roles: ['consultor'],                   icon: <IconActivity /> },
   { href: '/dashboard/comparar',  label: 'Comparar Datas', roles: ['consultor'],                   icon: <IconActivity /> },
   { href: '/dashboard/clientes',  label: 'Clientes',       roles: ['admin','dono','lider','consultor'], icon: <IconPin /> },
+  { href: '/dashboard/radar',     label: 'Radar',          roles: ['admin','dono','lider','consultor'], icon: <IconRadar /> },
+  { href: '/dashboard/roteirizar',label: 'Roteirizar',     roles: ['admin','dono','lider','consultor'], icon: <IconRoute /> },
+  { href: '/dashboard/agenda',    label: 'Agenda',         roles: ['admin','dono','lider','consultor'], icon: <IconClock /> },
   { href: '/dashboard/upload',    label: 'Upar Planilha',    roles: ['admin','dono'],              icon: <IconUpload /> },
   { href: '/dashboard/historico', label: 'Histórico',        roles: ['admin','dono'],              icon: <IconClock /> },
   { href: '/dashboard/metas',     label: 'Configurar Metas', roles: ['admin','dono'],              icon: <IconSettings /> },
