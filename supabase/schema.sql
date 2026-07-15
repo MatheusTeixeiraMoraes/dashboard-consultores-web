@@ -202,3 +202,68 @@ create policy "resultados: inserção via upload (admin e dono)" on score_consul
 
 create policy "resultados: admin e dono apagam" on score_consultor_resultados
   for delete using (get_my_role() in ('admin', 'dono'));
+
+-- ============================================================
+-- 8. CLIENTES (módulo Smart Routes / Radar)
+--
+-- Vínculo com o consultor por NOME (consultor_nome), não por id_carteira — é
+-- assim que a planilha de origem entrega. RLS escopa por esse nome (sem acento,
+-- minúsculo); admin/dono/líder veem tudo. Detalhes na migration
+-- supabase/migrations/2026-07-15_clientes_carteira.sql.
+-- ============================================================
+create extension if not exists unaccent;
+
+create table clientes (
+  id                 uuid primary key default gen_random_uuid(),
+  consultor_nome     text not null default '',
+  seller_id          text not null unique,
+  seller_nome        text not null default '',
+  seller_telefone    text,
+  seller_email       text,
+  doc_tipo           text check (doc_tipo in ('CPF', 'CNPJ')),
+  cpf_cnpj           text,
+  cidade             text not null default '',
+  bairro             text not null default '',
+  endereco_completo  text not null default '',
+  lat                numeric,
+  lng                numeric,
+  status_atualizacao text not null default 'Cliente não atualizado'
+                       check (status_atualizacao in ('Cliente não atualizado', 'Cliente Atualizado')),
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now(),
+  created_by         uuid references profiles(id)
+);
+
+create index on clientes(lower(consultor_nome));
+create index on clientes(cidade);
+create index on clientes(bairro);
+create index on clientes(lat, lng);
+
+-- Casa o nome do cliente com o nome do consultor logado.
+create or replace function cliente_e_meu(consultor_nome text)
+returns boolean language sql security definer stable as $$
+  select lower(unaccent(trim(consultor_nome)))
+       = lower(unaccent(trim(coalesce((select nome from profiles where id = auth.uid()), ''))))
+$$;
+
+alter table clientes enable row level security;
+
+create policy "clientes: admin, dono e lider leem tudo" on clientes
+  for select using (get_my_role() in ('admin', 'dono', 'lider'));
+create policy "clientes: consultor lê os seus (por nome)" on clientes
+  for select using (get_my_role() = 'consultor' and cliente_e_meu(consultor_nome));
+
+create policy "clientes: admin e dono inserem qualquer" on clientes
+  for insert with check (get_my_role() in ('admin', 'dono'));
+create policy "clientes: consultor insere nos seus" on clientes
+  for insert with check (get_my_role() = 'consultor' and cliente_e_meu(consultor_nome));
+
+create policy "clientes: admin e dono atualizam qualquer" on clientes
+  for update using (get_my_role() in ('admin', 'dono'));
+create policy "clientes: consultor atualiza os seus" on clientes
+  for update using (get_my_role() = 'consultor' and cliente_e_meu(consultor_nome));
+
+create policy "clientes: admin e dono apagam qualquer" on clientes
+  for delete using (get_my_role() in ('admin', 'dono'));
+create policy "clientes: consultor apaga os seus" on clientes
+  for delete using (get_my_role() = 'consultor' and cliente_e_meu(consultor_nome));

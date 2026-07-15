@@ -69,6 +69,28 @@ export interface ConsultorScore {
   }>>
 }
 
+// Cliente da carteira (módulo Smart Routes / Radar).
+// Vínculo com o consultor é por nome (consultor_nome), não por id_carteira.
+export interface Cliente {
+  id: string
+  consultor_nome: string
+  seller_id: string
+  seller_nome: string
+  seller_telefone: string | null
+  seller_email: string | null
+  doc_tipo: 'CPF' | 'CNPJ' | null
+  cpf_cnpj: string | null
+  cidade: string
+  bairro: string
+  endereco_completo: string
+  lat: number | null
+  lng: number | null
+  status_atualizacao: 'Cliente não atualizado' | 'Cliente Atualizado'
+  created_at: string
+  updated_at: string
+  created_by: string | null
+}
+
 // Status visual baseado na nota
 export type ScoreStatus = 'acima' | 'na_linha' | 'critico'
 
