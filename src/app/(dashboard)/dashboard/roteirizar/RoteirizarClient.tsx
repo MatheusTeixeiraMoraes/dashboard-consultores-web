@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
-  otimizarRota, receberDoRadar, limparEntregaDoRadar,
+  otimizarRota, receberDoRadar, limparEntregaDoRadar, geocodar,
   type Ponto, type ClienteSelecionado,
 } from '@/lib/geo'
 import type { ClienteRadar } from '../radar/page'
@@ -35,6 +35,8 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
   const [partLat, setPartLat] = useState('')
   const [partLng, setPartLng] = useState('')
   const [partEnd, setPartEnd] = useState('')
+  const [partBuscaEnd, setPartBuscaEnd] = useState('')
+  const [buscandoPart, setBuscandoPart] = useState(false)
   const [chegLat, setChegLat] = useState('')
   const [chegLng, setChegLng] = useState('')
 
@@ -82,12 +84,26 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
   }
 
   function usarMinhaLocalizacao() {
-    if (!('geolocation' in navigator)) { setErro('GPS indisponível.'); return }
+    if (!('geolocation' in navigator)) { setErro('GPS indisponível — informe a partida por endereço ou lat/lng.'); return }
+    setErro('')
     navigator.geolocation.getCurrentPosition(
       p => { setPartLat(String(p.coords.latitude)); setPartLng(String(p.coords.longitude)); setPartEnd('Minha localização') },
-      e => setErro(e.message || 'Não foi possível obter o GPS.'),
-      { enableHighAccuracy: true, timeout: 15000 },
+      e => setErro(
+        e.code === 1 ? 'Localização bloqueada no navegador. Informe a partida por endereço ou lat/lng abaixo.'
+        : 'Não foi possível obter o GPS. Informe a partida por endereço ou lat/lng.'
+      ),
+      { enableHighAccuracy: false, timeout: 20000, maximumAge: 300000 },
     )
+  }
+
+  async function buscarPartida() {
+    const q = partBuscaEnd.trim()
+    if (!q) return
+    setErro(''); setBuscandoPart(true)
+    const p = await geocodar(q)
+    setBuscandoPart(false)
+    if (!p) return setErro('Endereço de partida não encontrado.')
+    setPartLat(String(p.lat)); setPartLng(String(p.lng)); setPartEnd(q)
   }
 
   function coord(latS: string, lngS: string): Ponto | null {
@@ -164,11 +180,20 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
             <span className="text-xs font-semibold text-[#6B7280]">Ponto de partida *</span>
             <button onClick={usarMinhaLocalizacao} className="text-xs text-[#10B981] font-medium hover:underline">Usar minha localização</button>
           </div>
+          <div className="flex items-center gap-2 mb-2">
+            <input value={partBuscaEnd} onChange={e => setPartBuscaEnd(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') buscarPartida() }}
+              placeholder="Buscar por endereço (ex.: Av. Boa Viagem, Recife)" className={`${inp} flex-1`} />
+            <button onClick={buscarPartida} disabled={buscandoPart || !partBuscaEnd.trim()}
+              className="border border-[#10B981]/40 text-[#10B981] text-xs font-semibold px-3 py-2 rounded-xl whitespace-nowrap disabled:opacity-50">
+              {buscandoPart ? '…' : 'Buscar'}
+            </button>
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <input value={partLat} onChange={e => setPartLat(e.target.value)} placeholder="Latitude" className={inp} />
             <input value={partLng} onChange={e => setPartLng(e.target.value)} placeholder="Longitude" className={inp} />
           </div>
-          {partEnd && <p className="text-[11px] text-[#9CA3AF] mt-1">{partEnd}</p>}
+          {partEnd && <p className="text-[11px] text-[#9CA3AF] mt-1">📍 {partEnd}</p>}
         </div>
         <div>
           <span className="text-xs font-semibold text-[#6B7280] mb-1.5 block">Ponto de chegada (opcional)</span>

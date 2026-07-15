@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { distanciaKm, entregarAoRoteirizar, type Ponto, type ClienteSelecionado } from '@/lib/geo'
+import { distanciaKm, entregarAoRoteirizar, geocodar, type Ponto, type ClienteSelecionado } from '@/lib/geo'
 import type { ClienteRadar } from './page'
 
 const RadarMapa = dynamic(() => import('./RadarMapa'), {
@@ -48,6 +48,8 @@ export default function RadarClient({ clientes, podeVerTodos, meuNome }: Props) 
   const [fConsultor, setFConsultor] = useState('')
   const [buscaSeller, setBuscaSeller] = useState('')
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
+  const [manualEnd, setManualEnd] = useState('')
+  const [buscandoManual, setBuscandoManual] = useState(false)
 
   // Restaura preferências (raio, view).
   useEffect(() => {
@@ -69,12 +71,33 @@ export default function RadarClient({ clientes, podeVerTodos, meuNome }: Props) 
     setGeoStatus('loading')
     navigator.geolocation.getCurrentPosition(
       p => { setPos({ lat: p.coords.latitude, lng: p.coords.longitude }); setGeoStatus('ok') },
-      e => { setGeoStatus('error'); setGeoMsg(e.message || 'Não foi possível obter sua localização.') },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: forcar ? 0 : 60000 },
+      e => {
+        setGeoStatus('error')
+        // 1 = permissão negada, 3 = timeout.
+        setGeoMsg(
+          e.code === 1 ? 'Permissão de localização bloqueada no navegador. Libere pelo ícone à esquerda da barra de endereço, ou informe sua localização abaixo.'
+          : e.code === 3 ? 'O GPS demorou a responder. Tente de novo ou informe sua localização abaixo.'
+          : (e.message || 'Não foi possível obter sua localização.')
+        )
+      },
+      // Baixa precisão: no desktop (sem chip de GPS) é bem mais rápido e confiável;
+      // para proximidade em km não precisa de precisão de metros.
+      { enableHighAccuracy: false, timeout: 20000, maximumAge: forcar ? 0 : 300000 },
     )
   }, [])
 
   useEffect(() => { lerGps() }, [lerGps])
+
+  // Alternativa quando o GPS falha/está bloqueado: definir a posição por endereço.
+  async function usarEndereco() {
+    const q = manualEnd.trim()
+    if (!q) return
+    setBuscandoManual(true)
+    const p = await geocodar(q)
+    setBuscandoManual(false)
+    if (p) { setPos(p); setGeoStatus('ok') }
+    else setGeoMsg('Endereço não encontrado. Tente com cidade/bairro.')
+  }
 
   // Distância de cada cliente até a posição atual (só quando há GPS).
   const comDistancia = useMemo(() => {
@@ -156,8 +179,22 @@ export default function RadarClient({ clientes, podeVerTodos, meuNome }: Props) 
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
           </div>
           <p className="font-semibold text-[#111827]">Não foi possível obter sua localização</p>
-          <p className="text-sm text-[#6B7280] mt-1 mb-4">{geoMsg}</p>
+          <p className="text-sm text-[#6B7280] mt-1 mb-4 max-w-md mx-auto">{geoMsg}</p>
           <button onClick={() => lerGps(true)} className="bg-[#10B981] hover:bg-[#047857] text-white text-sm font-semibold px-5 py-2 rounded-xl">Tentar novamente</button>
+
+          <div className="mt-6 pt-6 border-t border-[#F3F4F6] max-w-sm mx-auto">
+            <p className="text-xs font-semibold text-[#6B7280] mb-2">Ou informe sua localização por endereço</p>
+            <div className="flex items-center gap-2">
+              <input value={manualEnd} onChange={e => setManualEnd(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') usarEndereco() }}
+                placeholder="Ex.: Av. Boa Viagem, Recife"
+                className="flex-1 border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#10B981]" />
+              <button onClick={usarEndereco} disabled={buscandoManual || !manualEnd.trim()}
+                className="bg-[#111827] hover:bg-black disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-xl whitespace-nowrap">
+                {buscandoManual ? '…' : 'Usar'}
+              </button>
+            </div>
+          </div>
         </div>
       </RadarShell>
     )
