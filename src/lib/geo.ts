@@ -53,6 +53,41 @@ export function limparEntregaDoRadar() {
   localStorage.removeItem(CHAVE_RADAR_ROTA)
 }
 
+// --- Geocodificação (endereço → lat/lng) ---
+//
+// Nominatim é mais preciso para endereços BR (resolve número); Photon entra de
+// reserva. Ambos públicos, CORS liberado. Uso leve/pontual — em massa, jogar
+// throttle (~1 req/s) para respeitar a política do Nominatim.
+
+export async function geocodar(endereco: string): Promise<Ponto | null> {
+  const q = endereco.trim()
+  if (!q) return null
+
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(q)}`)
+    if (r.ok) {
+      const j = await r.json()
+      if (j[0]) {
+        const lat = Number(j[0].lat), lng = Number(j[0].lon)
+        if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng }
+      }
+    }
+  } catch { /* tenta o fallback */ }
+
+  try {
+    const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=1`)
+    if (r.ok) {
+      const j = await r.json()
+      const c = j.features?.[0]?.geometry?.coordinates
+      if (c && Number.isFinite(c[1]) && Number.isFinite(c[0])) return { lat: c[1], lng: c[0] }
+    }
+  } catch { /* sem geocodificação */ }
+
+  return null
+}
+
+export const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
+
 // --- Otimização de rota via OSRM público (endpoint /trip resolve a ordem ótima) ---
 
 export interface RotaOtimizada {

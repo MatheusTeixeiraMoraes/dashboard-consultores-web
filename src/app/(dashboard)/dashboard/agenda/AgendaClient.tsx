@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { otimizarRota } from '@/lib/geo'
 import type { Rota } from './page'
 
 function fmtData(iso: string | null) {
@@ -26,6 +27,7 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
   const [nomeEdit, setNomeEdit] = useState('')
   const [confirmar, setConfirmar] = useState<string | null>(null)
   const [erro, setErro] = useState('')
+  const [refazendo, setRefazendo] = useState<string | null>(null)
 
   const kpis = useMemo(() => {
     const km = rotas.reduce((s, r) => s + (r.distancia_km ?? 0), 0)
@@ -48,6 +50,40 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
     if (error) { setErro(error.message); return }
     setConfirmar(null)
     router.refresh()
+  }
+
+  // Recalcula a rota com o mesmo ponto de partida e clientes — útil quando um
+  // cliente teve o endereço/coordenada corrigido.
+  async function refazer(r: Rota) {
+    setErro('')
+    if (r.partida_lat == null || r.partida_lng == null) {
+      setErro('Rota sem ponto de partida salvo — refaça pelo Roteirizar.')
+      return
+    }
+    const comCoord = r.stops.filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lng))
+    if (comCoord.length === 0) { setErro('Nenhuma parada com coordenada.'); return }
+
+    setRefazendo(r.id)
+    try {
+      const chegada = r.chegada_lat != null && r.chegada_lng != null ? { lat: r.chegada_lat, lng: r.chegada_lng } : null
+      const { ordemStops, distanciaKm, tempoMin } = await otimizarRota(
+        { lat: r.partida_lat, lng: r.partida_lng },
+        comCoord.map(s => ({ lat: s.lat, lng: s.lng })),
+        chegada,
+      )
+      const stopsOrdenados = ordemStops.map(i => comCoord[i])
+      const supabase = createClient()
+      const { error } = await supabase.from('rotas').update({
+        stops: stopsOrdenados, distancia_km: distanciaKm, tempo_minutos: tempoMin,
+        updated_at: new Date().toISOString(),
+      }).eq('id', r.id)
+      if (error) { setErro(error.message); return }
+      router.refresh()
+    } catch (e) {
+      setErro((e as Error).message)
+    } finally {
+      setRefazendo(null)
+    }
   }
 
   return (
@@ -104,6 +140,9 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
                     </>
                   ) : (
                     <>
+                      <button onClick={() => refazer(r)} disabled={refazendo === r.id} className="text-[#10B981] font-medium hover:underline disabled:opacity-50">
+                        {refazendo === r.id ? 'Refazendo…' : 'Refazer'}
+                      </button>
                       <button onClick={() => { setEditando(r.id); setNomeEdit(r.nome_rota) }} className="text-[#3B82F6] font-medium hover:underline">Renomear</button>
                       <button onClick={() => setConfirmar(r.id)} className="text-[#EF4444] font-medium hover:underline">Excluir</button>
                     </>

@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { findCol } from '@/lib/pilares'
+import { geocodar, sleep } from '@/lib/geo'
 import type { Cliente, UserRole } from '@/lib/types'
 
 const POR_PAGINA = 50
@@ -21,10 +22,11 @@ function soDigitos(s: string | null) {
   return (s ?? '').replace(/\D/g, '')
 }
 
-function whatsappUrl(telefone: string | null) {
+function whatsappUrl(telefone: string | null, texto?: string) {
   const num = soDigitos(telefone)
   if (!num) return null
-  return `https://wa.me/${num.startsWith('55') ? num : '55' + num}`
+  const base = `https://wa.me/${num.startsWith('55') ? num : '55' + num}`
+  return texto ? `${base}?text=${encodeURIComponent(texto)}` : base
 }
 
 function paraNum(v: unknown): number | null {
@@ -43,6 +45,16 @@ function paraForm(c: Cliente): FormState {
     lat: c.lat != null ? String(c.lat) : '', lng: c.lng != null ? String(c.lng) : '',
     consultor_nome: c.consultor_nome,
   }
+}
+
+// Placeholders que NÃO são endereço — geocodá-los devolveria um pino aleatório.
+const SEM_ENDERECO = /^(endereç?o\s+n[ãa]o\s+informad[oa]|n[ãa]o\s+informad[oa]|sem\s+endereç?o|n\/?a|-+|—+)$/i
+
+/** Melhor texto de endereço para geocodificar, ou '' se não houver nada útil. */
+const enderecoDe = (c: { endereco_completo: string; bairro: string; cidade: string }) => {
+  const end = c.endereco_completo.trim()
+  const real = end && !SEM_ENDERECO.test(end) ? end : ''
+  return real || [c.bairro, c.cidade].filter(Boolean).join(', ')
 }
 
 interface ImportState {
@@ -74,6 +86,19 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   const [importState, setImportState] = useState<ImportState>({ status: 'idle' })
   const inputImport = useRef<HTMLInputElement>(null)
 
+  // Geocodificação
+  const [geoLinha, setGeoLinha] = useState<string | null>(null)
+  const [geoForm, setGeoForm] = useState(false)
+  const [bulk, setBulk] = useState<{ running: boolean; done: number; ok: number; total: number } | null>(null)
+  const bulkStop = useRef(false)
+
+  // WhatsApp em massa
+  const [waSel, setWaSel] = useState<Set<string>>(new Set())
+  const [waOpen, setWaOpen] = useState(false)
+  const [waMsg, setWaMsg] = useState('Olá {nome}, tudo bem?')
+
+  const semGpsCount = useMemo(() => clientes.filter(c => c.lat == null || c.lng == null).length, [clientes])
+
   const filtrados = useMemo(() => {
     const q = busca.trim().toLowerCase()
     if (!q) return clientes
@@ -93,15 +118,23 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
     setErro('')
     setModalAberto(true)
   }
-
   function abrirEdicao(c: Cliente) {
     setEditando(c)
     setForm(paraForm(c))
     setErro('')
     setModalAberto(true)
   }
-
   const set = (campo: keyof FormState) => (v: string) => setForm(f => ({ ...f, [campo]: v }))
+
+  async function geocodarForm() {
+    const end = enderecoDe({ endereco_completo: form.endereco_completo, bairro: form.bairro, cidade: form.cidade })
+    if (!end) return setErro('Preencha o endereço, bairro ou cidade primeiro.')
+    setErro(''); setGeoForm(true)
+    const p = await geocodar(end)
+    setGeoForm(false)
+    if (!p) return setErro('Endereço não encontrado na geocodificação.')
+    setForm(f => ({ ...f, lat: String(p.lat), lng: String(p.lng) }))
+  }
 
   async function salvar() {
     setErro('')
@@ -113,8 +146,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
     const nomeConsultor = podeGerir ? form.consultor_nome.trim() : meuNome
     if (!nomeConsultor) return setErro('Informe o consultor responsável.')
 
-    const latNum = paraNum(form.lat)
-    const lngNum = paraNum(form.lng)
+    const latNum = paraNum(form.lat), lngNum = paraNum(form.lng)
     if ((form.lat.trim() && latNum === null) || (form.lng.trim() && lngNum === null)) {
       return setErro('Latitude/Longitude inválidas.')
     }
@@ -130,15 +162,13 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
       cidade: form.cidade.trim(),
       bairro: form.bairro.trim(),
       endereco_completo: form.endereco_completo.trim(),
-      lat: latNum,
-      lng: lngNum,
+      lat: latNum, lng: lngNum,
     }
 
     setSalvando(true)
     const supabase = createClient()
     let error
     if (editando) {
-      // Editar marca "Cliente Atualizado" (protege contra sobrescrita do import).
       ;({ error } = await supabase
         .from('clientes')
         .update({ ...payload, status_atualizacao: 'Cliente Atualizado', updated_at: new Date().toISOString() })
@@ -147,7 +177,6 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
       ;({ error } = await supabase.from('clientes').insert(payload))
     }
     setSalvando(false)
-
     if (error) {
       setErro(error.code === '23505' ? 'Já existe um cliente com esse Seller ID.' : error.message)
       return
@@ -164,89 +193,72 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
     router.refresh()
   }
 
-  // Import admin: parse .xlsx e insere em lotes, pulando seller_id já existentes
-  // (protege "Cliente Atualizado" e qualquer registro já editado).
-  async function importarPlanilha(file: File) {
-    setImportState({ status: 'parsing' })
-    try {
-      const { read, utils } = await import('xlsx')
-      const wb = read(await file.arrayBuffer(), { type: 'array' })
-      const rows: Record<string, unknown>[] = utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' })
-      if (rows.length === 0) { setImportState({ status: 'error', msg: 'Planilha vazia.' }); return }
-
-      const h = Object.keys(rows[0])
-      const cSeller = findCol(h, 'seller_id')
-      if (!cSeller) {
-        setImportState({ status: 'error', msg: `Coluna "seller_id" não encontrada.\nColunas: ${h.join(', ')}` })
-        return
-      }
-      const c = {
-        nome:  findCol(h, 'seller_nome'),
-        tel:   findCol(h, 'seller_telefone'),
-        email: findCol(h, 'seller_email'),
-        cons:  findCol(h, 'nome_consultor') ?? findCol(h, 'consultor_nome'),
-        end:   findCol(h, 'endereco_completo'),
-        cid:   findCol(h, 'cidade'),
-        bai:   findCol(h, 'bairro'),
-        lat:   findCol(h, 'lat'),
-        lng:   findCol(h, 'lng'),
-        stat:  findCol(h, 'status_atualizacao'),
-      }
-
-      const val = (r: Record<string, unknown>, col: string | null) => col ? String(r[col] ?? '').trim() : ''
-      const linhas = rows
-        .filter(r => val(r, cSeller) !== '')
-        .map(r => ({
-          seller_id:       val(r, cSeller),
-          seller_nome:     val(r, c.nome),
-          seller_telefone: val(r, c.tel) || null,
-          seller_email:    val(r, c.email) || null,
-          consultor_nome:  val(r, c.cons),
-          endereco_completo: val(r, c.end),
-          cidade:          val(r, c.cid),
-          bairro:          val(r, c.bai),
-          lat:             c.lat ? paraNum(r[c.lat]) : null,
-          lng:             c.lng ? paraNum(r[c.lng]) : null,
-          status_atualizacao: val(r, c.stat) === 'Cliente Atualizado' ? 'Cliente Atualizado' : 'Cliente não atualizado',
-        }))
-
-      setImportState({ status: 'saving', inseridos: 0 })
-      const supabase = createClient()
-      let inseridos = 0
-      for (let i = 0; i < linhas.length; i += LOTE_IMPORT) {
-        const lote = linhas.slice(i, i + LOTE_IMPORT)
-        const { data, error } = await supabase
-          .from('clientes')
-          .upsert(lote, { onConflict: 'seller_id', ignoreDuplicates: true })
-          .select('id')
-        if (error) { setImportState({ status: 'error', msg: `Erro ao importar: ${error.message}` }); return }
-        inseridos += data?.length ?? 0
-        setImportState({ status: 'saving', inseridos })
-      }
-      setImportState({ status: 'ok', inseridos, ignorados: linhas.length - inseridos })
-      router.refresh()
-    } catch (e) {
-      setImportState({ status: 'error', msg: (e as Error).message })
-    }
+  async function geocodarLinha(c: Cliente) {
+    const end = enderecoDe(c)
+    if (!end) return setErro(`"${c.seller_nome || c.seller_id}" não tem endereço para geocodificar.`)
+    setErro(''); setGeoLinha(c.id)
+    const p = await geocodar(end)
+    setGeoLinha(null)
+    if (!p) return setErro(`Não foi possível geocodificar "${c.seller_nome || c.seller_id}".`)
+    const supabase = createClient()
+    const { error } = await supabase.from('clientes').update({ lat: p.lat, lng: p.lng, updated_at: new Date().toISOString() }).eq('id', c.id)
+    if (error) { setErro(error.message); return }
+    router.refresh()
   }
 
+  // Geocodifica em massa os clientes sem lat/lng. Throttle de ~1s respeita a
+  // política do Nominatim. Interrompível.
+  async function geocodarEmMassa() {
+    const semGps = clientes.filter(c => c.lat == null || c.lng == null)
+    if (semGps.length === 0) return
+    setErro(''); bulkStop.current = false
+    setBulk({ running: true, done: 0, ok: 0, total: semGps.length })
+    const supabase = createClient()
+    let done = 0, ok = 0
+    for (const c of semGps) {
+      if (bulkStop.current) break
+      const end = enderecoDe(c)
+      if (!end) { done++; setBulk({ running: true, done, ok, total: semGps.length }); continue }  // sem endereço → pula sem request
+      const p = await geocodar(end)
+      if (p) {
+        const { error } = await supabase.from('clientes').update({ lat: p.lat, lng: p.lng, updated_at: new Date().toISOString() }).eq('id', c.id)
+        if (!error) ok++
+      }
+      done++
+      setBulk({ running: true, done, ok, total: semGps.length })
+      await sleep(1100)
+    }
+    setBulk({ running: false, done, ok, total: semGps.length })
+    router.refresh()
+  }
+
+  function toggleWa(id: string) {
+    setWaSel(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
+  }
+  const selecionadosWa = useMemo(() => clientes.filter(c => waSel.has(c.id)), [clientes, waSel])
+
   return (
-    <div>
+    <div className="pb-16">
       <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
         <div>
           <h1 className="text-xl font-bold text-[#111827]">Clientes</h1>
           <p className="text-sm text-[#6B7280] mt-0.5">
             {podeGerir ? 'Carteira de clientes da equipe' : 'Sua carteira de clientes'} · {clientes.length} no total
+            {semGpsCount > 0 && ` · ${semGpsCount} sem GPS`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {podeGerir && semGpsCount > 0 && (
+            <button onClick={geocodarEmMassa} disabled={bulk?.running}
+              className="border border-[#E5E7EB] hover:bg-[#F9FAFB] disabled:opacity-50 text-[#374151] text-sm font-medium px-4 py-2 rounded-xl flex items-center gap-2">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
+              Geocodar sem GPS ({semGpsCount})
+            </button>
+          )}
           {podeGerir && (
             <>
-              <button
-                onClick={() => inputImport.current?.click()}
-                disabled={importState.status === 'parsing' || importState.status === 'saving'}
-                className="border border-[#E5E7EB] hover:bg-[#F9FAFB] disabled:opacity-50 text-[#374151] text-sm font-medium px-4 py-2 rounded-xl transition-colors flex items-center gap-2"
-              >
+              <button onClick={() => inputImport.current?.click()} disabled={importState.status === 'parsing' || importState.status === 'saving'}
+                className="border border-[#E5E7EB] hover:bg-[#F9FAFB] disabled:opacity-50 text-[#374151] text-sm font-medium px-4 py-2 rounded-xl flex items-center gap-2">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
                 Importar planilha
               </button>
@@ -254,15 +266,22 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                 onChange={e => { const f = e.target.files?.[0]; if (f) importarPlanilha(f); e.target.value = '' }} />
             </>
           )}
-          <button
-            onClick={abrirNovo}
-            className="bg-[#10B981] hover:bg-[#047857] text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors flex items-center gap-2"
-          >
+          <button onClick={abrirNovo} className="bg-[#10B981] hover:bg-[#047857] text-white text-sm font-semibold px-4 py-2 rounded-xl flex items-center gap-2">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
             Novo Cliente
           </button>
         </div>
       </div>
+
+      {bulk && (
+        <div className="mb-4 text-sm rounded-xl px-4 py-2.5 bg-[#F9FAFB] text-[#6B7280] flex items-center gap-2">
+          {bulk.running && <Spinner />}
+          {bulk.running
+            ? <>Geocodificando… {bulk.done}/{bulk.total} ({bulk.ok} com sucesso)</>
+            : <>✓ Geocodificação concluída: {bulk.ok} de {bulk.total} localizados.</>}
+          {bulk.running && <button onClick={() => { bulkStop.current = true }} className="ml-auto text-[#EF4444] font-medium">Parar</button>}
+        </div>
+      )}
 
       {importState.status !== 'idle' && (
         <div className={`mb-4 text-sm rounded-xl px-4 py-2.5 ${
@@ -277,22 +296,16 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
       )}
 
       <div className="mb-4">
-        <input
-          type="text"
-          placeholder="Buscar por nome, seller ID, endereço, cidade ou bairro..."
-          value={busca}
-          onChange={e => { setBusca(e.target.value); setPagina(0) }}
-          className="w-full max-w-md text-sm bg-white border border-[#E5E7EB] rounded-xl px-3.5 py-2.5 text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-        />
+        <input type="text" placeholder="Buscar por nome, seller ID, endereço, cidade ou bairro..."
+          value={busca} onChange={e => { setBusca(e.target.value); setPagina(0) }}
+          className="w-full max-w-md text-sm bg-white border border-[#E5E7EB] rounded-xl px-3.5 py-2.5 text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#10B981]" />
       </div>
 
       {filtrados.length === 0 ? (
         <div className="bg-white rounded-2xl border border-[#E5E7EB] p-12 text-center">
           <p className="font-semibold text-[#111827]">{clientes.length === 0 ? 'Nenhum cliente ainda' : 'Nenhum resultado'}</p>
           <p className="text-sm text-[#6B7280] mt-1">
-            {clientes.length === 0
-              ? (podeGerir ? 'Importe a planilha ou cadastre o primeiro cliente.' : 'Cadastre o primeiro cliente no botão acima.')
-              : 'Ajuste a busca.'}
+            {clientes.length === 0 ? (podeGerir ? 'Importe a planilha ou cadastre o primeiro cliente.' : 'Cadastre o primeiro cliente no botão acima.') : 'Ajuste a busca.'}
           </p>
         </div>
       ) : (
@@ -300,6 +313,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[#E5E7EB] bg-[#F9FAFB] text-left">
+                <th className="px-3 py-3 w-8"></th>
                 <th className="px-4 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wider">Cliente</th>
                 <th className="px-4 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wider">Local</th>
                 {podeGerir && <th className="px-4 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wider">Consultor</th>}
@@ -314,6 +328,9 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                 const temGps = c.lat != null && c.lng != null
                 return (
                   <tr key={c.id} className="hover:bg-[#F9FAFB] transition-colors">
+                    <td className="px-3 py-3">
+                      <input type="checkbox" checked={waSel.has(c.id)} onChange={() => toggleWa(c.id)} className="accent-[#10B981] w-4 h-4" />
+                    </td>
                     <td className="px-4 py-3">
                       <p className="font-medium text-[#111827] leading-tight">{c.seller_nome || '—'}</p>
                       <p className="text-[11px] text-[#9CA3AF]">#{c.seller_id}</p>
@@ -331,20 +348,18 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                       <p className="text-[#111827] leading-tight">{c.cidade || '—'}</p>
                       <p className="text-[11px] text-[#9CA3AF]">{c.bairro || '—'}</p>
                     </td>
-                    {podeGerir && (
-                      <td className="px-4 py-3">
-                        <p className="text-[#374151] leading-tight">{c.consultor_nome || '—'}</p>
-                      </td>
-                    )}
+                    {podeGerir && <td className="px-4 py-3"><p className="text-[#374151] leading-tight">{c.consultor_nome || '—'}</p></td>}
                     <td className="px-4 py-3 text-center">
-                      <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${temGps ? 'bg-[#F0FDF4] text-[#10B981]' : 'bg-[#F3F4F6] text-[#9CA3AF]'}`}>
-                        {temGps ? 'GPS' : 'sem GPS'}
-                      </span>
+                      {temGps ? (
+                        <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#F0FDF4] text-[#10B981]">GPS</span>
+                      ) : geoLinha === c.id ? (
+                        <span className="text-[10px] text-[#6B7280] inline-flex items-center gap-1"><Spinner /> …</span>
+                      ) : (
+                        <button onClick={() => geocodarLinha(c)} className="text-[10px] font-semibold text-[#3B82F6] hover:underline">geocodar</button>
+                      )}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-[11px] font-medium ${c.status_atualizacao === 'Cliente Atualizado' ? 'text-[#10B981]' : 'text-[#9CA3AF]'}`}>
-                        {c.status_atualizacao}
-                      </span>
+                      <span className={`text-[11px] font-medium ${c.status_atualizacao === 'Cliente Atualizado' ? 'text-[#10B981]' : 'text-[#9CA3AF]'}`}>{c.status_atualizacao}</span>
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       {confirmarExcluir === c.id ? (
@@ -370,19 +385,25 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
 
       {totalPaginas > 1 && (
         <div className="flex items-center justify-between mt-4 text-sm">
-          <span className="text-[#6B7280]">
-            {paginaAtual * POR_PAGINA + 1}–{Math.min((paginaAtual + 1) * POR_PAGINA, filtrados.length)} de {filtrados.length}
-          </span>
+          <span className="text-[#6B7280]">{paginaAtual * POR_PAGINA + 1}–{Math.min((paginaAtual + 1) * POR_PAGINA, filtrados.length)} de {filtrados.length}</span>
           <div className="flex items-center gap-2">
-            <button onClick={() => setPagina(p => Math.max(0, p - 1))} disabled={paginaAtual === 0}
-              className="px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-[#374151] disabled:opacity-40 hover:bg-[#F9FAFB]">Anterior</button>
+            <button onClick={() => setPagina(p => Math.max(0, p - 1))} disabled={paginaAtual === 0} className="px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-[#374151] disabled:opacity-40 hover:bg-[#F9FAFB]">Anterior</button>
             <span className="text-[#6B7280]">{paginaAtual + 1} / {totalPaginas}</span>
-            <button onClick={() => setPagina(p => Math.min(totalPaginas - 1, p + 1))} disabled={paginaAtual >= totalPaginas - 1}
-              className="px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-[#374151] disabled:opacity-40 hover:bg-[#F9FAFB]">Próxima</button>
+            <button onClick={() => setPagina(p => Math.min(totalPaginas - 1, p + 1))} disabled={paginaAtual >= totalPaginas - 1} className="px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-[#374151] disabled:opacity-40 hover:bg-[#F9FAFB]">Próxima</button>
           </div>
         </div>
       )}
 
+      {/* Barra de seleção WhatsApp */}
+      {waSel.size > 0 && (
+        <div className="fixed bottom-0 left-60 right-0 bg-white border-t border-[#E5E7EB] px-6 py-3 flex items-center gap-3 z-30 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
+          <span className="text-sm font-semibold text-[#111827]">{waSel.size} selecionado{waSel.size !== 1 ? 's' : ''}</span>
+          <button onClick={() => setWaSel(new Set())} className="text-sm text-[#6B7280] hover:underline ml-auto">Limpar</button>
+          <button onClick={() => setWaOpen(true)} className="bg-[#10B981] hover:bg-[#047857] text-white text-sm font-semibold px-5 py-2 rounded-xl">Enviar WhatsApp</button>
+        </div>
+      )}
+
+      {/* Modal cadastro/edição */}
       {modalAberto && (
         <div className="fixed inset-0 bg-black/40 flex items-start justify-center p-4 z-50 overflow-y-auto" onClick={() => setModalAberto(false)}>
           <div className="bg-white rounded-2xl w-full max-w-lg my-8 shadow-xl" onClick={e => e.stopPropagation()}>
@@ -390,27 +411,21 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
               <h2 className="font-bold text-[#111827]">{editando ? 'Editar cliente' : 'Novo cliente'}</h2>
               <button onClick={() => setModalAberto(false)} className="text-[#9CA3AF] hover:text-[#374151] text-xl leading-none">×</button>
             </div>
-
             <div className="p-5 space-y-3">
               {podeGerir && (
                 <Campo label="Consultor responsável">
                   <input list="consultores-list" value={form.consultor_nome} onChange={e => set('consultor_nome')(e.target.value)} className={inputCls} placeholder="Nome do consultor" />
-                  <datalist id="consultores-list">
-                    {nomesConsultores.map(n => <option key={n} value={n} />)}
-                  </datalist>
+                  <datalist id="consultores-list">{nomesConsultores.map(n => <option key={n} value={n} />)}</datalist>
                 </Campo>
               )}
-
               <div className="grid grid-cols-2 gap-3">
                 <Campo label="Seller ID *"><input value={form.seller_id} onChange={e => set('seller_id')(e.target.value)} className={inputCls} disabled={!!editando} /></Campo>
                 <Campo label="Nome do cliente"><input value={form.seller_nome} onChange={e => set('seller_nome')(e.target.value)} className={inputCls} /></Campo>
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <Campo label="Telefone (WhatsApp)"><input value={form.seller_telefone} onChange={e => set('seller_telefone')(e.target.value)} className={inputCls} placeholder="(11) 90000-0000" /></Campo>
                 <Campo label="E-mail"><input value={form.seller_email} onChange={e => set('seller_email')(e.target.value)} className={inputCls} /></Campo>
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <Campo label="Documento">
                   <select value={form.doc_tipo} onChange={e => set('doc_tipo')(e.target.value)} className={inputCls}>
@@ -419,36 +434,117 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                 </Campo>
                 <Campo label="CPF / CNPJ"><input value={form.cpf_cnpj} onChange={e => set('cpf_cnpj')(e.target.value)} className={inputCls} /></Campo>
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <Campo label="Cidade *"><input value={form.cidade} onChange={e => set('cidade')(e.target.value)} className={inputCls} /></Campo>
                 <Campo label="Bairro *"><input value={form.bairro} onChange={e => set('bairro')(e.target.value)} className={inputCls} /></Campo>
               </div>
-
               <Campo label="Endereço completo *">
                 <input value={form.endereco_completo} onChange={e => set('endereco_completo')(e.target.value)} className={inputCls} placeholder="Rua, número, cidade" />
               </Campo>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Campo label="Latitude"><input value={form.lat} onChange={e => set('lat')(e.target.value)} className={inputCls} placeholder="-23.55" /></Campo>
-                <Campo label="Longitude"><input value={form.lng} onChange={e => set('lng')(e.target.value)} className={inputCls} placeholder="-46.63" /></Campo>
+              <div className="flex items-end gap-2">
+                <div className="grid grid-cols-2 gap-3 flex-1">
+                  <Campo label="Latitude"><input value={form.lat} onChange={e => set('lat')(e.target.value)} className={inputCls} placeholder="-23.55" /></Campo>
+                  <Campo label="Longitude"><input value={form.lng} onChange={e => set('lng')(e.target.value)} className={inputCls} placeholder="-46.63" /></Campo>
+                </div>
+                <button onClick={geocodarForm} disabled={geoForm} className="border border-[#10B981]/40 text-[#10B981] text-xs font-semibold px-3 py-2 rounded-xl whitespace-nowrap disabled:opacity-50">
+                  {geoForm ? '…' : 'Buscar do endereço'}
+                </button>
               </div>
-              <p className="text-[11px] text-[#9CA3AF]">Sem lat/lng o cliente não aparece no Radar. A geocodificação automática entra numa próxima fase.</p>
-
+              <p className="text-[11px] text-[#9CA3AF]">Sem lat/lng o cliente não aparece no Radar. Use &quot;Buscar do endereço&quot; para geocodificar.</p>
               {erro && <p className="text-xs text-[#EF4444] bg-[#FEF2F2] rounded-lg px-3 py-2">{erro}</p>}
             </div>
-
             <div className="px-5 py-4 border-t border-[#F3F4F6] flex justify-end gap-2">
               <button onClick={() => setModalAberto(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-[#374151] hover:bg-[#F9FAFB]">Cancelar</button>
-              <button onClick={salvar} disabled={salvando} className="bg-[#10B981] hover:bg-[#047857] disabled:opacity-60 text-white text-sm font-semibold px-5 py-2 rounded-xl transition-colors">
+              <button onClick={salvar} disabled={salvando} className="bg-[#10B981] hover:bg-[#047857] disabled:opacity-60 text-white text-sm font-semibold px-5 py-2 rounded-xl">
                 {salvando ? 'Salvando…' : editando ? 'Salvar alterações' : 'Cadastrar'}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Diálogo WhatsApp em massa */}
+      {waOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-start justify-center p-4 z-50 overflow-y-auto" onClick={() => setWaOpen(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg my-8 shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-[#F3F4F6] flex items-center justify-between">
+              <h2 className="font-bold text-[#111827]">WhatsApp — {selecionadosWa.length} cliente{selecionadosWa.length !== 1 ? 's' : ''}</h2>
+              <button onClick={() => setWaOpen(false)} className="text-[#9CA3AF] hover:text-[#374151] text-xl leading-none">×</button>
+            </div>
+            <div className="p-5 space-y-3">
+              <Campo label="Mensagem (use {nome} para o nome do cliente)">
+                <textarea value={waMsg} onChange={e => setWaMsg(e.target.value)} rows={3} className={`${inputCls} resize-none`} />
+              </Campo>
+              <p className="text-[11px] text-[#9CA3AF]">
+                O WhatsApp não permite disparo automático em massa. Abra a conversa de cada cliente abaixo — a mensagem já vai preenchida.
+              </p>
+              <div className="max-h-64 overflow-y-auto divide-y divide-[#F3F4F6] border border-[#F3F4F6] rounded-xl">
+                {selecionadosWa.map(c => {
+                  const link = whatsappUrl(c.seller_telefone, waMsg.replace(/\{nome\}/g, c.seller_nome || 'cliente'))
+                  return (
+                    <div key={c.id} className="flex items-center gap-3 px-3 py-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-[#111827] truncate">{c.seller_nome || `#${c.seller_id}`}</p>
+                        <p className="text-[11px] text-[#9CA3AF]">{c.seller_telefone || 'sem telefone'}</p>
+                      </div>
+                      {link ? (
+                        <a href={link} target="_blank" rel="noopener noreferrer" className="bg-[#10B981] text-white text-xs font-semibold px-3 py-1.5 rounded-lg">Abrir</a>
+                      ) : (
+                        <span className="text-[11px] text-[#9CA3AF]">sem telefone</span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
+
+  // Import admin (definido depois pra manter o topo do componente legível).
+  async function importarPlanilha(file: File) {
+    setImportState({ status: 'parsing' })
+    try {
+      const { read, utils } = await import('xlsx')
+      const wb = read(await file.arrayBuffer(), { type: 'array' })
+      const rows: Record<string, unknown>[] = utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' })
+      if (rows.length === 0) { setImportState({ status: 'error', msg: 'Planilha vazia.' }); return }
+
+      const h = Object.keys(rows[0])
+      const cSeller = findCol(h, 'seller_id')
+      if (!cSeller) { setImportState({ status: 'error', msg: `Coluna "seller_id" não encontrada.\nColunas: ${h.join(', ')}` }); return }
+      const c = {
+        nome: findCol(h, 'seller_nome'), tel: findCol(h, 'seller_telefone'), email: findCol(h, 'seller_email'),
+        cons: findCol(h, 'nome_consultor') ?? findCol(h, 'consultor_nome'), end: findCol(h, 'endereco_completo'),
+        cid: findCol(h, 'cidade'), bai: findCol(h, 'bairro'), lat: findCol(h, 'lat'), lng: findCol(h, 'lng'), stat: findCol(h, 'status_atualizacao'),
+      }
+      const val = (r: Record<string, unknown>, col: string | null) => col ? String(r[col] ?? '').trim() : ''
+      const linhas = rows.filter(r => val(r, cSeller) !== '').map(r => ({
+        seller_id: val(r, cSeller), seller_nome: val(r, c.nome),
+        seller_telefone: val(r, c.tel) || null, seller_email: val(r, c.email) || null,
+        consultor_nome: val(r, c.cons), endereco_completo: val(r, c.end), cidade: val(r, c.cid), bairro: val(r, c.bai),
+        lat: c.lat ? paraNum(r[c.lat]) : null, lng: c.lng ? paraNum(r[c.lng]) : null,
+        status_atualizacao: val(r, c.stat) === 'Cliente Atualizado' ? 'Cliente Atualizado' : 'Cliente não atualizado',
+      }))
+
+      setImportState({ status: 'saving', inseridos: 0 })
+      const supabase = createClient()
+      let inseridos = 0
+      for (let i = 0; i < linhas.length; i += LOTE_IMPORT) {
+        const lote = linhas.slice(i, i + LOTE_IMPORT)
+        const { data, error } = await supabase.from('clientes').upsert(lote, { onConflict: 'seller_id', ignoreDuplicates: true }).select('id')
+        if (error) { setImportState({ status: 'error', msg: `Erro ao importar: ${error.message}` }); return }
+        inseridos += data?.length ?? 0
+        setImportState({ status: 'saving', inseridos })
+      }
+      setImportState({ status: 'ok', inseridos, ignorados: linhas.length - inseridos })
+      router.refresh()
+    } catch (e) {
+      setImportState({ status: 'error', msg: (e as Error).message })
+    }
+  }
 }
 
 const inputCls = 'w-full border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#10B981] disabled:bg-[#F9FAFB] disabled:text-[#9CA3AF]'

@@ -10,6 +10,10 @@ export interface Rota {
   nome_rota: string
   data_visita: string | null
   partida_endereco: string | null
+  partida_lat: number | null
+  partida_lng: number | null
+  chegada_lat: number | null
+  chegada_lng: number | null
   stops: ClienteSelecionado[]
   distancia_km: number | null
   tempo_minutos: number | null
@@ -25,7 +29,7 @@ export default async function AgendaPage() {
   // RLS escopa: consultor vê as suas; gestão vê todas.
   const { data: rotas } = await supabase
     .from('rotas')
-    .select('id, consultor_nome, nome_rota, data_visita, partida_endereco, stops, distancia_km, tempo_minutos, created_at')
+    .select('id, consultor_nome, nome_rota, data_visita, partida_endereco, partida_lat, partida_lng, chegada_lat, chegada_lng, stops, distancia_km, tempo_minutos, created_at')
     .order('data_visita', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
 
