@@ -1,44 +1,160 @@
 @import "tailwindcss";
 
 /* ============================================================
- * Design tokens — identidade "Fastboard" (dark), aprovada em /demo-visual.
- * Paleta extraída da referência (RentFlow / Behance): fundo quase-preto,
- * cards em cinza-chumbo, accent indigo para ação, verde/âmbar/vermelho para
- * status. Fonte: Geist (já era a fonte carregada no layout raiz).
+ * Design tokens — identidade "Fastboard" (dark).
+ *
+ * Direção: mapa noturno. O produto vive em cima de mapa (Radar,
+ * Roteirizar, Agenda), então a base não é preto neutro: é o
+ * azul-ardósia de um tile de mapa escuro, com brilhos de território
+ * ao fundo. Os painéis são vidro sobre esse terreno.
+ *
+ * Os tokens abaixo viram utilitário do Tailwind automaticamente
+ * (--color-card => bg-card / text-card / border-card). Trocar a paleta
+ * do app inteiro é editar ESTE arquivo — não volte a espalhar hex solto
+ * nos componentes.
  * ============================================================ */
-:root {
+
+@theme {
   /* estrutura */
-  --bg:         #0A0A0C;
-  --card:       #17171B;
-  --card-2:     #1D1D22;
-  --border:     #26262B;
+  --color-bg:     #0B0F1A;
+  --color-shell:  rgba(13, 18, 34, 0.55);
+  --color-card:   rgba(31, 40, 66, 0.55);
+  --color-card-2: rgba(46, 57, 89, 0.5);
+  --color-line:   rgba(148, 163, 214, 0.16);
 
   /* texto */
-  --text:        #F4F4F5;
-  --text-dim:    #C4C4CC;
-  --text-muted:  #8A8A93;
-  --text-faint:  #5C5C64;
+  --color-ink:       #F1F3F9;
+  --color-ink-dim:   #C3C9DC;
+  --color-ink-muted: #8B93AD;
+  --color-ink-faint: #5C6480;
 
   /* marca / ação */
-  --primary:    #4F5FE0;
-  --primary-dk: #3D4BC4;
+  --color-primary:    #6172F3;
+  --color-primary-dk: #4A5AE0;
+  --color-primary-lt: #A5B0FF;
+
+  /* filtros / campos — instrumento, não buraco preto */
+  --color-field:      rgba(97, 114, 243, 0.1);
+  --color-field-line: rgba(129, 140, 248, 0.28);
 
   /* status */
-  --good:     #3ECF8E;
-  --good-bg:  #163A28;
-  --warn:     #F5B04E;
-  --warn-bg:  #3A2E17;
-  --bad:      #F2777A;
-  --bad-bg:   #3C1E22;
+  --color-good:    #3ECF8E;
+  --color-good-bg: rgba(62, 207, 142, 0.14);
+  --color-warn:    #F5B04E;
+  --color-warn-bg: rgba(245, 176, 78, 0.14);
+  --color-bad:     #F2777A;
+  --color-bad-dk:  #E0585B;
+  --color-bad-bg:  rgba(242, 119, 122, 0.14);
+
+  /* marca Google (botão "Abrir no Maps") — não é paleta nossa, não mexer */
+  --color-gmaps:    #4285F4;
+  --color-gmaps-dk: #3367D6;
 
   --radius: 12px;
 }
 
-html, body {
+/* Painel de vidro. O blur mora aqui e só aqui: afinar o vidro do app
+   inteiro é mexer nesta regra, não nos ~60 cards.
+   Não escreva o -webkit- na mão: o Lightning CSS deduplica as duas
+   declarações e sobra só a com prefixo, matando o blur no Chrome. Ele
+   prefixa sozinho a partir do browserslist. */
+@utility glass {
+  background-color: var(--color-card);
+  backdrop-filter: blur(14px);
+}
+
+html,
+body {
   height: 100%;
 }
 
+/* O brilho de território: mora no body, atrás de tudo, e é o que os
+   painéis de vidro deixam vazar. Sem ele o glass não tem o que mostrar. */
 body {
-  background: var(--bg);
-  color: var(--text);
+  color: var(--color-ink);
+  background-color: var(--color-bg);
+  background-image:
+    radial-gradient(65rem 36rem at 4% -10%, rgba(97, 114, 243, 0.42), transparent 64%),
+    radial-gradient(52rem 32rem at 99% -2%, rgba(45, 212, 191, 0.24), transparent 64%),
+    radial-gradient(50rem 36rem at 74% 106%, rgba(192, 132, 252, 0.22), transparent 64%),
+    radial-gradient(40rem 30rem at 30% 60%, rgba(97, 114, 243, 0.12), transparent 66%);
+  background-attachment: fixed;
+}
+
+/* Widgets nativos (setinha do select, caret) seguem o tema escuro. */
+:root {
+  color-scheme: dark;
+}
+
+/* ============================================================
+ * Leaflet no tema dark — usado só pelo Radar. O CSS do pacote assume
+ * fundo claro; aqui repintamos popup, controles e clusters na paleta.
+ * Painel de mapa é opaco de propósito: vidro em cima de tile vira sopa.
+ *
+ * Todo seletor daqui é prefixado com .leaflet-container de propósito:
+ * o leaflet.css entra pelo import do RadarMapa.tsx e o Turbopack o
+ * coloca DEPOIS deste arquivo. Empatando na especificidade, o branco
+ * dele ganhava por ordem. O prefixo desempata sem !important.
+ * ============================================================ */
+div.leaflet-container {
+  background: var(--color-bg);
+  font-family: inherit;
+}
+
+.leaflet-container .leaflet-popup-content-wrapper,
+.leaflet-container .leaflet-popup-tip {
+  background: #1B2237;
+  color: var(--color-ink);
+  border: 1px solid var(--color-line);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+.leaflet-container .leaflet-popup-content-wrapper { border-radius: var(--radius); }
+.leaflet-container .leaflet-popup-content { margin: 12px 14px; }
+.leaflet-container a.leaflet-popup-close-button { color: var(--color-ink-muted); }
+.leaflet-container a.leaflet-popup-close-button:hover { color: var(--color-ink); }
+
+.leaflet-container .leaflet-bar,
+.leaflet-container .leaflet-bar a {
+  background: #1B2237;
+  color: var(--color-ink-dim);
+  border-color: var(--color-line);
+}
+.leaflet-container .leaflet-bar a:hover { background: #29334F; color: var(--color-ink); }
+.leaflet-container .leaflet-bar { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); }
+
+/* A atribuição precisa do .leaflet-control a mais: o leaflet.css já usa
+   ".leaflet-container .leaflet-control-attribution" e empatar devolve o
+   branco dele pela ordem. */
+.leaflet-container .leaflet-control-attribution.leaflet-control {
+  background: rgba(11, 15, 26, 0.75);
+  color: var(--color-ink-faint);
+}
+.leaflet-container .leaflet-control-attribution.leaflet-control a { color: var(--color-ink-muted); }
+
+/* Cluster de clientes: substitui as bolhas verde/amarelo/laranja do pacote. */
+.radar-cluster {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(97, 114, 243, 0.92);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 0 0 6px rgba(97, 114, 243, 0.18), 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* Pulso no marcador "você está aqui". */
+.radar-me {
+  filter: drop-shadow(0 0 6px rgba(97, 114, 243, 0.9));
+  animation: radar-pulso 2.4s ease-in-out infinite;
+}
+@keyframes radar-pulso {
+  50% { filter: drop-shadow(0 0 14px rgba(97, 114, 243, 1)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .radar-me { animation: none; }
 }

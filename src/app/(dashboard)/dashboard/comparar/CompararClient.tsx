@@ -98,11 +98,11 @@ function buildRows(a: Resultado[], b: Resultado[]): ConsultorRow[] {
 }
 
 function DeltaBadge({ delta }: { delta: number | null }) {
-  if (delta === null) return <span className="text-[#52525B] text-xs">—</span>
-  if (Math.abs(delta) < 0.05) return <span className="text-xs text-[#5C5C64]">=</span>
+  if (delta === null) return <span className="text-ink-faint text-xs">—</span>
+  if (Math.abs(delta) < 0.05) return <span className="text-xs text-ink-faint">=</span>
   const up = delta > 0
   return (
-    <span className={`text-xs font-semibold flex items-center justify-center gap-0.5 ${up ? 'text-[#3ECF8E]' : 'text-[#F2777A]'}`}>
+    <span className={`text-xs font-semibold flex items-center justify-center gap-0.5 ${up ? 'text-good' : 'text-bad'}`}>
       {up ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}
     </span>
   )
@@ -128,12 +128,12 @@ export default function CompararClient({ dates, idCarteira }: { dates: string[];
     return (
       <div>
         <div className="mb-6">
-          <h1 className="text-xl font-bold text-[#F4F4F5]">Comparar Datas</h1>
-          <p className="text-sm text-[#8A8A93] mt-0.5">Compare a evolução entre dois períodos</p>
+          <h1 className="text-xl font-bold text-ink">Comparar Datas</h1>
+          <p className="text-sm text-ink-muted mt-0.5">Compare a evolução entre dois períodos</p>
         </div>
-        <div className="bg-[#17171B] rounded-2xl border border-[#26262B] p-12 text-center">
-          <p className="font-semibold text-[#F4F4F5]">Dados insuficientes</p>
-          <p className="text-sm text-[#8A8A93] mt-1">São necessários uploads em ao menos duas datas distintas.</p>
+        <div className="glass rounded-2xl border border-line p-12 text-center">
+          <p className="font-semibold text-ink">Dados insuficientes</p>
+          <p className="text-sm text-ink-muted mt-1">São necessários uploads em ao menos duas datas distintas.</p>
         </div>
       </div>
     )
@@ -142,29 +142,29 @@ export default function CompararClient({ dates, idCarteira }: { dates: string[];
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-[#F4F4F5]">Comparar Datas</h1>
-        <p className="text-sm text-[#8A8A93] mt-0.5">Compare a evolução entre dois períodos</p>
+        <h1 className="text-xl font-bold text-ink">Comparar Datas</h1>
+        <p className="text-sm text-ink-muted mt-0.5">Compare a evolução entre dois períodos</p>
       </div>
 
       {/* Seletor de datas */}
-      <div className="bg-[#17171B] rounded-2xl border border-[#26262B] p-5 mb-5 flex flex-wrap items-end gap-4">
+      <div className="glass rounded-2xl border border-line p-5 mb-5 flex flex-wrap items-end gap-4">
         <div>
-          <p className="text-xs font-semibold text-[#8A8A93] mb-1.5">Período A (base)</p>
+          <p className="text-xs font-semibold text-ink-muted mb-1.5">Período A (base)</p>
           <select
             value={dateA}
             onChange={e => { setDateA(e.target.value); setRows(null) }}
-            className="border border-[#26262B] rounded-xl px-3 py-2 text-sm text-[#F4F4F5] focus:outline-none focus:ring-2 focus:ring-[#4F5FE0] bg-[#17171B]"
+            className="border border-field-line rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary bg-field"
           >
             {dates.map(d => <option key={d} value={d}>{formatDateBR(d)}</option>)}
           </select>
         </div>
-        <div className="text-[#3ECF8E] font-bold text-lg pb-1.5">→</div>
+        <div className="text-good font-bold text-lg pb-1.5">→</div>
         <div>
-          <p className="text-xs font-semibold text-[#8A8A93] mb-1.5">Período B (comparação)</p>
+          <p className="text-xs font-semibold text-ink-muted mb-1.5">Período B (comparação)</p>
           <select
             value={dateB}
             onChange={e => { setDateB(e.target.value); setRows(null) }}
-            className="border border-[#26262B] rounded-xl px-3 py-2 text-sm text-[#F4F4F5] focus:outline-none focus:ring-2 focus:ring-[#4F5FE0] bg-[#17171B]"
+            className="border border-field-line rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary bg-field"
           >
             {dates.map(d => <option key={d} value={d}>{formatDateBR(d)}</option>)}
           </select>
@@ -172,41 +172,41 @@ export default function CompararClient({ dates, idCarteira }: { dates: string[];
         <button
           onClick={handleComparar}
           disabled={loading || !dateA || !dateB || dateA === dateB}
-          className="bg-[#4F5FE0] hover:bg-[#3D4BC4] disabled:opacity-50 text-white text-sm font-semibold px-5 py-2 rounded-xl transition-colors"
+          className="bg-primary hover:bg-primary-dk disabled:opacity-50 text-white text-sm font-semibold px-5 py-2 rounded-xl transition-colors"
         >
           {loading ? 'Carregando...' : 'Comparar'}
         </button>
-        {dateA === dateB && <p className="text-xs text-[#F2777A]">Selecione datas diferentes</p>}
+        {dateA === dateB && <p className="text-xs text-bad">Selecione datas diferentes</p>}
       </div>
 
       {/* Tabela de comparação */}
       {rows && (
-        <div className="bg-[#17171B] rounded-2xl border border-[#26262B] overflow-x-auto">
+        <div className="glass rounded-2xl border border-line overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[#26262B] bg-[#1D1D22]">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-[#8A8A93] uppercase tracking-wider w-6">#</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-[#8A8A93] uppercase tracking-wider">Consultor</th>
-                <th className="text-center px-3 py-3 text-xs font-semibold text-[#8A8A93] uppercase tracking-wider">{formatDateBR(dateA)}</th>
-                <th className="text-center px-3 py-3 text-xs font-semibold text-[#8A8A93] uppercase tracking-wider">{formatDateBR(dateB)}</th>
-                <th className="text-center px-3 py-3 text-xs font-semibold text-[#8A8A93] uppercase tracking-wider">Δ Total</th>
+              <tr className="border-b border-line bg-card-2">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-ink-muted uppercase tracking-wider w-6">#</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-ink-muted uppercase tracking-wider">Consultor</th>
+                <th className="text-center px-3 py-3 text-xs font-semibold text-ink-muted uppercase tracking-wider">{formatDateBR(dateA)}</th>
+                <th className="text-center px-3 py-3 text-xs font-semibold text-ink-muted uppercase tracking-wider">{formatDateBR(dateB)}</th>
+                <th className="text-center px-3 py-3 text-xs font-semibold text-ink-muted uppercase tracking-wider">Δ Total</th>
                 {PILARES.map(p => (
-                  <th key={p} className="text-center px-2 py-3 text-xs font-semibold text-[#5C5C64] uppercase tracking-wider">
+                  <th key={p} className="text-center px-2 py-3 text-xs font-semibold text-ink-faint uppercase tracking-wider">
                     Δ {PILAR_LABEL[p]}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#26262B]">
+            <tbody className="divide-y divide-line">
               {rows.map((row, i) => (
-                <tr key={row.id} className="hover:bg-[#1D1D22] transition-colors">
-                  <td className="px-4 py-3 text-xs text-[#5C5C64] font-medium">{i + 1}</td>
+                <tr key={row.id} className="hover:bg-card-2 transition-colors">
+                  <td className="px-4 py-3 text-xs text-ink-faint font-medium">{i + 1}</td>
                   <td className="px-4 py-3">
-                    <p className="font-medium text-[#F4F4F5]">{row.nome}</p>
-                    <p className="text-[11px] text-[#5C5C64]">Cart. {row.id}</p>
+                    <p className="font-medium text-ink">{row.nome}</p>
+                    <p className="text-[11px] text-ink-faint">Cart. {row.id}</p>
                   </td>
-                  <td className="px-3 py-3 text-center text-sm font-semibold text-[#8A8A93]">{row.scoreA.toFixed(1)}</td>
-                  <td className="px-3 py-3 text-center text-sm font-bold text-[#F4F4F5]">{row.scoreB.toFixed(1)}</td>
+                  <td className="px-3 py-3 text-center text-sm font-semibold text-ink-muted">{row.scoreA.toFixed(1)}</td>
+                  <td className="px-3 py-3 text-center text-sm font-bold text-ink">{row.scoreB.toFixed(1)}</td>
                   <td className="px-3 py-3 text-center">
                     <DeltaBadge delta={row.delta} />
                   </td>

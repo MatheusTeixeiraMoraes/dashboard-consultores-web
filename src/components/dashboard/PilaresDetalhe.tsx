@@ -62,10 +62,10 @@ export default function PilaresDetalhe({ resultados, pilaresConfig, dataReferenc
           <div key={grupo.key}>
             <div className="flex items-center gap-3 mb-3 px-1">
               <div className="w-2 h-2 rounded-full" style={{ background: grupoColor }} />
-              <p className="text-sm font-semibold text-[#F4F4F5] uppercase tracking-wide">{grupo.label}</p>
+              <p className="text-sm font-semibold text-ink uppercase tracking-wide">{grupo.label}</p>
               <span className="ml-auto text-sm font-bold" style={{ color: grupoColor }}>
                 {grupoScore.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
-                <span className="text-[#5C5C64] font-normal"> / {fmtPontos(grupoMax)} pts</span>
+                <span className="text-ink-faint font-normal"> / {fmtPontos(grupoMax)} pts</span>
               </span>
             </div>
 
@@ -99,7 +99,7 @@ function PilarCard({
   const { color } = spec
 
   const header = (
-    <div className="px-4 py-3 border-b border-[#26262B]">
+    <div className="px-4 py-3 border-b border-line">
       <div className="flex items-center justify-between gap-2 mb-1">
         <p className="text-sm font-bold" style={{ color }}>{spec.label}</p>
         {resultado && config ? (
@@ -108,18 +108,18 @@ function PilarCard({
             {' / '}{fmtPontos(config.pontos_max)} pts
           </span>
         ) : (
-          <span className="text-xs text-[#52525B]">sem dados</span>
+          <span className="text-xs text-ink-faint">sem dados</span>
         )}
       </div>
-      {spec.nota && <p className="text-[10px] text-[#5C5C64]">{spec.nota}</p>}
+      {spec.nota && <p className="text-[10px] text-ink-faint">{spec.nota}</p>}
     </div>
   )
 
   if (!resultado || !config) {
     return (
-      <div className="bg-[#17171B] rounded-2xl border border-[#26262B] overflow-hidden" style={{ borderLeft: `3px solid ${color}` }}>
+      <div className="glass rounded-2xl border border-line overflow-hidden" style={{ borderLeft: `3px solid ${color}` }}>
         {header}
-        <div className="px-4 py-8 text-center text-sm text-[#5C5C64]">Sem dados</div>
+        <div className="px-4 py-8 text-center text-sm text-ink-faint">Sem dados</div>
       </div>
     )
   }
@@ -136,33 +136,33 @@ function PilarCard({
   const valorFmt = fmtValor(valorSpec?.type ?? 'decimal', resultado.valor_metrica)
 
   return (
-    <div className="bg-[#17171B] rounded-2xl border border-[#26262B] overflow-hidden" style={{ borderLeft: `3px solid ${color}` }}>
+    <div className="glass rounded-2xl border border-line overflow-hidden" style={{ borderLeft: `3px solid ${color}` }}>
       {header}
 
       <div className="px-4 py-3 space-y-3">
         {/* Métrica principal confrontada com a meta */}
-        <div className="bg-[#1D1D22] rounded-xl p-3">
+        <div className="bg-card-2 rounded-xl p-3">
           <div className="flex items-baseline gap-2 flex-wrap">
-            <span className="text-2xl font-bold text-[#F4F4F5]">{valorFmt}</span>
-            <span className="text-xs text-[#8A8A93]">
+            <span className="text-2xl font-bold text-ink">{valorFmt}</span>
+            <span className="text-xs text-ink-muted">
               meta: <span className="font-semibold">{fmtMeta(config.meta, config.unidade)}</span>
             </span>
           </div>
           {bateuMeta ? (
-            <p className="text-[11px] text-[#3ECF8E] font-medium mt-1">
+            <p className="text-[11px] text-good font-medium mt-1">
               ✓ Meta atingida
               {excedente >= 0.05 && ` — ${excedente.toFixed(1).replace('.', ',')}${unidadeSufixo} acima`}
             </p>
           ) : (
-            <p className="text-[11px] text-[#F2777A] font-medium mt-1">
+            <p className="text-[11px] text-bad font-medium mt-1">
               ✗ Faltam {faltam.toFixed(1).replace('.', ',')}{unidadeSufixo} para a meta
             </p>
           )}
         </div>
 
         <div className="flex items-center justify-between text-[11px]">
-          <span className="text-[#5C5C64]">Ref.:</span>
-          <span className="text-[#8A8A93] font-medium">{refLabel}</span>
+          <span className="text-ink-faint">Ref.:</span>
+          <span className="text-ink-muted font-medium">{refLabel}</span>
         </div>
 
         {/* Demais colunas da planilha, na ordem do contrato.
@@ -170,9 +170,9 @@ function PilarCard({
         {spec.cols
           .filter(c => c.col !== spec.valorCol)
           .map(c => (
-            <div key={c.col} className="flex items-center justify-between gap-2 border-t border-[#1D1D22] pt-1.5">
-              <span className="text-[11px] text-[#8A8A93] leading-tight">{c.label}:</span>
-              <span className="text-[11px] font-semibold text-[#F4F4F5] whitespace-nowrap">
+            <div key={c.col} className="flex items-center justify-between gap-2 border-t border-card-2 pt-1.5">
+              <span className="text-[11px] text-ink-muted leading-tight">{c.label}:</span>
+              <span className="text-[11px] font-semibold text-ink whitespace-nowrap">
                 {fmtValor(c.type, metricas[c.col])}
               </span>
             </div>

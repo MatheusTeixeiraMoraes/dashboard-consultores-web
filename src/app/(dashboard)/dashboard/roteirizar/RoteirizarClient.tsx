@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -23,6 +23,96 @@ function paraSelecionado(c: ClienteRadar): ClienteSelecionado {
     telefone: c.seller_telefone, endereco: c.endereco_completo, cidade: c.cidade,
     bairro: c.bairro, consultor_nome: c.consultor_nome,
   }
+}
+
+const IconChevron = () => (
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="6 9 12 15 18 9" />
+  </svg>
+)
+
+/**
+ * Filtro de múltipla escolha. Nenhum selecionado = sem filtro (mostra tudo),
+ * que é o padrão esperado e evita o estado "zero resultados" ao abrir.
+ * Tem busca interna porque a lista de bairros passa de 800 opções.
+ */
+function MultiFiltro({ label, opcoes, sel, onChange }: {
+  label: string
+  opcoes: string[]
+  sel: Set<string>
+  onChange: (s: Set<string>) => void
+}) {
+  const [aberto, setAberto] = useState(false)
+  const [busca, setBusca] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!aberto) return
+    function fora(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setAberto(false)
+    }
+    document.addEventListener('mousedown', fora)
+    return () => document.removeEventListener('mousedown', fora)
+  }, [aberto])
+
+  const lista = useMemo(() => {
+    const q = busca.trim().toLowerCase()
+    return q ? opcoes.filter(o => o.toLowerCase().includes(q)) : opcoes
+  }, [opcoes, busca])
+
+  function alternar(o: string) {
+    const s = new Set(sel)
+    if (s.has(o)) s.delete(o); else s.add(o)
+    onChange(s)
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setAberto(a => !a)}
+        className={`flex items-center gap-1.5 border rounded-lg px-2.5 py-1.5 text-sm whitespace-nowrap transition-colors ${
+          sel.size > 0
+            ? 'border-primary/60 bg-primary/15 text-ink'
+            : 'border-field-line bg-field text-ink-muted hover:text-ink'
+        }`}
+      >
+        {label}
+        {sel.size > 0 && (
+          <span className="bg-primary text-white text-[10px] font-bold rounded-full px-1.5 min-w-[17px] text-center">{sel.size}</span>
+        )}
+        <IconChevron />
+      </button>
+
+      {/* Painel ancorado à direita: estes filtros ficam na borda direita da
+          toolbar e, abrindo para a esquerda, não estouram a viewport. */}
+      {aberto && (
+        <div className="glass absolute right-0 top-full mt-1.5 w-64 border border-line rounded-xl shadow-2xl z-40 overflow-hidden">
+          {opcoes.length > 8 && (
+            <input
+              autoFocus value={busca} onChange={e => setBusca(e.target.value)}
+              placeholder={`Buscar ${label.toLowerCase()}…`}
+              className="w-full bg-transparent border-b border-line px-3 py-2 text-xs text-ink placeholder-ink-faint focus:outline-none"
+            />
+          )}
+          <div className="max-h-56 overflow-y-auto py-1">
+            {lista.length === 0 ? (
+              <p className="text-xs text-ink-faint text-center py-3">Nada encontrado</p>
+            ) : lista.map(o => (
+              <label key={o} className="flex items-center gap-2 px-3 py-1.5 text-xs text-ink-dim hover:bg-card-2 cursor-pointer">
+                <input type="checkbox" checked={sel.has(o)} onChange={() => alternar(o)} className="accent-primary w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate">{o}</span>
+              </label>
+            ))}
+          </div>
+          {sel.size > 0 && (
+            <button onClick={() => onChange(new Set())} className="w-full border-t border-line px-3 py-2 text-xs text-ink-muted hover:text-ink">
+              Limpar {label.toLowerCase()}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 interface Props {
@@ -51,11 +141,11 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
   const [salvando, setSalvando] = useState(false)
   const [preSelecionados, setPreSelecionados] = useState(0)
 
-  // Filtros da grade de seleção
+  // Filtros da grade — conjuntos vazios = sem filtro.
   const [fBusca, setFBusca] = useState('')
-  const [fCidade, setFCidade] = useState('')
-  const [fBairro, setFBairro] = useState('')
-  const [fConsultor, setFConsultor] = useState('')
+  const [fCidades, setFCidades] = useState<Set<string>>(new Set())
+  const [fBairros, setFBairros] = useState<Set<string>>(new Set())
+  const [fConsultores, setFConsultores] = useState<Set<string>>(new Set())
 
   // Recebe a seleção vinda do Radar.
   useEffect(() => {
@@ -77,22 +167,31 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
     () => [...new Set(clientes.map(c => c.cidade).filter(Boolean))].sort(),
     [clientes],
   )
+  // Bairros seguem as cidades escolhidas — não faz sentido oferecer bairro de
+  // cidade que está fora do filtro.
   const bairros = useMemo(
-    () => [...new Set(clientes.filter(c => !fCidade || c.cidade === fCidade).map(c => c.bairro).filter(Boolean))].sort(),
-    [clientes, fCidade],
+    () => [...new Set(
+      clientes.filter(c => fCidades.size === 0 || fCidades.has(c.cidade)).map(c => c.bairro).filter(Boolean),
+    )].sort(),
+    [clientes, fCidades],
   )
 
   const filtrados = useMemo(() => {
     const q = fBusca.trim().toLowerCase()
     return clientes.filter(c =>
-      (!fCidade || c.cidade === fCidade) &&
-      (!fBairro || c.bairro === fBairro) &&
-      (!fConsultor || c.consultor_nome === fConsultor) &&
+      (fCidades.size === 0 || fCidades.has(c.cidade)) &&
+      (fBairros.size === 0 || fBairros.has(c.bairro)) &&
+      (fConsultores.size === 0 || fConsultores.has(c.consultor_nome)) &&
       (!q || c.seller_id.toLowerCase().includes(q) || c.seller_nome.toLowerCase().includes(q))
     )
-  }, [clientes, fBusca, fCidade, fBairro, fConsultor])
+  }, [clientes, fBusca, fCidades, fBairros, fConsultores])
 
-  const temFiltro = !!(fBusca.trim() || fCidade || fBairro || fConsultor)
+  const nFiltros = fCidades.size + fBairros.size + fConsultores.size + (fBusca.trim() ? 1 : 0)
+  const temFiltro = nFiltros > 0
+
+  function limparFiltros() {
+    setFBusca(''); setFCidades(new Set()); setFBairros(new Set()); setFConsultores(new Set())
+  }
 
   function toggleStop(c: ClienteRadar) {
     setResultado(null)
@@ -106,9 +205,8 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
     setStops(prev => {
       const jaTem = new Set(prev.map(s => s.seller_id))
       const novos = filtrados.filter(c => !jaTem.has(c.seller_id)).map(paraSelecionado)
-      const total = [...prev, ...novos].slice(0, MAX_STOPS)
       if (prev.length + novos.length > MAX_STOPS) setErro(`Selecionei os primeiros ${MAX_STOPS} (limite por rota).`)
-      return total
+      return [...prev, ...novos].slice(0, MAX_STOPS)
     })
   }
 
@@ -206,22 +304,26 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
   }, [partLat, partLng, chegLat, chegLng, stops])
 
   return (
-    <div className="max-w-4xl pb-4">
-      <div className="mb-5">
-        <h1 className="text-xl font-bold text-[#F4F4F5]">Roteirizar</h1>
-        <p className="text-sm text-[#8A8A93] mt-0.5">Selecione clientes (por bairro, cidade ou busca) e monte a rota.</p>
+    <div className="max-w-6xl pb-4">
+      <div className="mb-4">
+        <h1 className="text-xl font-bold text-ink">Roteirizar</h1>
+        <p className="text-sm text-ink-muted mt-0.5">Filtre os clientes, selecione e monte a melhor sequência de visitas.</p>
       </div>
 
-      {/* Barra fixa de seleção + gerar */}
-      <div className="bg-[#17171B] border border-[#26262B] rounded-2xl px-5 py-4 mb-4 flex items-center justify-between gap-4 flex-wrap sticky top-2 z-20">
-        <div>
-          <p className="text-[11px] text-gray-400 uppercase tracking-wide">Clientes na rota</p>
-          <p className="text-3xl font-bold text-white leading-none">{stops.length}</p>
+      {/* Barra de ação — acompanha a rolagem porque a seleção acontece embaixo */}
+      <div className="glass border border-line rounded-2xl px-5 py-3.5 mb-3 flex items-center justify-between gap-4 flex-wrap sticky top-2 z-30">
+        <div className="flex items-baseline gap-2.5">
+          <span className="text-3xl font-bold text-ink leading-none">{stops.length}</span>
+          <span className="text-[11px] text-ink-muted uppercase tracking-wide">
+            {stops.length === 1 ? 'cliente na rota' : 'clientes na rota'}
+          </span>
         </div>
         <div className="flex items-center gap-2">
-          {stops.length > 0 && <button onClick={() => { setStops([]); setResultado(null) }} className="text-sm text-gray-300 hover:text-white">Limpar</button>}
+          {stops.length > 0 && (
+            <button onClick={() => { setStops([]); setResultado(null) }} className="text-sm text-ink-muted hover:text-ink px-2">Limpar</button>
+          )}
           <button onClick={gerar} disabled={gerando || stops.length === 0}
-            className="bg-[#4F5FE0] hover:bg-[#3D4BC4] disabled:opacity-40 text-white text-sm font-semibold px-5 py-2.5 rounded-xl flex items-center gap-2">
+            className="bg-primary hover:bg-primary-dk disabled:opacity-40 text-white text-sm font-semibold px-5 py-2.5 rounded-xl flex items-center gap-2">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
             {gerando ? 'Gerando…' : 'Gerar rota'}
           </button>
@@ -229,163 +331,170 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
       </div>
 
       {preSelecionados > 0 && (
-        <div className="mb-4 text-sm bg-[#163A28] text-[#3ECF8E] rounded-xl px-4 py-2.5">
+        <div className="mb-3 text-sm bg-good-bg text-good rounded-xl px-4 py-2.5">
           {preSelecionados} cliente{preSelecionados !== 1 ? 's' : ''} vieram do Radar.
         </div>
       )}
       {resultado && (
-        <div className="mb-4 text-sm bg-[#163A28] text-[#3ECF8E] rounded-xl px-4 py-2.5 flex items-center justify-between flex-wrap gap-2">
-          <span>Rota otimizada: <b>{resultado.km.toFixed(1).replace('.', ',')} km</b> · <b>{Math.round(resultado.min)} min</b> · ordem definida abaixo.</span>
+        <div className="mb-3 text-sm bg-good-bg text-good rounded-xl px-4 py-2.5">
+          Rota otimizada: <b>{resultado.km.toFixed(1).replace('.', ',')} km</b> · <b>{Math.round(resultado.min)} min</b>
         </div>
       )}
-      {erro && <p className="text-xs text-[#F2777A] bg-[#3C1E22] rounded-lg px-3 py-2 mb-4">{erro}</p>}
+      {erro && <p className="text-xs text-bad bg-bad-bg rounded-lg px-3 py-2 mb-3">{erro}</p>}
 
-      {/* Pontos de partida/chegada */}
-      <div className="bg-[#17171B] rounded-2xl border border-[#26262B] p-5 mb-4">
-        <div className="flex items-center gap-2 mb-3">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4F5FE0" strokeWidth="2"><circle cx="12" cy="12" r="2" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="10" /></svg>
-          <span className="text-sm font-semibold text-[#F4F4F5]">Pontos de referência</span>
-        </div>
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs font-semibold text-[#8A8A93]">Ponto de partida *</span>
-          <button onClick={usarMinhaLocalizacao} className="text-xs text-[#3ECF8E] font-medium hover:underline">Usar minha localização</button>
-        </div>
-        <div className="flex items-center gap-2 mb-2">
-          <input value={partBuscaEnd} onChange={e => setPartBuscaEnd(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') buscarPartida() }}
-            placeholder="Buscar por endereço (ex.: Av. Boa Viagem, Recife)" className={`${inp} flex-1`} />
-          <button onClick={buscarPartida} disabled={buscandoPart || !partBuscaEnd.trim()}
-            className="border border-[#3ECF8E]/40 text-[#3ECF8E] text-xs font-semibold px-3 py-2 rounded-xl whitespace-nowrap disabled:opacity-50">{buscandoPart ? '…' : 'Buscar'}</button>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <input value={partLat} onChange={e => setPartLat(e.target.value)} placeholder="Latitude" className={inp} />
-          <input value={partLng} onChange={e => setPartLng(e.target.value)} placeholder="Longitude" className={inp} />
-        </div>
-        {partEnd && <p className="text-[11px] text-[#5C5C64] mt-1">📍 {partEnd}</p>}
-        <div className="mt-3">
-          <span className="text-xs font-semibold text-[#8A8A93] mb-1.5 block">Ponto de chegada (opcional)</span>
-          <div className="grid grid-cols-2 gap-2">
-            <input value={chegLat} onChange={e => setChegLat(e.target.value)} placeholder="Latitude" className={inp} />
-            <input value={chegLng} onChange={e => setChegLng(e.target.value)} placeholder="Longitude" className={inp} />
+      {/* Duas colunas: à esquerda a rota que se monta, à direita de onde se escolhe */}
+      <div className="grid lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] gap-3 items-start">
+
+        {/* ---- Coluna esquerda ---- */}
+        <div className="flex flex-col gap-3">
+          {/* Pontos */}
+          <div className="glass rounded-2xl border border-line p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2"><circle cx="12" cy="12" r="2" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="10" /></svg>
+              <span className="text-sm font-semibold text-ink">Pontos de referência</span>
+            </div>
+
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-semibold text-ink-muted">Partida *</span>
+              <button onClick={usarMinhaLocalizacao} className="text-xs text-primary-lt font-medium hover:underline">Usar meu GPS</button>
+            </div>
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <input value={partBuscaEnd} onChange={e => setPartBuscaEnd(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') buscarPartida() }}
+                placeholder="Buscar endereço…" className={`${inp} flex-1 min-w-0`} />
+              <button onClick={buscarPartida} disabled={buscandoPart || !partBuscaEnd.trim()}
+                className="border border-field-line text-primary-lt text-xs font-semibold px-2.5 py-2 rounded-xl whitespace-nowrap disabled:opacity-50">
+                {buscandoPart ? '…' : 'Buscar'}
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              <input value={partLat} onChange={e => setPartLat(e.target.value)} placeholder="Latitude" className={inp} />
+              <input value={partLng} onChange={e => setPartLng(e.target.value)} placeholder="Longitude" className={inp} />
+            </div>
+            {partEnd && <p className="text-[11px] text-ink-faint mt-1 truncate">📍 {partEnd}</p>}
+
+            <span className="text-xs font-semibold text-ink-muted mt-3 mb-1.5 block">Chegada (opcional)</span>
+            <div className="grid grid-cols-2 gap-1.5">
+              <input value={chegLat} onChange={e => setChegLat(e.target.value)} placeholder="Latitude" className={inp} />
+              <input value={chegLng} onChange={e => setChegLng(e.target.value)} placeholder="Longitude" className={inp} />
+            </div>
+            <p className="text-[11px] text-ink-faint mt-1">Sem chegada, termina no último cliente.</p>
           </div>
-          <p className="text-[11px] text-[#5C5C64] mt-1">Sem chegada, a rota termina no último cliente.</p>
-        </div>
-      </div>
 
-      {/* Rota gerada (ordem) */}
-      {stops.length > 0 && (
-        <div className="bg-[#17171B] rounded-2xl border border-[#26262B] p-5 mb-4">
-          <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
-            <p className="text-sm font-semibold text-[#F4F4F5]">
-              {resultado ? 'Ordem da rota' : `Selecionados (${stops.length})`}
-            </p>
-            {linksMaps.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                {linksMaps.length === 1 ? (
-                  <a href={linksMaps[0]} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 bg-[#4285F4] hover:bg-[#3367D6] text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
-                    Abrir no Google Maps
-                  </a>
-                ) : (
-                  <>
-                    <span className="text-[11px] text-[#8A8A93]">Google Maps ({linksMaps.length} trechos):</span>
-                    {linksMaps.map((l, i) => (
-                      <a key={i} href={l} target="_blank" rel="noopener noreferrer"
-                        className="bg-[#4285F4] hover:bg-[#3367D6] text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg">{i + 1}</a>
-                    ))}
-                  </>
-                )}
+          {/* Rota montada */}
+          {stops.length > 0 && (
+            <div className="glass rounded-2xl border border-line p-4">
+              <p className="text-sm font-semibold text-ink mb-2">
+                {resultado ? 'Ordem da rota' : `Selecionados (${stops.length})`}
+              </p>
+
+              {linksMaps.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap mb-3">
+                  {linksMaps.length === 1 ? (
+                    <a href={linksMaps[0]} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 bg-gmaps hover:bg-gmaps-dk text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
+                      Abrir no Google Maps
+                    </a>
+                  ) : (
+                    <>
+                      <span className="text-[11px] text-ink-muted w-full">Google Maps · {linksMaps.length} trechos:</span>
+                      {linksMaps.map((l, i) => (
+                        <a key={i} href={l} target="_blank" rel="noopener noreferrer"
+                          className="bg-gmaps hover:bg-gmaps-dk text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg">{i + 1}</a>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-1.5 max-h-52 overflow-y-auto">
+                {stops.map((s, i) => (
+                  <span key={s.seller_id} className="inline-flex items-center gap-1.5 text-[11px] bg-card-2 border border-line rounded-lg pl-1.5 pr-1 py-1 text-ink-dim max-w-full">
+                    {resultado && <span className="w-4 h-4 rounded-full bg-primary text-white flex items-center justify-center text-[9px] font-bold flex-shrink-0">{i + 1}</span>}
+                    <span className="truncate">{s.seller_nome || `#${s.seller_id}`}</span>
+                    <button onClick={() => removeStop(s.seller_id)} className="text-ink-faint hover:text-bad w-4 text-center flex-shrink-0">×</button>
+                  </span>
+                ))}
               </div>
+            </div>
+          )}
+
+          {/* Salvar */}
+          <div className="glass rounded-2xl border border-line p-4">
+            <span className="text-sm font-semibold text-ink mb-2.5 block">Salvar na agenda</span>
+            <div className="flex flex-col gap-2 mb-2.5">
+              <input value={nomeRota} onChange={e => setNomeRota(e.target.value)} placeholder="Nome da rota (ex.: Visitas Boa Viagem)" className={inp} />
+              <input type="date" value={dataVisita} onChange={e => setDataVisita(e.target.value)} className={inp} />
+            </div>
+            <button onClick={salvar} disabled={salvando || stops.length === 0}
+              className="w-full bg-primary hover:bg-primary-dk disabled:opacity-50 text-white text-sm font-semibold py-2.5 rounded-xl">
+              {salvando ? 'Salvando…' : 'Salvar rota'}
+            </button>
+          </div>
+        </div>
+
+        {/* ---- Coluna direita: escolher clientes ---- */}
+        <div className="glass rounded-2xl border border-line p-4">
+          {/* Toolbar de filtros */}
+          <div className="flex items-center gap-2 flex-wrap mb-3">
+            <input value={fBusca} onChange={e => setFBusca(e.target.value)}
+              placeholder="Buscar por ID do cliente ou nome…"
+              className={`${inp} flex-1 min-w-[220px]`} />
+            {consultores.length > 1 && (
+              <MultiFiltro label="Consultores" opcoes={consultores} sel={fConsultores} onChange={setFConsultores} />
+            )}
+            <MultiFiltro label="Cidades" opcoes={cidades} sel={fCidades} onChange={setFCidades} />
+            <MultiFiltro label="Bairros" opcoes={bairros} sel={fBairros} onChange={setFBairros} />
+            {temFiltro && (
+              <button onClick={limparFiltros} className="text-xs text-ink-muted hover:text-ink px-1.5">Limpar filtros</button>
             )}
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {stops.map((s, i) => (
-              <span key={s.seller_id} className="inline-flex items-center gap-1.5 text-[11px] bg-[#1D1D22] border border-[#26262B] rounded-lg pl-2 pr-1 py-1 text-[#C4C4CC]">
-                {resultado && <span className="w-4 h-4 rounded-full bg-[#3ECF8E] text-white flex items-center justify-center text-[9px] font-bold">{i + 1}</span>}
-                {s.seller_nome || `#${s.seller_id}`}
-                <button onClick={() => removeStop(s.seller_id)} className="text-[#5C5C64] hover:text-[#F2777A] w-4 text-center">×</button>
-              </span>
-            ))}
+
+          {/* Resumo + ação em massa */}
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-3 pb-3 border-b border-line">
+            <p className="text-xs text-ink-muted">
+              <b className="text-ink">{filtrados.length.toLocaleString('pt-BR')}</b>
+              {temFiltro ? ' no filtro' : ' clientes'}
+              {filtrados.length > MAX_CARDS && ` · mostrando ${MAX_CARDS}`}
+            </p>
+            <button onClick={selecionarTodos} disabled={filtrados.length === 0}
+              className="bg-card-2 hover:bg-primary/20 border border-field-line disabled:opacity-40 text-ink text-xs font-semibold px-3.5 py-2 rounded-xl whitespace-nowrap">
+              + Selecionar todos ({filtrados.length.toLocaleString('pt-BR')})
+            </button>
           </div>
-        </div>
-      )}
 
-      {/* Grade de seleção */}
-      <div className="bg-[#17171B] rounded-2xl border border-[#26262B] p-5">
-        <input value={fBusca} onChange={e => setFBusca(e.target.value)} placeholder="Buscar por ID do cliente ou nome…" className={`${inp} w-full mb-3`} />
-        <div className="flex items-center gap-2 flex-wrap mb-3">
-          {consultores.length > 1 && (
-            <select value={fConsultor} onChange={e => setFConsultor(e.target.value)} className={sel}>
-              <option value="">Todos os consultores</option>
-              {consultores.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          )}
-          <select value={fCidade} onChange={e => { setFCidade(e.target.value); setFBairro('') }} className={sel}>
-            <option value="">Todas as cidades</option>
-            {cidades.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select value={fBairro} onChange={e => setFBairro(e.target.value)} className={sel}>
-            <option value="">Todos os bairros</option>
-            {bairros.map(b => <option key={b} value={b}>{b}</option>)}
-          </select>
-          <button onClick={selecionarTodos} disabled={filtrados.length === 0}
-            className="ml-auto bg-[#1D1D22] hover:bg-[#26262B] disabled:opacity-40 text-white text-xs font-semibold px-3.5 py-2 rounded-xl whitespace-nowrap">
-            Selecionar todos ({filtrados.length})
-          </button>
-        </div>
-
-        {!temFiltro && clientes.length > MAX_CARDS && (
-          <p className="text-[11px] text-[#5C5C64] mb-2">Filtre por bairro/cidade ou busque para focar. Mostrando {visiveis.length} de {clientes.length}.</p>
-        )}
-        {temFiltro && filtrados.length > MAX_CARDS && (
-          <p className="text-[11px] text-[#5C5C64] mb-2">Mostrando {MAX_CARDS} de {filtrados.length} — &quot;Selecionar todos&quot; pega todos os {filtrados.length}.</p>
-        )}
-
-        {filtrados.length === 0 ? (
-          <p className="text-sm text-[#5C5C64] text-center py-6">Nenhum cliente com esses filtros.</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[560px] overflow-y-auto pr-1">
-            {visiveis.map(c => {
-              const sel = idsNaRota.has(c.seller_id)
-              const wa = whatsappUrl(c.seller_telefone)
-              return (
-                <button key={c.seller_id} onClick={() => toggleStop(c)}
-                  className={`text-left rounded-xl border p-3 transition-colors ${sel ? 'border-[#3ECF8E] bg-[#163A28]' : 'border-[#26262B] hover:bg-[#1D1D22]'}`}>
-                  <div className="flex items-start gap-2">
-                    <span className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${sel ? 'bg-[#3ECF8E] border-[#3ECF8E]' : 'border-[#52525B]'}`}>
-                      {sel && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-mono bg-[#1D2142] text-[#4F5FE0] px-1.5 py-0.5 rounded">{c.seller_id}</span>
-                        {wa && <span className="text-[#3ECF8E]" title="tem WhatsApp"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347" /></svg></span>}
+          {filtrados.length === 0 ? (
+            <p className="text-sm text-ink-faint text-center py-10">Nenhum cliente com esses filtros.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 max-h-[600px] overflow-y-auto pr-1">
+              {visiveis.map(c => {
+                const sel = idsNaRota.has(c.seller_id)
+                const wa = whatsappUrl(c.seller_telefone)
+                return (
+                  <button key={c.seller_id} onClick={() => toggleStop(c)}
+                    className={`text-left rounded-xl border p-3 transition-colors ${sel ? 'border-primary bg-primary/15' : 'border-line hover:bg-card-2'}`}>
+                    <div className="flex items-start gap-2">
+                      <span className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${sel ? 'bg-primary border-primary' : 'border-ink-faint'}`}>
+                        {sel && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-mono bg-primary/15 text-primary-lt px-1.5 py-0.5 rounded">{c.seller_id}</span>
+                          {wa && <span className="text-good" title="tem WhatsApp"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347" /></svg></span>}
+                        </div>
+                        <p className="text-sm font-medium text-ink truncate mt-0.5">{c.seller_nome || '—'}</p>
+                        <p className="text-[11px] text-ink-faint truncate">{c.bairro ? `${c.bairro}, ` : ''}{c.cidade}</p>
                       </div>
-                      <p className="text-sm font-medium text-[#F4F4F5] truncate mt-0.5">{c.seller_nome || '—'}</p>
-                      <p className="text-[11px] text-[#5C5C64] truncate">{c.bairro ? `${c.bairro}, ` : ''}{c.cidade}</p>
                     </div>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Salvar */}
-      <div className="bg-[#17171B] rounded-2xl border border-[#26262B] p-5 mt-4">
-        <span className="text-sm font-semibold text-[#F4F4F5] mb-3 block">Salvar na agenda</span>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-          <input value={nomeRota} onChange={e => setNomeRota(e.target.value)} placeholder="Nome da rota (ex.: Visitas Boa Viagem)" className={inp} />
-          <input type="date" value={dataVisita} onChange={e => setDataVisita(e.target.value)} className={inp} />
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
-        <button onClick={salvar} disabled={salvando || stops.length === 0}
-          className="w-full bg-[#4F5FE0] hover:bg-[#3D4BC4] disabled:opacity-50 text-white text-sm font-semibold py-2.5 rounded-xl">
-          {salvando ? 'Salvando…' : 'Salvar rota'}
-        </button>
       </div>
     </div>
   )
 }
 
-const inp = 'border border-[#26262B] rounded-xl px-3 py-2 text-sm text-[#F4F4F5] focus:outline-none focus:ring-2 focus:ring-[#4F5FE0]'
-const sel = 'border border-[#26262B] rounded-lg px-2.5 py-1.5 text-sm text-[#F4F4F5] bg-[#17171B] focus:outline-none focus:ring-2 focus:ring-[#4F5FE0]'
+const inp = 'border border-field-line bg-field rounded-xl px-3 py-2 text-sm text-ink placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-primary'

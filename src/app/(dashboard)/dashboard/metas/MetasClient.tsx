@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { PillarConfig } from '@/lib/types'
 
 const CAT_LABEL: Record<string, string> = { atuacao: 'Atuação', resultado: 'Resultado' }
-const CAT_COLOR: Record<string, string> = { atuacao: '#4F5FE0', resultado: '#3ECF8E' }
+const CAT_COLOR: Record<string, string> = { atuacao: 'var(--color-primary)', resultado: '#3ECF8E' }
 
 /** 'numero' é o enum do banco, não uma unidade pra mostrar em tela. */
 function sufixoUnidade(unidade: string) {
@@ -56,8 +56,8 @@ export default function MetasClient({ pilares, profileId }: { pilares: PillarCon
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-[#F4F4F5]">Configurar Metas</h1>
-        <p className="text-sm text-[#8A8A93] mt-0.5">
+        <h1 className="text-xl font-bold text-ink">Configurar Metas</h1>
+        <p className="text-sm text-ink-muted mt-0.5">
           A meta não altera o score — esse vem pronto da planilha. Ela define o selo
           &quot;Meta atingida&quot; e o &quot;Faltam X&quot; exibidos nos cards.
         </p>
@@ -70,9 +70,9 @@ export default function MetasClient({ pilares, profileId }: { pilares: PillarCon
             <div key={cat}>
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-2.5 h-2.5 rounded-full" style={{ background: CAT_COLOR[cat] }} />
-                <h2 className="text-sm font-semibold text-[#F4F4F5]">
+                <h2 className="text-sm font-semibold text-ink">
                   Pilares de {CAT_LABEL[cat]}
-                  <span className="ml-2 text-[#8A8A93] font-normal text-xs">
+                  <span className="ml-2 text-ink-muted font-normal text-xs">
                     ({grupo.reduce((s, p) => s + p.pontos_max, 0).toFixed(1)} pts no total)
                   </span>
                 </h2>
@@ -80,11 +80,11 @@ export default function MetasClient({ pilares, profileId }: { pilares: PillarCon
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {grupo.map(pilar => (
-                  <div key={pilar.pilar_key} className="bg-[#17171B] rounded-2xl border border-[#26262B] p-5">
+                  <div key={pilar.pilar_key} className="glass rounded-2xl border border-line p-5">
                     <div className="flex items-start justify-between mb-4">
                       <div>
-                        <p className="text-sm font-semibold text-[#F4F4F5]">{pilar.label}</p>
-                        <p className="text-xs text-[#8A8A93] mt-0.5">Peso: {pilar.pontos_max} pts</p>
+                        <p className="text-sm font-semibold text-ink">{pilar.label}</p>
+                        <p className="text-xs text-ink-muted mt-0.5">Peso: {pilar.pontos_max} pts</p>
                       </div>
                       <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"
                         style={{ background: `${CAT_COLOR[cat]}15`, color: CAT_COLOR[cat] }}>
@@ -94,9 +94,9 @@ export default function MetasClient({ pilares, profileId }: { pilares: PillarCon
 
                     <div className="space-y-3">
                       <div>
-                        <label className="text-xs text-[#8A8A93] mb-1 block">
+                        <label className="text-xs text-ink-muted mb-1 block">
                           Meta atual{' '}
-                          <span className="text-[#5C5C64]">
+                          <span className="text-ink-faint">
                             (atinge com {pilar.tipo_comp === 'le' ? '≤' : '≥'})
                           </span>
                         </label>
@@ -106,14 +106,14 @@ export default function MetasClient({ pilares, profileId }: { pilares: PillarCon
                             step="0.01"
                             value={values[pilar.pilar_key]}
                             onChange={e => setValues(prev => ({ ...prev, [pilar.pilar_key]: e.target.value }))}
-                            className="flex-1 border border-[#26262B] rounded-xl px-3 py-2 text-sm text-[#F4F4F5] focus:outline-none focus:ring-2 focus:ring-[#4F5FE0]"
+                            className="flex-1 border border-field-line rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary"
                           />
-                          <span className="text-sm text-[#8A8A93] w-4">{sufixoUnidade(pilar.unidade)}</span>
+                          <span className="text-sm text-ink-muted w-4">{sufixoUnidade(pilar.unidade)}</span>
                         </div>
                       </div>
 
                       {erro[pilar.pilar_key] && (
-                        <p className="text-[11px] text-[#F2777A] bg-[#3C1E22] rounded-lg px-2.5 py-1.5">
+                        <p className="text-[11px] text-bad bg-bad-bg rounded-lg px-2.5 py-1.5">
                           {erro[pilar.pilar_key]}
                         </p>
                       )}
@@ -123,8 +123,8 @@ export default function MetasClient({ pilares, profileId }: { pilares: PillarCon
                         disabled={saving === pilar.pilar_key}
                         className={`w-full py-2 rounded-xl text-sm font-medium transition-colors ${
                           saved === pilar.pilar_key
-                            ? 'bg-[#163A28] text-[#3ECF8E] border border-[#3ECF8E]/30'
-                            : 'bg-[#4F5FE0] hover:bg-[#3D4BC4] text-white disabled:opacity-60'
+                            ? 'bg-good-bg text-good border border-good/30'
+                            : 'bg-primary hover:bg-primary-dk text-white disabled:opacity-60'
                         }`}
                       >
                         {saving === pilar.pilar_key ? 'Salvando...' : saved === pilar.pilar_key ? '✓ Salvo' : 'Salvar meta'}

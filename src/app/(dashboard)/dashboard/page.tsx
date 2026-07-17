@@ -22,18 +22,18 @@ export default async function GeralPage() {
     return (
       <div>
         <div className="mb-6">
-          <h1 className="text-xl font-bold text-[#F4F4F5]">Ranking Geral</h1>
-          <p className="text-sm text-[#8A8A93] mt-0.5">Visão consolidada de todos os consultores</p>
+          <h1 className="text-xl font-bold text-ink">Ranking Geral</h1>
+          <p className="text-sm text-ink-muted mt-0.5">Visão consolidada de todos os consultores</p>
         </div>
-        <div className="bg-[#17171B] rounded-2xl border border-[#26262B] p-12 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-[#163A28] flex items-center justify-center mx-auto mb-4">
+        <div className="glass rounded-2xl border border-line p-12 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-good-bg flex items-center justify-center mx-auto mb-4">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3ECF8E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
               <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
             </svg>
           </div>
-          <p className="font-semibold text-[#F4F4F5]">Nenhum dado carregado ainda</p>
-          <p className="text-sm text-[#8A8A93] mt-1">Vá em <strong className="text-[#3ECF8E]">Upar Planilha</strong> para começar.</p>
+          <p className="font-semibold text-ink">Nenhum dado carregado ainda</p>
+          <p className="text-sm text-ink-muted mt-1">Vá em <strong className="text-good">Upar Planilha</strong> para começar.</p>
         </div>
       </div>
     )
