@@ -86,9 +86,12 @@ export interface Cliente {
   lat: number | null
   lng: number | null
   status_atualizacao: 'Cliente não atualizado' | 'Cliente Atualizado'
-  created_at: string
-  updated_at: string
-  created_by: string | null
+  // Existem na tabela, mas a tela não busca: são ~130 bytes por linha × 3,2 mil
+  // clientes de payload que ninguém lê. Opcionais para não prometer o que não
+  // vem. Se for usar alguma, inclua no select de `clientes/page.tsx`.
+  created_at?: string
+  updated_at?: string
+  created_by?: string | null
 }
 
 // Status visual baseado na nota
