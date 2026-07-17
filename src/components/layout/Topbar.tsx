@@ -11,7 +11,7 @@ const ROLE_LABEL: Record<string, string> = {
   consultor: 'Consultor',
 }
 
-export default function Topbar({ profile }: { profile: Profile }) {
+export default function Topbar({ profile, abrirMenu }: { profile: Profile; abrirMenu?: () => void }) {
   const router = useRouter()
 
   async function handleLogout() {
@@ -25,8 +25,20 @@ export default function Topbar({ profile }: { profile: Profile }) {
   const initials = displayName.slice(0, 2).toUpperCase()
 
   return (
-    <header className="h-14 bg-shell backdrop-blur-xl border-b border-line flex items-center justify-between px-6 flex-shrink-0">
-      <div />
+    <header className="h-14 bg-shell backdrop-blur-xl border-b border-line flex items-center justify-between px-4 md:px-6 flex-shrink-0">
+      {/* Único acesso ao menu no celular, onde a sidebar está escondida.
+          44px é o alvo mínimo de toque que a Apple recomenda — abaixo disso o
+          dedo erra. */}
+      <button
+        onClick={abrirMenu}
+        aria-label="Abrir menu"
+        className="md:hidden -ml-2 w-11 h-11 grid place-items-center rounded-xl text-ink-dim hover:bg-card-2 active:bg-card-2"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      </button>
+      <div className="hidden md:block" />
       <div className="flex items-center gap-3">
         <div className="text-right hidden sm:block">
           <p className="text-sm font-medium text-ink leading-tight">{displayName}</p>

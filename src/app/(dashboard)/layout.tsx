@@ -1,8 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getProfile } from '@/lib/supabase/profile'
 import { redirect } from 'next/navigation'
-import Sidebar from '@/components/layout/Sidebar'
-import Topbar from '@/components/layout/Topbar'
+import Shell from '@/components/layout/Shell'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -12,15 +11,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const profile = await getProfile()
   if (!profile) redirect('/login')
 
-  return (
-    <div className="flex h-full">
-      <Sidebar role={profile.role} />
-      <div className="flex-1 flex flex-col min-w-0 ml-60">
-        <Topbar profile={profile} />
-        <main className="flex-1 p-6 overflow-auto">
-          {children}
-        </main>
-      </div>
-    </div>
-  )
+  // A casca é client (a gaveta do mobile tem estado); a autenticação fica aqui,
+  // no servidor.
+  return <Shell profile={profile}>{children}</Shell>
 }

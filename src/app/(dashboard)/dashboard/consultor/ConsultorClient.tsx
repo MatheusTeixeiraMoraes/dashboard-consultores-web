@@ -64,9 +64,12 @@ export default function ConsultorClient({ resultados, dateDisplay, dataReferenci
         <p className="text-sm text-ink-muted mt-0.5">Performance individual · {dateDisplay}</p>
       </div>
 
-      <div className="flex gap-5 items-start">
+      {/* Empilha no celular: a lista era `w-60 flex-shrink-0` ao lado do
+          conteúdo, ou seja, 240px que se recusavam a encolher numa tela de 360
+          — e empurravam a página inteira pro lado. */}
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-5 items-stretch lg:items-start">
         {/* Lista de consultores */}
-        <div className="w-60 flex-shrink-0 glass rounded-2xl border border-line overflow-hidden">
+        <div className="w-full lg:w-60 lg:flex-shrink-0 glass rounded-2xl border border-line overflow-hidden">
           <div className="px-3 py-3 border-b border-line">
             <input
               type="text"

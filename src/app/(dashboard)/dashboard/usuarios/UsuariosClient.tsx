@@ -131,8 +131,8 @@ export default function UsuariosClient({ usuarios, myRole, myId }: {
           </button>
         </div>
 
-        <div className="glass rounded-2xl border border-line overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="glass rounded-2xl border border-line overflow-x-auto">
+          <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-line bg-card-2">
                 <th className="text-left px-5 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider">Nome / E-mail</th>

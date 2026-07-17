@@ -139,8 +139,10 @@ export default function GeralClient({ ranking, dateDisplay, metaMap }: Props) {
           <p className="text-ink-muted">Nenhum resultado na data mais recente.</p>
         </div>
       ) : (
-        <div className="glass rounded-2xl border border-line overflow-hidden">
-          <table className="w-full text-sm">
+        // overflow-x-auto + min-w: no celular a tabela rola dentro do card em
+        // vez de ser cortada, e as 9 colunas não se espremem até virar sopa.
+        <div className="glass rounded-2xl border border-line overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b border-line bg-card-2">
                 <th className="text-left px-4 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider w-8">#</th>

@@ -63,10 +63,16 @@ export default function MultiFiltro({ label, opcoes, sel, onChange }: {
         <IconChevron />
       </button>
 
-      {/* Painel ancorado à direita: estes filtros ficam na borda direita da
-          toolbar e, abrindo para a esquerda, não estouram a viewport. */}
+      {/* Desktop: painel ancorado à direita — estes filtros ficam na borda
+          direita da toolbar e, abrindo para a esquerda, não estouram a tela.
+          Celular: vira folha inferior. Qualquer ancoragem brigaria com a
+          posição do chip (ancorado à direita ele saía pela esquerda; à
+          esquerda, sairia pela direita), e o polegar alcança o rodapé melhor
+          que o meio da tela. */}
       {aberto && (
-        <div className="glass absolute right-0 top-full mt-1.5 w-64 border border-line rounded-xl shadow-2xl z-40 overflow-hidden">
+        <div className="glass border border-line shadow-2xl overflow-hidden
+          fixed inset-x-3 bottom-3 z-50 rounded-2xl pb-[env(safe-area-inset-bottom)]
+          md:absolute md:inset-x-auto md:bottom-auto md:right-0 md:top-full md:mt-1.5 md:w-64 md:z-40 md:rounded-xl md:pb-0">
           {opcoes.length > 8 && (
             <input
               autoFocus value={busca} onChange={e => setBusca(e.target.value)}
@@ -74,13 +80,15 @@ export default function MultiFiltro({ label, opcoes, sel, onChange }: {
               className="w-full bg-transparent border-b border-line px-3 py-2 text-xs text-ink placeholder-ink-faint focus:outline-none"
             />
           )}
-          <div className="max-h-56 overflow-y-auto py-1">
+          {/* py-2.5 no celular: alvo de toque de ~40px. Com py-1.5 o dedo erra
+              a opção e marca a de cima. */}
+          <div className="max-h-[45vh] md:max-h-56 overflow-y-auto py-1">
             {lista.length === 0 ? (
               <p className="text-xs text-ink-faint text-center py-3">Nada encontrado</p>
             ) : lista.map(o => (
-              <label key={o} className="flex items-center gap-2 px-3 py-1.5 text-xs text-ink-dim hover:bg-card-2 cursor-pointer">
-                <input type="checkbox" checked={sel.has(o)} onChange={() => alternar(o)} className="accent-primary w-3.5 h-3.5 flex-shrink-0" />
-                <span className="truncate">{o}</span>
+              <label key={o} className="flex items-center gap-2.5 px-3 py-2.5 md:py-1.5 text-sm md:text-xs text-ink-dim hover:bg-card-2 cursor-pointer">
+                <input type="checkbox" checked={sel.has(o)} onChange={() => alternar(o)} className="accent-primary w-4 h-4 md:w-3.5 md:h-3.5 flex-shrink-0" />
+                <span className="truncate min-w-0">{o}</span>
               </label>
             ))}
           </div>

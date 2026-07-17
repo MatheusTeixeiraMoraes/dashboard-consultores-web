@@ -182,7 +182,7 @@ export default function CompararClient({ dates, idCarteira }: { dates: string[];
       {/* Tabela de comparação */}
       {rows && (
         <div className="glass rounded-2xl border border-line overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[680px] text-sm">
             <thead>
               <tr className="border-b border-line bg-card-2">
                 <th className="text-left px-4 py-3 text-xs font-semibold text-ink-muted uppercase tracking-wider w-6">#</th>

@@ -81,8 +81,8 @@ export default function HistoricoClient({ rows: initialRows, role }: { rows: Upl
           <p className="text-sm text-ink-muted mt-1">Vá em <strong className="text-good">Upar Planilha</strong> para começar.</p>
         </div>
       ) : (
-        <div className="glass rounded-2xl border border-line overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="glass rounded-2xl border border-line overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b border-line bg-card-2">
                 <th className="text-left px-4 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider">Pilar</th>

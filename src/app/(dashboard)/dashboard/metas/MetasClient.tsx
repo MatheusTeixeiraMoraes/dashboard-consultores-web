@@ -106,9 +106,12 @@ export default function MetasClient({ pilares, profileId }: { pilares: PillarCon
                             step="0.01"
                             value={values[pilar.pilar_key]}
                             onChange={e => setValues(prev => ({ ...prev, [pilar.pilar_key]: e.target.value }))}
-                            className="flex-1 border border-field-line rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary"
+                            /* min-w-0: input tem largura intrínseca (~20 caracteres) e
+                               min-width:auto, então `flex-1` não o encolhe — era ele
+                               que empurrava a página pro lado em tela estreita. */
+                            className="flex-1 min-w-0 border border-field-line rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary"
                           />
-                          <span className="text-sm text-ink-muted w-4">{sufixoUnidade(pilar.unidade)}</span>
+                          <span className="text-sm text-ink-muted w-4 flex-shrink-0">{sufixoUnidade(pilar.unidade)}</span>
                         </div>
                       </div>
 

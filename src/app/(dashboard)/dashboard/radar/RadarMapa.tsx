@@ -135,7 +135,7 @@ export default function RadarMapa({ pos, raio, clientes, onToggle }: Props) {
   return (
     <div
       ref={divRef}
-      className="h-[calc(100vh-26rem)] min-h-[420px] rounded-2xl border border-line overflow-hidden relative z-0 shadow-[0_8px_28px_rgba(28,42,90,0.14)]"
+      className="h-[calc(100dvh-26rem)] min-h-[420px] rounded-2xl border border-line overflow-hidden relative z-0 shadow-[0_8px_28px_rgba(28,42,90,0.14)]"
     />
   )
 }

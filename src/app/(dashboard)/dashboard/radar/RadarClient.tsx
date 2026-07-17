@@ -9,7 +9,7 @@ import type { ClienteRadar } from './page'
 const RadarMapa = dynamic(() => import('./RadarMapa'), {
   ssr: false,
   loading: () => (
-    <div className="h-[calc(100vh-19rem)] min-h-[420px] rounded-2xl border border-line glass flex items-center justify-center text-sm text-ink-faint">
+    <div className="h-[calc(100dvh-19rem)] min-h-[420px] rounded-2xl border border-line glass flex items-center justify-center text-sm text-ink-faint">
       Carregando mapa…
     </div>
   ),
@@ -192,7 +192,7 @@ export default function RadarClient({ clientes, podeVerTodos, meuNome }: Props) 
               <input value={manualEnd} onChange={e => setManualEnd(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') usarEndereco() }}
                 placeholder="Ex.: Av. Boa Viagem, Recife"
-                className="flex-1 border border-field-line rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary" />
+                className="flex-1 min-w-0 border border-field-line rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary" />
               <button onClick={usarEndereco} disabled={buscandoManual || !manualEnd.trim()}
                 className="bg-card-2 hover:bg-line disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-xl whitespace-nowrap">
                 {buscandoManual ? '…' : 'Usar'}
@@ -295,7 +295,7 @@ export default function RadarClient({ clientes, podeVerTodos, meuNome }: Props) 
 
       {/* Barra de seleção */}
       {selecionados.size > 0 && (
-        <div className="fixed bottom-0 left-60 right-0 glass border-t border-line px-6 py-3 flex items-center gap-3 z-30 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
+        <div className="fixed bottom-0 left-0 md:left-60 right-0 glass border-t border-line px-4 md:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-3 z-30 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
           <span className="text-sm font-semibold text-ink">{selecionados.size} cliente{selecionados.size !== 1 ? 's' : ''} selecionado{selecionados.size !== 1 ? 's' : ''}</span>
           <button onClick={() => setSelecionados(new Set())} className="text-sm text-ink-muted hover:underline ml-auto">Limpar</button>
           <button onClick={criarRota} className="bg-primary hover:bg-primary-dk text-white text-sm font-semibold px-5 py-2 rounded-xl">Criar Rota →</button>

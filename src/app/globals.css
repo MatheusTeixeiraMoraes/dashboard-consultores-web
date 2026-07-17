@@ -124,6 +124,39 @@ body {
 }
 
 /* ============================================================
+ * Celular. Regras que não dá pra resolver com breakpoint do Tailwind.
+ * ============================================================ */
+
+/* O iPhone dá ZOOM na página sozinho quando o foco cai num campo com fonte
+   menor que 16px — e depois não volta, deixando o layout torto. Os campos aqui
+   são text-sm (14px), então todo toque num filtro ou busca bagunçava a tela.
+   Só vale em tela de toque: no desktop os 14px continuam.
+   `hover: none` + `pointer: coarse` = dedo, não mouse. */
+@media (hover: none) and (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Notch e ilha do iPhone. Com viewport-fit=cover a página pinta atrás deles,
+   então o respiro lateral (que só existe em paisagem) volta por aqui. O de
+   baixo é aplicado nas barras fixas, que são o que o gesto de home encobre. */
+body {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Rolagem de tabela/carrossel no celular sem barra visível — o dedo arrasta.
+   A barra continua no desktop, onde é o único jeito de saber que rola. */
+@media (hover: none) and (pointer: coarse) {
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ============================================================
  * Leaflet — usado só pelo Radar. O tile é o CARTO light_all (ver
  * RadarMapa.tsx); aqui alinhamos popup, controles e clusters à paleta.
  * Painel de mapa é opaco de propósito: vidro em cima de tile vira sopa.

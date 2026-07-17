@@ -442,7 +442,11 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
             const endereco = end && !SEM_ENDERECO.test(end) ? end : ''
             const marcado = waSel.has(c.id)
             return (
-              <div key={c.id} className={`glass rounded-2xl border p-4 flex flex-col transition-colors ${marcado ? 'border-primary/60' : 'border-line'}`}>
+              // min-w-0: item de grid tem min-width:auto e NÃO encolhe abaixo do
+              // conteúdo. Sem isto, um e-mail ou endereço longo estica o card e
+              // o `truncate` nunca chega a truncar — no celular o card ficava
+              // com 751px numa tela de 360.
+              <div key={c.id} className={`glass rounded-2xl border p-4 flex flex-col min-w-0 transition-colors ${marcado ? 'border-primary/60' : 'border-line'}`}>
                 <div className="flex items-start gap-2.5">
                   <input type="checkbox" checked={marcado} onChange={() => toggleWa(c.id)} title="Selecionar para WhatsApp"
                     className="accent-primary w-4 h-4 mt-1 flex-shrink-0 cursor-pointer" />
@@ -463,7 +467,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                     exigir entrar no formulário de edição. */}
                 <div className="flex flex-col gap-1.5 mt-3.5 pt-3.5 border-t border-line">
                   <Linha icon="pin" iconCls={gps ? 'text-ink-faint' : 'text-warn'}>
-                    <span className="truncate">{local}</span>
+                    <span className="truncate min-w-0">{local}</span>
                     {!gps && (geoLinha === c.id
                       ? <span className="ml-auto flex-shrink-0 inline-flex items-center gap-1 text-[11px]"><Spinner /> …</span>
                       : <button onClick={() => geocodarLinha(c)} className="ml-auto flex-shrink-0 text-[11px] font-semibold text-warn hover:underline">
@@ -472,22 +476,22 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                   </Linha>
                   <Linha icon="home">
                     {endereco
-                      ? <span className="truncate" title={endereco}>{endereco}</span>
+                      ? <span className="truncate min-w-0" title={endereco}>{endereco}</span>
                       : <span className="text-ink-faint">sem endereço</span>}
                   </Linha>
                   <Linha icon="phone">
                     {wa
-                      ? <a href={wa} target="_blank" rel="noopener noreferrer" className="text-good hover:underline truncate">{c.seller_telefone}</a>
+                      ? <a href={wa} target="_blank" rel="noopener noreferrer" className="text-good hover:underline truncate min-w-0">{c.seller_telefone}</a>
                       : <span className="text-ink-faint">sem telefone</span>}
                   </Linha>
                   <Linha icon="mail">
                     {c.seller_email
-                      ? <a href={`mailto:${c.seller_email}`} className="truncate hover:underline hover:text-ink" title={c.seller_email}>{c.seller_email}</a>
+                      ? <a href={`mailto:${c.seller_email}`} className="truncate min-w-0 hover:underline hover:text-ink" title={c.seller_email}>{c.seller_email}</a>
                       : <span className="text-ink-faint">sem e-mail</span>}
                   </Linha>
                   <Linha icon="doc">
                     {c.cpf_cnpj
-                      ? <span className="truncate">{c.doc_tipo ? `${c.doc_tipo} ${c.cpf_cnpj}` : c.cpf_cnpj}</span>
+                      ? <span className="truncate min-w-0">{c.doc_tipo ? `${c.doc_tipo} ${c.cpf_cnpj}` : c.cpf_cnpj}</span>
                       : <span className="text-ink-faint">sem CPF/CNPJ</span>}
                   </Linha>
                   {podeGerir && (
@@ -554,7 +558,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
 
       {/* Barra de seleção WhatsApp */}
       {waSel.size > 0 && (
-        <div className="fixed bottom-0 left-60 right-0 glass border-t border-line px-6 py-3 flex items-center gap-3 z-30 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
+        <div className="fixed bottom-0 left-0 md:left-60 right-0 glass border-t border-line px-4 md:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-3 z-30 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
           <span className="text-sm font-semibold text-ink">{waSel.size} selecionado{waSel.size !== 1 ? 's' : ''}</span>
           <button onClick={() => setWaSel(new Set())} className="text-sm text-ink-muted hover:underline ml-auto">Limpar</button>
           <button onClick={() => setWaOpen(true)} className="bg-primary hover:bg-primary-dk text-white text-sm font-semibold px-5 py-2 rounded-xl">Enviar WhatsApp</button>

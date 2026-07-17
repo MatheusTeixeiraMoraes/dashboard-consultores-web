@@ -110,7 +110,15 @@ const ROLE_COLOR: Record<UserRole, string> = {
   consultor: 'bg-gray-500',
 }
 
-export default function Sidebar({ role }: { role: UserRole }) {
+/**
+ * `aberto`/`fechar` só valem abaixo de `md`, onde a sidebar é gaveta. Do `md`
+ * pra cima ela é fixa e ignora os dois (o `md:translate-x-0` sempre vence).
+ */
+export default function Sidebar({ role, aberto = false, fechar }: {
+  role: UserRole
+  aberto?: boolean
+  fechar?: () => void
+}) {
   const pathname = usePathname()
   const visible = NAV.filter(item => item.roles.includes(role))
 
@@ -118,7 +126,11 @@ export default function Sidebar({ role }: { role: UserRole }) {
   const mainItems = visible.filter(i => !adminItems.includes(i))
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-60 bg-shell backdrop-blur-xl flex flex-col z-40 border-r border-line">
+    <aside
+      className={`fixed left-0 top-0 h-full w-60 bg-shell backdrop-blur-xl flex flex-col z-40 border-r border-line
+        transition-transform duration-200 ease-out md:translate-x-0
+        ${aberto ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}`}
+    >
       {/* Brand */}
       <div className="px-5 py-5 border-b border-line">
         <div className="flex items-center gap-3">
@@ -144,7 +156,7 @@ export default function Sidebar({ role }: { role: UserRole }) {
             {mainItems.map(({ href, label, icon }) => {
               const active = pathname === href
               return (
-                <Link key={href} href={href}
+                <Link key={href} href={href} onClick={fechar}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     active
                       ? 'bg-primary text-white shadow-lg shadow-primary/20'
@@ -165,7 +177,7 @@ export default function Sidebar({ role }: { role: UserRole }) {
             {adminItems.map(({ href, label, icon }) => {
               const active = pathname === href
               return (
-                <Link key={href} href={href}
+                <Link key={href} href={href} onClick={fechar}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     active
                       ? 'bg-primary text-white shadow-lg shadow-primary/20'
