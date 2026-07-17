@@ -1,60 +1,87 @@
 @import "tailwindcss";
 
 /* ============================================================
- * Design tokens — identidade "Fastboard" (dark).
+ * Design tokens — identidade "Fastboard" (mapa de dia).
  *
- * Direção: mapa noturno. O produto vive em cima de mapa (Radar,
- * Roteirizar, Agenda), então a base não é preto neutro: é o
- * azul-ardósia de um tile de mapa escuro, com brilhos de território
- * ao fundo. Os painéis são vidro sobre esse terreno.
+ * Direção: mapa de dia. O produto vive em cima de mapa (Radar,
+ * Roteirizar, Agenda), então a base não é branco neutro: é o
+ * azul-claro de um tile de mapa diurno, com brilhos de território
+ * ao fundo. Os painéis são vidro sobre esse terreno — o mesmo conceito
+ * do tema noturno anterior, na luz.
  *
  * Os tokens abaixo viram utilitário do Tailwind automaticamente
  * (--color-card => bg-card / text-card / border-card). Trocar a paleta
  * do app inteiro é editar ESTE arquivo — não volte a espalhar hex solto
- * nos componentes.
+ * nos componentes. Isso não é preciosismo: quando o tema virou claro,
+ * cada `#3ECF8E` esquecido num style={{}} virou texto ilegível, e foram
+ * 46 deles em 6 telas.
  * ============================================================ */
 
 @theme {
   /* estrutura */
-  --color-bg:     #0B0F1A;
-  --color-shell:  rgba(13, 18, 34, 0.55);
-  --color-card:   rgba(31, 40, 66, 0.55);
-  --color-card-2: rgba(46, 57, 89, 0.5);
-  --color-line:   rgba(148, 163, 214, 0.16);
+  --color-bg:     #E4EBFA;
+  --color-shell:  rgba(255, 255, 255, 0.58);
+  --color-card:   rgba(255, 255, 255, 0.55);
+  --color-card-2: rgba(226, 233, 250, 0.75);
+  --color-line:   rgba(54, 76, 150, 0.2);
+  /* Superfície OPACA. Card e shell são vidro de propósito, mas tooltip e popup
+     precisam tampar o que está atrás — translúcido em cima de gráfico ou de
+     tile de mapa não se lê. */
+  --color-surface: #FFFFFF;
 
   /* texto */
-  --color-ink:       #F1F3F9;
-  --color-ink-dim:   #C3C9DC;
-  --color-ink-muted: #8B93AD;
-  --color-ink-faint: #5C6480;
+  --color-ink:       #151D36;
+  --color-ink-dim:   #3B456A;
+  --color-ink-muted: #666F93;
+  --color-ink-faint: #8F98B8;
 
   /* marca / ação */
-  --color-primary:    #6172F3;
-  --color-primary-dk: #4A5AE0;
-  --color-primary-lt: #A5B0FF;
+  --color-primary:    #4E5EE4;
+  --color-primary-dk: #3E4CCB;
+  /* No claro, "lt" é texto sobre primary/15 — tem que ser MAIS escuro que a
+     marca, não mais claro. O nome ficou do tema noturno; o papel é o mesmo. */
+  --color-primary-lt: #3E4CCB;
 
-  /* filtros / campos — instrumento, não buraco preto */
-  --color-field:      rgba(97, 114, 243, 0.1);
-  --color-field-line: rgba(129, 140, 248, 0.28);
+  /* filtros / campos — instrumento, não buraco branco */
+  --color-field:      rgba(255, 255, 255, 0.65);
+  --color-field-line: rgba(97, 114, 243, 0.28);
 
-  /* status */
-  --color-good:    #3ECF8E;
-  --color-good-bg: rgba(62, 207, 142, 0.14);
-  --color-warn:    #F5B04E;
-  --color-warn-bg: rgba(245, 176, 78, 0.14);
-  --color-bad:     #F2777A;
-  --color-bad-dk:  #E0585B;
-  --color-bad-bg:  rgba(242, 119, 122, 0.14);
+  /* Status, em três papéis. No escuro um tom só servia pra tudo; no claro não:
+     letra precisa ser escura pra ler, e barra de gráfico precisa ser viva pra
+     não virar lama. `-fill` é área pintada (barra, ponto do mapa), sem texto
+     em cima; o tom chapado é o de texto. */
+  --color-good:      #0B8A5B;
+  --color-good-fill: #10B981;
+  --color-good-bg:   rgba(16, 185, 129, 0.16);
+  --color-warn:      #A05A08;
+  --color-warn-fill: #F59E0B;
+  --color-warn-bg:   rgba(245, 176, 78, 0.22);
+  --color-bad:       #C92A2A;
+  --color-bad-fill:  #EF4444;
+  --color-bad-dk:    #A61E1E;
+  --color-bad-bg:    rgba(242, 119, 122, 0.2);
+
+  /* Cores dos 6 pilares — legenda dos gráficos e dos alertas. Estavam
+     hardcoded em 3 telas no tom 400 do Tailwind (claro, pra fundo escuro);
+     no claro precisam do tom 600. Mesma matiz, então a legenda continua
+     reconhecível. */
+  --color-pilar-tpv:           #2563EB;
+  --color-pilar-net-churn:     #9333EA;
+  --color-pilar-acionaveis:    #EA580C;
+  --color-pilar-aderencia:     #0D9488;
+  --color-pilar-awareness:     #DB2777;
+  --color-pilar-produtividade: #4F46E5;
 
   /* avatares de cliente. A cor é sorteada pelo nome (estável por cliente), só
      pra dar rosto a uma lista de milhares — não codifica status nenhum.
      Como o Tailwind não gera classe montada em runtime, o componente escolhe
-     entre `bg-av-1..5` escritos por extenso. */
-  --color-av-1: #F0993B;
-  --color-av-2: #B48CF2;
-  --color-av-3: #63A6F2;
-  --color-av-4: #3ECF8E;
-  --color-av-5: #F2777A;
+     entre `bg-av-1..5` escritos por extenso. Saturados o bastante pra segurar
+     a letra branca em cima. */
+  --color-av-1: #DD7A22;
+  --color-av-2: #8B5CF6;
+  --color-av-3: #2E7FD4;
+  --color-av-4: #12A66C;
+  --color-av-5: #D9534F;
 
   /* marca Google (botão "Abrir no Maps") — não é paleta nossa, não mexer */
   --color-gmaps:    #4285F4;
@@ -84,26 +111,26 @@ body {
   color: var(--color-ink);
   background-color: var(--color-bg);
   background-image:
-    radial-gradient(65rem 36rem at 4% -10%, rgba(97, 114, 243, 0.42), transparent 64%),
-    radial-gradient(52rem 32rem at 99% -2%, rgba(45, 212, 191, 0.24), transparent 64%),
-    radial-gradient(50rem 36rem at 74% 106%, rgba(192, 132, 252, 0.22), transparent 64%),
-    radial-gradient(40rem 30rem at 30% 60%, rgba(97, 114, 243, 0.12), transparent 66%);
+    radial-gradient(58rem 32rem at 2% -10%, rgba(97, 114, 243, 0.55), transparent 60%),
+    radial-gradient(46rem 30rem at 99% -4%, rgba(20, 184, 166, 0.42), transparent 58%),
+    radial-gradient(44rem 32rem at 78% 106%, rgba(168, 132, 252, 0.44), transparent 60%),
+    radial-gradient(38rem 28rem at 32% 62%, rgba(97, 114, 243, 0.2), transparent 66%);
   background-attachment: fixed;
 }
 
-/* Widgets nativos (setinha do select, caret) seguem o tema escuro. */
+/* Widgets nativos (setinha do select, caret) seguem o tema claro. */
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 /* ============================================================
- * Leaflet no tema dark — usado só pelo Radar. O CSS do pacote assume
- * fundo claro; aqui repintamos popup, controles e clusters na paleta.
+ * Leaflet — usado só pelo Radar. O tile é o CARTO light_all (ver
+ * RadarMapa.tsx); aqui alinhamos popup, controles e clusters à paleta.
  * Painel de mapa é opaco de propósito: vidro em cima de tile vira sopa.
  *
  * Todo seletor daqui é prefixado com .leaflet-container de propósito:
  * o leaflet.css entra pelo import do RadarMapa.tsx e o Turbopack o
- * coloca DEPOIS deste arquivo. Empatando na especificidade, o branco
+ * coloca DEPOIS deste arquivo. Empatando na especificidade, o default
  * dele ganhava por ordem. O prefixo desempata sem !important.
  * ============================================================ */
 div.leaflet-container {
@@ -113,10 +140,10 @@ div.leaflet-container {
 
 .leaflet-container .leaflet-popup-content-wrapper,
 .leaflet-container .leaflet-popup-tip {
-  background: #1B2237;
+  background: var(--color-surface);
   color: var(--color-ink);
   border: 1px solid var(--color-line);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 12px 32px rgba(28, 42, 90, 0.18);
 }
 .leaflet-container .leaflet-popup-content-wrapper { border-radius: var(--radius); }
 .leaflet-container .leaflet-popup-content { margin: 12px 14px; }
@@ -125,23 +152,24 @@ div.leaflet-container {
 
 .leaflet-container .leaflet-bar,
 .leaflet-container .leaflet-bar a {
-  background: #1B2237;
+  background: var(--color-surface);
   color: var(--color-ink-dim);
   border-color: var(--color-line);
 }
-.leaflet-container .leaflet-bar a:hover { background: #29334F; color: var(--color-ink); }
-.leaflet-container .leaflet-bar { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); }
+.leaflet-container .leaflet-bar a:hover { background: #EEF1FA; color: var(--color-ink); }
+.leaflet-container .leaflet-bar { box-shadow: 0 4px 12px rgba(28, 42, 90, 0.16); }
 
 /* A atribuição precisa do .leaflet-control a mais: o leaflet.css já usa
    ".leaflet-container .leaflet-control-attribution" e empatar devolve o
-   branco dele pela ordem. */
+   default dele pela ordem. */
 .leaflet-container .leaflet-control-attribution.leaflet-control {
-  background: rgba(11, 15, 26, 0.75);
+  background: rgba(255, 255, 255, 0.82);
   color: var(--color-ink-faint);
 }
 .leaflet-container .leaflet-control-attribution.leaflet-control a { color: var(--color-ink-muted); }
 
-/* Cluster de clientes: substitui as bolhas verde/amarelo/laranja do pacote. */
+/* Cluster de clientes: substitui as bolhas verde/amarelo/laranja do pacote.
+   Anel branco em volta para destacar do tile claro. */
 .radar-cluster {
   width: 38px;
   height: 38px;
@@ -149,21 +177,21 @@ div.leaflet-container {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(97, 114, 243, 0.92);
+  background: rgba(78, 94, 228, 0.95);
   color: #fff;
   font-size: 12px;
   font-weight: 600;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  box-shadow: 0 0 0 6px rgba(97, 114, 243, 0.18), 0 4px 12px rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 5px rgba(78, 94, 228, 0.16), 0 4px 12px rgba(28, 42, 90, 0.28);
 }
 
 /* Pulso no marcador "você está aqui". */
 .radar-me {
-  filter: drop-shadow(0 0 6px rgba(97, 114, 243, 0.9));
+  filter: drop-shadow(0 0 6px rgba(62, 76, 203, 0.85));
   animation: radar-pulso 2.4s ease-in-out infinite;
 }
 @keyframes radar-pulso {
-  50% { filter: drop-shadow(0 0 14px rgba(97, 114, 243, 1)); }
+  50% { filter: drop-shadow(0 0 14px rgba(62, 76, 203, 1)); }
 }
 @media (prefers-reduced-motion: reduce) {
   .radar-me { animation: none; }

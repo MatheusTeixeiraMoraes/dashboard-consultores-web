@@ -31,15 +31,15 @@ export default function LoginPage() {
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
             </svg>
           </div>
-          <h1 className="text-xl font-bold text-white">Dashboard de Performance</h1>
-          <p className="text-sm text-gray-400 mt-1">Consultores — Mercado Pago</p>
+          <h1 className="text-xl font-bold text-ink">Dashboard de Performance</h1>
+          <p className="text-sm text-ink-muted mt-1">Consultores — Mercado Pago</p>
         </div>
 
         <div className="glass rounded-2xl p-7 border border-line">
-          <h2 className="text-base font-semibold text-white mb-5">Entrar na sua conta</h2>
+          <h2 className="text-base font-semibold text-ink mb-5">Entrar na sua conta</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1.5" htmlFor="email">
+              <label className="block text-xs font-medium text-ink-muted mb-1.5" htmlFor="email">
                 E-mail
               </label>
               <input
@@ -48,12 +48,12 @@ export default function LoginPage() {
                 type="email"
                 autoComplete="email"
                 required
-                className="w-full bg-field border border-field-line rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
+                className="w-full bg-field border border-field-line rounded-xl px-3.5 py-2.5 text-sm text-ink placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
                 placeholder="seu@email.com"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1.5" htmlFor="password">
+              <label className="block text-xs font-medium text-ink-muted mb-1.5" htmlFor="password">
                 Senha
               </label>
               <input
@@ -62,7 +62,7 @@ export default function LoginPage() {
                 type="password"
                 autoComplete="current-password"
                 required
-                className="w-full bg-field border border-field-line rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
+                className="w-full bg-field border border-field-line rounded-xl px-3.5 py-2.5 text-sm text-ink placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
                 placeholder="••••••••"
               />
             </div>
@@ -83,7 +83,7 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-[11px] text-gray-600 mt-6">Mercado Pago © 2025</p>
+        <p className="text-center text-[11px] text-ink-faint mt-6">Mercado Pago © 2025</p>
       </div>
     </div>
   )

@@ -96,18 +96,18 @@ export default function EvolucaoScore({
                 'Score',
               ]}
               // sem backgroundColor o Recharts cai no #fff default e o texto claro some
-              contentStyle={{ backgroundColor: '#1B2237', borderRadius: 8, border: '1px solid var(--color-line)', fontSize: 12 }}
+              contentStyle={{ backgroundColor: 'var(--color-surface)', borderRadius: 8, border: '1px solid var(--color-line)', fontSize: 12 }}
               labelStyle={{ color: 'var(--color-ink)' }}
               itemStyle={{ color: 'var(--color-ink-dim)' }}
             />
             <ReferenceLine
-              y={SCORE_META_MINIMA} stroke="#F5B04E" strokeDasharray="4 4"
-              label={{ value: 'meta mín.', position: 'insideTopRight', fontSize: 10, fill: '#F5B04E' }}
+              y={SCORE_META_MINIMA} stroke="var(--color-warn)" strokeDasharray="4 4"
+              label={{ value: 'meta mín.', position: 'insideTopRight', fontSize: 10, fill: 'var(--color-warn)' }}
             />
             <Line
-              type="monotone" dataKey="score" stroke="#3ECF8E" strokeWidth={2.5}
-              dot={{ fill: '#3ECF8E', r: 4, strokeWidth: 0 }}
-              activeDot={{ r: 6, fill: '#3ECF8E' }}
+              type="monotone" dataKey="score" stroke="var(--color-good)" strokeWidth={2.5}
+              dot={{ fill: 'var(--color-good)', r: 4, strokeWidth: 0 }}
+              activeDot={{ r: 6, fill: 'var(--color-good)' }}
             />
           </LineChart>
         </ResponsiveContainer>

@@ -14,12 +14,12 @@ const PILAR_LABEL: Record<string, string> = {
 }
 
 const PILAR_COLOR: Record<string, string> = {
-  tpv: '#60a5fa',
-  net_churn: '#c084fc',
-  acionaveis: '#fb923c',
-  aderencia: '#2dd4bf',
-  awareness: '#f472b6',
-  produtividade: '#818cf8',
+  tpv: 'var(--color-pilar-tpv)',
+  net_churn: 'var(--color-pilar-net-churn)',
+  acionaveis: 'var(--color-pilar-acionaveis)',
+  aderencia: 'var(--color-pilar-aderencia)',
+  awareness: 'var(--color-pilar-awareness)',
+  produtividade: 'var(--color-pilar-produtividade)',
 }
 
 interface UploadRow {

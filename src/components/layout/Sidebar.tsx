@@ -120,7 +120,7 @@ export default function Sidebar({ role }: { role: UserRole }) {
   return (
     <aside className="fixed left-0 top-0 h-full w-60 bg-shell backdrop-blur-xl flex flex-col z-40 border-r border-line">
       {/* Brand */}
-      <div className="px-5 py-5 border-b border-white/5">
+      <div className="px-5 py-5 border-b border-line">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -128,8 +128,8 @@ export default function Sidebar({ role }: { role: UserRole }) {
             </svg>
           </div>
           <div>
-            <p className="text-sm font-semibold text-white leading-tight">Dashboard</p>
-            <p className="text-[11px] text-gray-500 leading-tight">Consultores MP</p>
+            <p className="text-sm font-semibold text-ink leading-tight">Dashboard</p>
+            <p className="text-[11px] text-ink-faint leading-tight">Consultores MP</p>
           </div>
         </div>
       </div>
@@ -138,7 +138,7 @@ export default function Sidebar({ role }: { role: UserRole }) {
       <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-4">
         {mainItems.length > 0 && (
           <div className="space-y-0.5">
-            <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider px-3 mb-2">
+            <p className="text-[10px] font-semibold text-ink-faint uppercase tracking-wider px-3 mb-2">
               {role === 'consultor' ? 'Minha Performance' : 'Painel'}
             </p>
             {mainItems.map(({ href, label, icon }) => {
@@ -148,10 +148,10 @@ export default function Sidebar({ role }: { role: UserRole }) {
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     active
                       ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                      : 'text-gray-400 hover:bg-white/8 hover:text-white'
+                      : 'text-ink-muted hover:bg-card-2 hover:text-ink'
                   }`}
                 >
-                  <span className={active ? 'text-white' : 'text-gray-500'}>{icon}</span>
+                  <span className={active ? 'text-white' : 'text-ink-faint'}>{icon}</span>
                   {label}
                 </Link>
               )
@@ -161,7 +161,7 @@ export default function Sidebar({ role }: { role: UserRole }) {
 
         {adminItems.length > 0 && (
           <div className="space-y-0.5">
-            <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider px-3 mb-2">Administração</p>
+            <p className="text-[10px] font-semibold text-ink-faint uppercase tracking-wider px-3 mb-2">Administração</p>
             {adminItems.map(({ href, label, icon }) => {
               const active = pathname === href
               return (
@@ -169,10 +169,10 @@ export default function Sidebar({ role }: { role: UserRole }) {
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     active
                       ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                      : 'text-gray-400 hover:bg-white/8 hover:text-white'
+                      : 'text-ink-muted hover:bg-card-2 hover:text-ink'
                   }`}
                 >
-                  <span className={active ? 'text-white' : 'text-gray-500'}>{icon}</span>
+                  <span className={active ? 'text-white' : 'text-ink-faint'}>{icon}</span>
                   {label}
                 </Link>
               )
@@ -182,10 +182,10 @@ export default function Sidebar({ role }: { role: UserRole }) {
       </nav>
 
       {/* Role badge */}
-      <div className="px-4 py-4 border-t border-white/5">
+      <div className="px-4 py-4 border-t border-line">
         <div className="flex items-center gap-2">
           <span className={`w-2 h-2 rounded-full ${ROLE_COLOR[role]}`} />
-          <p className="text-[11px] text-gray-400">{ROLE_LABEL[role]}</p>
+          <p className="text-[11px] text-ink-muted">{ROLE_LABEL[role]}</p>
         </div>
       </div>
     </aside>

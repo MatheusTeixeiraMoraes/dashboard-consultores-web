@@ -56,7 +56,7 @@ export default function PilaresDetalhe({ resultados, pilaresConfig, dataReferenc
       {GRUPOS.map(grupo => {
         const grupoMax = grupo.pilares.reduce((s, p) => s + (cfgPorPilar[p]?.pontos_max ?? 0), 0)
         const grupoScore = grupo.pilares.reduce((s, p) => s + (porPilar[p]?.score_planilha ?? 0), 0)
-        const grupoColor = grupoScore >= grupoMax ? '#3ECF8E' : grupoScore > 0 ? '#F5B04E' : '#F2777A'
+        const grupoColor = grupoScore >= grupoMax ? 'var(--color-good)' : grupoScore > 0 ? 'var(--color-warn)' : 'var(--color-bad)'
 
         return (
           <div key={grupo.key}>

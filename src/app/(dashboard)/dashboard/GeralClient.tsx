@@ -9,14 +9,14 @@ const PILAR_LABEL: Record<string, string> = {
   aderencia: 'Agenda', awareness: 'AW', produtividade: 'Prod',
 }
 const PILAR_COLOR: Record<string, string> = {
-  tpv: '#60a5fa', net_churn: '#c084fc', acionaveis: '#fb923c',
-  aderencia: '#2dd4bf', awareness: '#f472b6', produtividade: '#818cf8',
+  tpv: 'var(--color-pilar-tpv)', net_churn: 'var(--color-pilar-net-churn)', acionaveis: 'var(--color-pilar-acionaveis)',
+  aderencia: 'var(--color-pilar-aderencia)', awareness: 'var(--color-pilar-awareness)', produtividade: 'var(--color-pilar-produtividade)',
 }
 
 function statusStyle(score: number) {
-  if (score >= 4.5) return { bg: 'var(--color-good-bg)', text: '#3ECF8E' }
-  if (score >= 3.0) return { bg: 'var(--color-warn-bg)', text: '#F5B04E' }
-  return { bg: 'var(--color-bad-bg)', text: '#F2777A' }
+  if (score >= 4.5) return { bg: 'var(--color-good-bg)', text: 'var(--color-good)' }
+  if (score >= 3.0) return { bg: 'var(--color-warn-bg)', text: 'var(--color-warn)' }
+  return { bg: 'var(--color-bad-bg)', text: 'var(--color-bad)' }
 }
 
 function fmtMeta(meta: number, unidade: string): string {
@@ -68,9 +68,9 @@ export default function GeralClient({ ranking, dateDisplay, metaMap }: Props) {
   }, [ranking])
 
   const chartData = [
-    { name: 'Acima da meta', count: stats.acima, color: '#3ECF8E' },
-    { name: 'Na linha', count: stats.naLinha, color: '#F5B04E' },
-    { name: 'Crítico', count: stats.critico, color: '#F2777A' },
+    { name: 'Acima da meta', count: stats.acima, color: 'var(--color-good-fill)' },
+    { name: 'Na linha', count: stats.naLinha, color: 'var(--color-warn-fill)' },
+    { name: 'Crítico', count: stats.critico, color: 'var(--color-bad-fill)' },
   ]
 
   return (
@@ -87,13 +87,13 @@ export default function GeralClient({ ranking, dateDisplay, metaMap }: Props) {
           label="Acima da meta"
           value={String(stats.acima)}
           sub={`${ranking.length > 0 ? Math.round(stats.acima / ranking.length * 100) : 0}% da equipe`}
-          color="#3ECF8E"
+          color="var(--color-good)"
         />
         <SummaryCard
           label="Crítico"
           value={String(stats.critico)}
           sub={`${ranking.length > 0 ? Math.round(stats.critico / ranking.length * 100) : 0}% da equipe`}
-          color="#F2777A"
+          color="var(--color-bad)"
         />
         <SummaryCard
           label="Média da equipe"
@@ -118,7 +118,7 @@ export default function GeralClient({ ranking, dateDisplay, metaMap }: Props) {
                 // backgroundColor é obrigatório: sem ele o Recharts usa #fff e o texto
                 // claro do body some. itemStyle idem — o default é #000 porque a cor
                 // das barras vive nas <Cell>, não no <Bar>.
-                contentStyle={{ backgroundColor: '#1B2237', borderRadius: 8, border: '1px solid var(--color-line)', fontSize: 12 }}
+                contentStyle={{ backgroundColor: 'var(--color-surface)', borderRadius: 8, border: '1px solid var(--color-line)', fontSize: 12 }}
                 labelStyle={{ color: 'var(--color-ink)' }}
                 itemStyle={{ color: 'var(--color-ink-dim)' }}
                 cursor={{ fill: 'var(--color-card-2)' }}

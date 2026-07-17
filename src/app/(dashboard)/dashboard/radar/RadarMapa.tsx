@@ -45,8 +45,10 @@ export default function RadarMapa({ pos, raio, clientes, onToggle }: Props) {
       LRef.current = L
       const map = L.map(div, { zoomControl: false }).setView([pos.lat, pos.lng], 13)
       L.control.zoom({ position: 'bottomright' }).addTo(map)
-      // Tiles dark (CARTO, sem chave) para o mapa não brigar com a identidade escura.
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      // Tiles claros (CARTO, sem chave) para o mapa acompanhar a identidade
+      // "mapa de dia". Mesma fonte e mesma atribuição da variante escura —
+      // trocar de tema é trocar light_all/dark_all aqui.
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '© OpenStreetMap © CARTO', maxZoom: 19,
       }).addTo(map)
       const cluster = L.markerClusterGroup({
@@ -95,16 +97,20 @@ export default function RadarMapa({ pos, raio, clientes, onToggle }: Props) {
 
     cluster.clearLayers()
     for (const c of clientes) {
-      const cor = c.selecionado ? '#3ECF8E' : '#F2777A'
+      const cor = c.selecionado ? 'var(--color-good)' : 'var(--color-bad)'
+      // O halo é token próprio, não `${cor}33`: aquilo era hex-alpha e só
+      // funcionava enquanto a cor fosse hex literal — com var() vira CSS
+      // inválido e o halo some sem avisar.
+      const halo = c.selecionado ? 'var(--color-good-bg)' : 'var(--color-bad-bg)'
       const icon = L.divIcon({
         className: '',
-        html: `<div style="width:12px;height:12px;border-radius:50%;background:${cor};border:1.5px solid rgba(255,255,255,.9);box-shadow:0 0 0 4px ${cor}33,0 2px 6px rgba(0,0,0,.6)"></div>`,
+        html: `<div style="width:12px;height:12px;border-radius:50%;background:${cor};border:1.5px solid rgba(255,255,255,.9);box-shadow:0 0 0 4px ${halo},0 2px 5px rgba(28,42,90,.35)"></div>`,
         iconSize: [12, 12], iconAnchor: [6, 6],
       })
       const marker = L.marker([c.lat, c.lng], { icon })
 
       const tel = (c.seller_telefone ?? '').replace(/\D/g, '')
-      const wa = tel ? `<a href="https://wa.me/${tel.startsWith('55') ? tel : '55' + tel}" target="_blank" rel="noopener" style="color:#3ECF8E">WhatsApp</a>` : ''
+      const wa = tel ? `<a href="https://wa.me/${tel.startsWith('55') ? tel : '55' + tel}" target="_blank" rel="noopener" style="color:var(--color-good)">WhatsApp</a>` : ''
       const el = document.createElement('div')
       el.style.fontSize = '12px'
       el.style.minWidth = '180px'
@@ -112,10 +118,10 @@ export default function RadarMapa({ pos, raio, clientes, onToggle }: Props) {
         <div style="font-weight:600;font-size:13px;color:var(--color-ink)">${esc(c.seller_nome || '#' + c.seller_id)}</div>
         <div style="color:var(--color-ink-muted);margin-top:2px">#${esc(c.seller_id)} · ${c.bairro ? esc(c.bairro) + ', ' : ''}${esc(c.cidade)}</div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
-          <span style="background:var(--color-good-bg);color:#3ECF8E;font-weight:700;font-size:11px;padding:2px 8px;border-radius:999px">${c.dist.toFixed(1).replace('.', ',')} km</span>
+          <span style="background:var(--color-good-bg);color:var(--color-good);font-weight:700;font-size:11px;padding:2px 8px;border-radius:999px">${c.dist.toFixed(1).replace('.', ',')} km</span>
           ${wa}
         </div>
-        <button type="button" style="margin-top:8px;width:100%;background:${c.selecionado ? 'var(--color-good-bg)' : '#3ECF8E'};color:${c.selecionado ? '#3ECF8E' : 'var(--color-bg)'};border:1px solid ${c.selecionado ? '#3ECF8E' : 'transparent'};border-radius:8px;padding:5px 10px;cursor:pointer;font-weight:600;font-size:12px">
+        <button type="button" style="margin-top:8px;width:100%;background:${c.selecionado ? 'var(--color-good-bg)' : 'var(--color-good)'};color:${c.selecionado ? 'var(--color-good)' : 'var(--color-bg)'};border:1px solid ${c.selecionado ? 'var(--color-good)' : 'transparent'};border-radius:8px;padding:5px 10px;cursor:pointer;font-weight:600;font-size:12px">
           ${c.selecionado ? '✓ Selecionado' : '+ Selecionar'}
         </button>`
       el.querySelector('button')!.addEventListener('click', () => onToggleRef.current(c.seller_id))
@@ -129,7 +135,7 @@ export default function RadarMapa({ pos, raio, clientes, onToggle }: Props) {
   return (
     <div
       ref={divRef}
-      className="h-[calc(100vh-26rem)] min-h-[420px] rounded-2xl border border-line overflow-hidden relative z-0 shadow-[0_8px_32px_rgba(0,0,0,0.45)]"
+      className="h-[calc(100vh-26rem)] min-h-[420px] rounded-2xl border border-line overflow-hidden relative z-0 shadow-[0_8px_28px_rgba(28,42,90,0.14)]"
     />
   )
 }

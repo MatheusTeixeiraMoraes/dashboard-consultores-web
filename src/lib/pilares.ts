@@ -44,7 +44,7 @@ export const PILARES: Record<PilarKey, PilarSpec> = {
   awareness: {
     key: 'awareness',
     label: 'Awareness',
-    color: '#f472b6',
+    color: 'var(--color-pilar-awareness)',
     grupo: 'atuacao',
     scoreCol: 'SCORE pesquisa',
     valorCol: '%Awareness',
@@ -59,7 +59,7 @@ export const PILARES: Record<PilarKey, PilarSpec> = {
   produtividade: {
     key: 'produtividade',
     label: 'Produtividade',
-    color: '#818cf8',
+    color: 'var(--color-pilar-produtividade)',
     grupo: 'atuacao',
     scoreCol: 'SCORE prod',
     valorCol: 'Prod média por dia útil',
@@ -77,7 +77,7 @@ export const PILARES: Record<PilarKey, PilarSpec> = {
   aderencia: {
     key: 'aderencia',
     label: 'Aderência a Agenda',
-    color: '#2dd4bf',
+    color: 'var(--color-pilar-aderencia)',
     grupo: 'atuacao',
     scoreCol: 'SCORE aderência à agenda',
     valorCol: '%Aderência à agenda',
@@ -93,7 +93,7 @@ export const PILARES: Record<PilarKey, PilarSpec> = {
   tpv: {
     key: 'tpv',
     label: 'TPV',
-    color: '#60a5fa',
+    color: 'var(--color-pilar-tpv)',
     grupo: 'resultado',
     scoreCol: 'SCORE tpv',
     valorCol: 'Variação de TPV versus mês passado',
@@ -112,7 +112,7 @@ export const PILARES: Record<PilarKey, PilarSpec> = {
   net_churn: {
     key: 'net_churn',
     label: 'Net Churn',
-    color: '#c084fc',
+    color: 'var(--color-pilar-net-churn)',
     grupo: 'resultado',
     scoreCol: 'SCORE net churn',
     valorCol: '%Net churn',
@@ -132,7 +132,7 @@ export const PILARES: Record<PilarKey, PilarSpec> = {
   acionaveis: {
     key: 'acionaveis',
     label: 'Acionáveis Comerciais',
-    color: '#fb923c',
+    color: 'var(--color-pilar-acionaveis)',
     grupo: 'resultado',
     scoreCol: 'SCORE acionáveis comerciais',
     valorCol: 'Total Acionáveis %Tarefa-Revertido',

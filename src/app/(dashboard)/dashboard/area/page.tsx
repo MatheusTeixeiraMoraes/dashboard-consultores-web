@@ -11,9 +11,9 @@ import { PILARES, PILAR_KEYS, fmtValor, fmtMeta } from '@/lib/pilares'
  */
 function statusStyle(score: number, pontosMax: number) {
   const aproveitamento = pontosMax > 0 ? score / pontosMax : 0
-  if (aproveitamento >= 0.9) return { bg: 'var(--color-good-bg)', text: '#3ECF8E' }
-  if (aproveitamento >= 0.6) return { bg: 'var(--color-warn-bg)', text: '#F5B04E' }
-  return { bg: 'var(--color-bad-bg)', text: '#F2777A' }
+  if (aproveitamento >= 0.9) return { bg: 'var(--color-good-bg)', text: 'var(--color-good)' }
+  if (aproveitamento >= 0.6) return { bg: 'var(--color-warn-bg)', text: 'var(--color-warn)' }
+  return { bg: 'var(--color-bad-bg)', text: 'var(--color-bad)' }
 }
 
 export default async function AreaPage() {

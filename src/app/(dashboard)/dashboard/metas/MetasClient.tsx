@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { PillarConfig } from '@/lib/types'
 
 const CAT_LABEL: Record<string, string> = { atuacao: 'Atuação', resultado: 'Resultado' }
-const CAT_COLOR: Record<string, string> = { atuacao: 'var(--color-primary)', resultado: '#3ECF8E' }
+const CAT_COLOR: Record<string, string> = { atuacao: 'var(--color-primary)', resultado: 'var(--color-good)' }
 
 /** 'numero' é o enum do banco, não uma unidade pra mostrar em tela. */
 function sufixoUnidade(unidade: string) {

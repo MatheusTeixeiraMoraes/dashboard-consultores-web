@@ -8,8 +8,8 @@ const PILAR_LABEL: Record<string, string> = {
   aderencia: 'Aderência', awareness: 'Awareness', produtividade: 'Produtividade',
 }
 const PILAR_COLOR: Record<string, string> = {
-  tpv: '#60a5fa', net_churn: '#c084fc', acionaveis: '#fb923c',
-  aderencia: '#2dd4bf', awareness: '#f472b6', produtividade: '#818cf8',
+  tpv: 'var(--color-pilar-tpv)', net_churn: 'var(--color-pilar-net-churn)', acionaveis: 'var(--color-pilar-acionaveis)',
+  aderencia: 'var(--color-pilar-aderencia)', awareness: 'var(--color-pilar-awareness)', produtividade: 'var(--color-pilar-produtividade)',
 }
 
 interface Consultor {
@@ -21,7 +21,7 @@ interface Consultor {
 
 function AlertCard({ c }: { c: Consultor }) {
   const isCritico = c.total < 3.0
-  const color = isCritico ? '#F2777A' : '#F5B04E'
+  const color = isCritico ? 'var(--color-bad)' : 'var(--color-warn)'
   const bg = isCritico ? 'var(--color-bad-bg)' : 'var(--color-warn-bg)'
   const label = isCritico ? 'CRÍTICO' : 'NA LINHA'
 
@@ -59,7 +59,7 @@ function AlertCard({ c }: { c: Consultor }) {
               className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border"
               style={{
                 background: zerado ? 'var(--color-bad-bg)' : `${pilarColor}12`,
-                color: zerado ? '#F2777A' : pilarColor,
+                color: zerado ? 'var(--color-bad)' : pilarColor,
                 borderColor: zerado ? 'var(--color-bad)' : `${pilarColor}30`,
               }}
             >
@@ -140,7 +140,7 @@ export default async function AlertasPage() {
       {criticos.length === 0 && naLinha.length === 0 ? (
         <div className="glass rounded-2xl border border-line p-14 text-center">
           <div className="w-12 h-12 rounded-2xl bg-good-bg flex items-center justify-center mx-auto mb-3">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3ECF8E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-good)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>

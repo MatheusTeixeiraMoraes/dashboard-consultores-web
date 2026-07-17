@@ -6,9 +6,9 @@ import { PILAR_KEYS } from '@/lib/pilares'
 import { SCORE_MAX, SCORE_META_MINIMA, scoreStatus } from '@/lib/types'
 
 const STATUS = {
-  acima:    { label: 'Acima da meta', bg: 'var(--color-good-bg)', text: '#3ECF8E' },
-  na_linha: { label: 'Na linha',      bg: 'var(--color-warn-bg)', text: '#F5B04E' },
-  critico:  { label: 'Crítico',       bg: 'var(--color-bad-bg)', text: '#F2777A' },
+  acima:    { label: 'Acima da meta', bg: 'var(--color-good-bg)', text: 'var(--color-good)' },
+  na_linha: { label: 'Na linha',      bg: 'var(--color-warn-bg)', text: 'var(--color-warn)' },
+  critico:  { label: 'Crítico',       bg: 'var(--color-bad-bg)', text: 'var(--color-bad)' },
 } as const
 
 interface Props {

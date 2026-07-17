@@ -180,7 +180,7 @@ export default function RadarClient({ clientes, podeVerTodos, meuNome }: Props) 
       <RadarShell>
         <div className="glass rounded-2xl border border-line p-14 text-center">
           <div className="w-12 h-12 rounded-2xl bg-bad-bg flex items-center justify-center mx-auto mb-3">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F2777A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-bad)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
           </div>
           <p className="font-semibold text-ink">Não foi possível obter sua localização</p>
           <p className="text-sm text-ink-muted mt-1 mb-4 max-w-md mx-auto">{geoMsg}</p>
@@ -316,7 +316,7 @@ function RadarShell({ children, contador, onAtualizarGps, atualizando }: {
         <div>
           <h1 className="text-xl font-bold text-ink tracking-tight">Radar de Clientes</h1>
           <p className="text-sm text-ink-muted mt-0.5 flex items-center gap-1.5">
-            {contador && <span className="w-1.5 h-1.5 rounded-full bg-good shadow-[0_0_6px_#3ECF8E]" />}
+            {contador && <span className="w-1.5 h-1.5 rounded-full bg-good shadow-[0_0_6px_var(--color-good)]" />}
             {contador ?? 'Clientes próximos de você agora'}
           </p>
         </div>

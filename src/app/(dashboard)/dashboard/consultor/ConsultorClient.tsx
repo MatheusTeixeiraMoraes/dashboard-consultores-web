@@ -7,9 +7,9 @@ import { PILAR_KEYS } from '@/lib/pilares'
 import { SCORE_MAX, SCORE_META_MINIMA, scoreStatus } from '@/lib/types'
 
 const STATUS = {
-  acima:    { label: `Acima da meta mínima (${SCORE_META_MINIMA.toFixed(1).replace('.', ',')} pts)`, text: '#3ECF8E' },
-  na_linha: { label: 'Na linha', text: '#F5B04E' },
-  critico:  { label: 'Crítico',  text: '#F2777A' },
+  acima:    { label: `Acima da meta mínima (${SCORE_META_MINIMA.toFixed(1).replace('.', ',')} pts)`, text: 'var(--color-good)' },
+  na_linha: { label: 'Na linha', text: 'var(--color-warn)' },
+  critico:  { label: 'Crítico',  text: 'var(--color-bad)' },
 } as const
 
 interface Resultado extends ResultadoPilar {
@@ -102,7 +102,7 @@ export default function ConsultorClient({ resultados, dateDisplay, dataReferenci
           {!selectedId || total === null || !st ? (
             <div className="glass rounded-2xl border border-line p-12 text-center">
               <div className="w-12 h-12 rounded-2xl bg-good-bg flex items-center justify-center mx-auto mb-3">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3ECF8E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-good)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
                 </svg>
               </div>
