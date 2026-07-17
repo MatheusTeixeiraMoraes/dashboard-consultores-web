@@ -23,9 +23,9 @@ function fmtData(iso: string | null) {
 
 function KPI({ label, valor, sufixo }: { label: string; valor: string; sufixo?: string }) {
   return (
-    <div className="bg-white rounded-2xl border border-[#E5E7EB] p-4">
-      <p className="text-[11px] uppercase tracking-wider font-semibold text-[#6B7280] mb-1">{label}</p>
-      <p className="text-3xl font-bold text-[#111827]">{valor}<span className="text-base font-medium text-[#9CA3AF]">{sufixo}</span></p>
+    <div className="bg-[#17171B] rounded-2xl border border-[#26262B] p-4">
+      <p className="text-[11px] uppercase tracking-wider font-semibold text-[#8A8A93] mb-1">{label}</p>
+      <p className="text-3xl font-bold text-[#F4F4F5]">{valor}<span className="text-base font-medium text-[#5C5C64]">{sufixo}</span></p>
     </div>
   )
 }
@@ -99,10 +99,10 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
     <div>
       <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
         <div>
-          <h1 className="text-xl font-bold text-[#111827]">Agenda</h1>
-          <p className="text-sm text-[#6B7280] mt-0.5">Rotas salvas{podeVerTodos ? ' da equipe' : ''}</p>
+          <h1 className="text-xl font-bold text-[#F4F4F5]">Agenda</h1>
+          <p className="text-sm text-[#8A8A93] mt-0.5">Rotas salvas{podeVerTodos ? ' da equipe' : ''}</p>
         </div>
-        <button onClick={() => router.push('/dashboard/roteirizar')} className="bg-[#10B981] hover:bg-[#047857] text-white text-sm font-semibold px-4 py-2 rounded-xl">Nova rota</button>
+        <button onClick={() => router.push('/dashboard/roteirizar')} className="bg-[#4F5FE0] hover:bg-[#3D4BC4] text-white text-sm font-semibold px-4 py-2 rounded-xl">Nova rota</button>
       </div>
 
       <div className="grid grid-cols-3 gap-3 mb-5">
@@ -111,29 +111,29 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
         <KPI label="Horas em rota" valor={kpis.horas.toFixed(1).replace('.', ',')} sufixo=" h" />
       </div>
 
-      {erro && <p className="text-xs text-[#EF4444] bg-[#FEF2F2] rounded-lg px-3 py-2 mb-3">{erro}</p>}
+      {erro && <p className="text-xs text-[#F2777A] bg-[#3C1E22] rounded-lg px-3 py-2 mb-3">{erro}</p>}
 
       {rotas.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-[#E5E7EB] p-12 text-center">
-          <p className="font-semibold text-[#111827]">Nenhuma rota salva ainda</p>
-          <p className="text-sm text-[#6B7280] mt-1">Monte uma no <strong className="text-[#10B981]">Roteirizar</strong> ou pelo Radar.</p>
+        <div className="bg-[#17171B] rounded-2xl border border-[#26262B] p-12 text-center">
+          <p className="font-semibold text-[#F4F4F5]">Nenhuma rota salva ainda</p>
+          <p className="text-sm text-[#8A8A93] mt-1">Monte uma no <strong className="text-[#3ECF8E]">Roteirizar</strong> ou pelo Radar.</p>
         </div>
       ) : (
         <div className="space-y-3">
           {rotas.map(r => (
-            <div key={r.id} className="bg-white rounded-2xl border border-[#E5E7EB] p-5">
+            <div key={r.id} className="bg-[#17171B] rounded-2xl border border-[#26262B] p-5">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="min-w-0">
                   {editando === r.id ? (
                     <div className="flex items-center gap-2">
-                      <input value={nomeEdit} onChange={e => setNomeEdit(e.target.value)} className="border border-[#E5E7EB] rounded-lg px-2 py-1 text-sm" autoFocus />
-                      <button onClick={() => salvarNome(r.id)} className="text-[#10B981] text-xs font-semibold">Salvar</button>
-                      <button onClick={() => setEditando(null)} className="text-[#6B7280] text-xs">Cancelar</button>
+                      <input value={nomeEdit} onChange={e => setNomeEdit(e.target.value)} className="border border-[#26262B] rounded-lg px-2 py-1 text-sm" autoFocus />
+                      <button onClick={() => salvarNome(r.id)} className="text-[#3ECF8E] text-xs font-semibold">Salvar</button>
+                      <button onClick={() => setEditando(null)} className="text-[#8A8A93] text-xs">Cancelar</button>
                     </div>
                   ) : (
-                    <p className="font-semibold text-[#111827]">{r.nome_rota || 'Rota sem nome'}</p>
+                    <p className="font-semibold text-[#F4F4F5]">{r.nome_rota || 'Rota sem nome'}</p>
                   )}
-                  <p className="text-xs text-[#6B7280] mt-0.5">
+                  <p className="text-xs text-[#8A8A93] mt-0.5">
                     {fmtData(r.data_visita)} · {r.stops?.length ?? 0} cliente{(r.stops?.length ?? 0) !== 1 ? 's' : ''}
                     {r.distancia_km != null ? ` · ${r.distancia_km.toFixed(1).replace('.', ',')} km` : ''}
                     {r.tempo_minutos != null ? ` · ${Math.round(r.tempo_minutos)} min` : ''}
@@ -143,17 +143,17 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
                 <div className="flex items-center gap-3 text-xs">
                   {confirmar === r.id ? (
                     <>
-                      <span className="text-[#EF4444]">Excluir?</span>
-                      <button onClick={() => excluir(r.id)} className="bg-[#EF4444] text-white px-2 py-0.5 rounded-md font-semibold">Sim</button>
-                      <button onClick={() => setConfirmar(null)} className="text-[#6B7280]">Não</button>
+                      <span className="text-[#F2777A]">Excluir?</span>
+                      <button onClick={() => excluir(r.id)} className="bg-[#F2777A] text-white px-2 py-0.5 rounded-md font-semibold">Sim</button>
+                      <button onClick={() => setConfirmar(null)} className="text-[#8A8A93]">Não</button>
                     </>
                   ) : (
                     <>
-                      <button onClick={() => refazer(r)} disabled={refazendo === r.id} className="text-[#10B981] font-medium hover:underline disabled:opacity-50">
+                      <button onClick={() => refazer(r)} disabled={refazendo === r.id} className="text-[#3ECF8E] font-medium hover:underline disabled:opacity-50">
                         {refazendo === r.id ? 'Refazendo…' : 'Refazer'}
                       </button>
-                      <button onClick={() => { setEditando(r.id); setNomeEdit(r.nome_rota) }} className="text-[#3B82F6] font-medium hover:underline">Renomear</button>
-                      <button onClick={() => setConfirmar(r.id)} className="text-[#EF4444] font-medium hover:underline">Excluir</button>
+                      <button onClick={() => { setEditando(r.id); setNomeEdit(r.nome_rota) }} className="text-[#4F5FE0] font-medium hover:underline">Renomear</button>
+                      <button onClick={() => setConfirmar(r.id)} className="text-[#F2777A] font-medium hover:underline">Excluir</button>
                     </>
                   )}
                 </div>
@@ -162,7 +162,7 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
               {(r.stops?.length ?? 0) > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-3">
                   {r.stops.map((s, i) => (
-                    <span key={s.seller_id} className="text-[11px] bg-[#F9FAFB] border border-[#F3F4F6] rounded-lg px-2 py-1 text-[#374151]">
+                    <span key={s.seller_id} className="text-[11px] bg-[#1D1D22] border border-[#26262B] rounded-lg px-2 py-1 text-[#C4C4CC]">
                       {i + 1}. {s.seller_nome || `#${s.seller_id}`}
                     </span>
                   ))}
@@ -173,7 +173,7 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
                 const links = linksMapsDaRota(r)
                 if (links.length === 0) return null
                 return (
-                  <div className="flex items-center gap-2 flex-wrap mt-3 pt-3 border-t border-[#F3F4F6]">
+                  <div className="flex items-center gap-2 flex-wrap mt-3 pt-3 border-t border-[#26262B]">
                     {links.length === 1 ? (
                       <a href={links[0]} target="_blank" rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 bg-[#4285F4] hover:bg-[#3367D6] text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
@@ -182,7 +182,7 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
                       </a>
                     ) : (
                       <>
-                        <span className="text-[11px] text-[#6B7280] inline-flex items-center gap-1">
+                        <span className="text-[11px] text-[#8A8A93] inline-flex items-center gap-1">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4285F4" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
                           Google Maps ({links.length} trechos):
                         </span>

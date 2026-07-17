@@ -21,21 +21,21 @@ interface Consultor {
 
 function AlertCard({ c }: { c: Consultor }) {
   const isCritico = c.total < 3.0
-  const color = isCritico ? '#EF4444' : '#F59E0B'
-  const bg = isCritico ? '#FEF2F2' : '#FFFBEB'
+  const color = isCritico ? '#F2777A' : '#F5B04E'
+  const bg = isCritico ? '#3C1E22' : '#3A2E17'
   const label = isCritico ? 'CRÍTICO' : 'NA LINHA'
 
   return (
-    <div className="bg-white rounded-2xl border border-[#E5E7EB] p-5" style={{ borderLeft: `3px solid ${color}` }}>
+    <div className="bg-[#17171B] rounded-2xl border border-[#26262B] p-5" style={{ borderLeft: `3px solid ${color}` }}>
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-semibold text-[#111827] text-sm">{c.nome}</p>
+            <p className="font-semibold text-[#F4F4F5] text-sm">{c.nome}</p>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: bg, color }}>
               {label}
             </span>
           </div>
-          <p className="text-xs text-[#6B7280] mt-0.5">
+          <p className="text-xs text-[#8A8A93] mt-0.5">
             Carteira {c.id} · Score abaixo de {isCritico ? '3,0' : '4,5'} pts
           </p>
         </div>
@@ -58,9 +58,9 @@ function AlertCard({ c }: { c: Consultor }) {
               key={p}
               className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border"
               style={{
-                background: zerado ? '#FEF2F2' : `${pilarColor}12`,
-                color: zerado ? '#EF4444' : pilarColor,
-                borderColor: zerado ? '#FCA5A5' : `${pilarColor}30`,
+                background: zerado ? '#3C1E22' : `${pilarColor}12`,
+                color: zerado ? '#F2777A' : pilarColor,
+                borderColor: zerado ? '#8A4548' : `${pilarColor}30`,
               }}
             >
               <span className="font-medium">{PILAR_LABEL[p]}</span>
@@ -92,11 +92,11 @@ export default async function AlertasPage() {
     return (
       <div>
         <div className="mb-6">
-          <h1 className="text-xl font-bold text-[#111827]">Alertas</h1>
-          <p className="text-sm text-[#6B7280] mt-0.5">Performance abaixo da meta mínima</p>
+          <h1 className="text-xl font-bold text-[#F4F4F5]">Alertas</h1>
+          <p className="text-sm text-[#8A8A93] mt-0.5">Performance abaixo da meta mínima</p>
         </div>
-        <div className="bg-white rounded-2xl border border-[#E5E7EB] p-12 text-center">
-          <p className="font-semibold text-[#111827]">Nenhum dado carregado ainda</p>
+        <div className="bg-[#17171B] rounded-2xl border border-[#26262B] p-12 text-center">
+          <p className="font-semibold text-[#F4F4F5]">Nenhum dado carregado ainda</p>
         </div>
       </div>
     )
@@ -133,31 +133,31 @@ export default async function AlertasPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-[#111827]">Alertas</h1>
-        <p className="text-sm text-[#6B7280] mt-0.5">Performance abaixo da meta · {dateDisplay}</p>
+        <h1 className="text-xl font-bold text-[#F4F4F5]">Alertas</h1>
+        <p className="text-sm text-[#8A8A93] mt-0.5">Performance abaixo da meta · {dateDisplay}</p>
       </div>
 
       {criticos.length === 0 && naLinha.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-[#E5E7EB] p-14 text-center">
-          <div className="w-12 h-12 rounded-2xl bg-[#F0FDF4] flex items-center justify-center mx-auto mb-3">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <div className="bg-[#17171B] rounded-2xl border border-[#26262B] p-14 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-[#163A28] flex items-center justify-center mx-auto mb-3">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3ECF8E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
-          <p className="font-semibold text-[#10B981]">Nenhum alerta!</p>
-          <p className="text-sm text-[#6B7280] mt-1">Toda a equipe está acima da meta mínima.</p>
+          <p className="font-semibold text-[#3ECF8E]">Nenhum alerta!</p>
+          <p className="text-sm text-[#8A8A93] mt-1">Toda a equipe está acima da meta mínima.</p>
         </div>
       ) : (
         <div className="space-y-7">
           {criticos.length > 0 && (
             <section>
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-2.5 h-2.5 rounded-full bg-[#EF4444]" />
-                <h2 className="text-sm font-semibold text-[#111827]">
+                <div className="w-2.5 h-2.5 rounded-full bg-[#F2777A]" />
+                <h2 className="text-sm font-semibold text-[#F4F4F5]">
                   Crítico
-                  <span className="ml-1.5 text-[#6B7280] font-normal">— score abaixo de 3,0 pts</span>
+                  <span className="ml-1.5 text-[#8A8A93] font-normal">— score abaixo de 3,0 pts</span>
                 </h2>
-                <span className="ml-auto text-xs font-bold text-[#EF4444] bg-[#FEF2F2] px-2.5 py-0.5 rounded-full">
+                <span className="ml-auto text-xs font-bold text-[#F2777A] bg-[#3C1E22] px-2.5 py-0.5 rounded-full">
                   {criticos.length} consultor{criticos.length !== 1 ? 'es' : ''}
                 </span>
               </div>
@@ -170,12 +170,12 @@ export default async function AlertasPage() {
           {naLinha.length > 0 && (
             <section>
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]" />
-                <h2 className="text-sm font-semibold text-[#111827]">
+                <div className="w-2.5 h-2.5 rounded-full bg-[#F5B04E]" />
+                <h2 className="text-sm font-semibold text-[#F4F4F5]">
                   Na linha
-                  <span className="ml-1.5 text-[#6B7280] font-normal">— score entre 3,0 e 4,5 pts</span>
+                  <span className="ml-1.5 text-[#8A8A93] font-normal">— score entre 3,0 e 4,5 pts</span>
                 </h2>
-                <span className="ml-auto text-xs font-bold text-[#F59E0B] bg-[#FFFBEB] px-2.5 py-0.5 rounded-full">
+                <span className="ml-auto text-xs font-bold text-[#F5B04E] bg-[#3A2E17] px-2.5 py-0.5 rounded-full">
                   {naLinha.length} consultor{naLinha.length !== 1 ? 'es' : ''}
                 </span>
               </div>

@@ -9,10 +9,10 @@ const ROLE_LABEL: Record<UserRole, string> = {
   admin: 'Administrador', dono: 'Dono', lider: 'Líder', consultor: 'Consultor',
 }
 const ROLE_COLOR: Record<UserRole, string> = {
-  admin:     'bg-purple-100 text-purple-700',
-  dono:      'bg-emerald-100 text-emerald-700',
-  lider:     'bg-blue-100 text-blue-700',
-  consultor: 'bg-gray-100 text-gray-600',
+  admin:     'bg-purple-500/15 text-purple-300',
+  dono:      'bg-[#3ECF8E]/15 text-[#3ECF8E]',
+  lider:     'bg-[#4F5FE0]/15 text-[#8C97F5]',
+  consultor: 'bg-gray-500/15 text-gray-300',
 }
 
 const EMPTY_FORM = { email: '', nome: '', role: 'consultor' as UserRole, id_carteira: '', senha: '' }
@@ -115,14 +115,14 @@ export default function UsuariosClient({ usuarios, myRole, myId }: {
       <div>
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold text-[#111827]">Usuários</h1>
-            <p className="text-sm text-[#6B7280] mt-0.5">
+            <h1 className="text-xl font-bold text-[#F4F4F5]">Usuários</h1>
+            <p className="text-sm text-[#8A8A93] mt-0.5">
               {lista.length} usuário{lista.length !== 1 ? 's' : ''} cadastrado{lista.length !== 1 ? 's' : ''}
             </p>
           </div>
           <button
             onClick={() => { setShowModal(true); setCreateErr(null); setCreateForm(EMPTY_FORM) }}
-            className="flex items-center gap-2 bg-[#10B981] hover:bg-[#047857] text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+            className="flex items-center gap-2 bg-[#4F5FE0] hover:bg-[#3D4BC4] text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
@@ -131,17 +131,17 @@ export default function UsuariosClient({ usuarios, myRole, myId }: {
           </button>
         </div>
 
-        <div className="bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden">
+        <div className="bg-[#17171B] rounded-2xl border border-[#26262B] overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[#E5E7EB] bg-[#F9FAFB]">
-                <th className="text-left px-5 py-3 font-semibold text-[#6B7280] text-xs uppercase tracking-wider">Nome / E-mail</th>
-                <th className="text-left px-5 py-3 font-semibold text-[#6B7280] text-xs uppercase tracking-wider">Cargo</th>
-                <th className="text-left px-5 py-3 font-semibold text-[#6B7280] text-xs uppercase tracking-wider">ID Carteira</th>
-                <th className="text-left px-5 py-3 font-semibold text-[#6B7280] text-xs uppercase tracking-wider">Ações</th>
+              <tr className="border-b border-[#26262B] bg-[#1D1D22]">
+                <th className="text-left px-5 py-3 font-semibold text-[#8A8A93] text-xs uppercase tracking-wider">Nome / E-mail</th>
+                <th className="text-left px-5 py-3 font-semibold text-[#8A8A93] text-xs uppercase tracking-wider">Cargo</th>
+                <th className="text-left px-5 py-3 font-semibold text-[#8A8A93] text-xs uppercase tracking-wider">ID Carteira</th>
+                <th className="text-left px-5 py-3 font-semibold text-[#8A8A93] text-xs uppercase tracking-wider">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#F3F4F6]">
+            <tbody className="divide-y divide-[#26262B]">
               {lista.map(u => {
                 const isMe    = u.id === myId
                 const canEdit = !isMe && canManageUsers(myRole, u.role)
@@ -150,22 +150,22 @@ export default function UsuariosClient({ usuarios, myRole, myId }: {
                 const isDel      = deleting === u.id
 
                 return (
-                  <tr key={u.id} className="hover:bg-[#F9FAFB] transition-colors">
+                  <tr key={u.id} className="hover:bg-[#1D1D22] transition-colors">
                     {/* Nome / e-mail */}
                     <td className="px-5 py-3.5">
                       {isEditing ? (
                         <input
-                          className="border border-[#E5E7EB] rounded-lg px-2 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                          className="border border-[#26262B] rounded-lg px-2 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-[#4F5FE0]"
                           value={editForm.nome ?? ''}
                           onChange={e => setEditForm(f => ({ ...f, nome: e.target.value }))}
                           placeholder="Nome completo"
                         />
                       ) : (
                         <div>
-                          <p className="font-medium text-[#111827]">
-                            {u.nome || '—'} {isMe && <span className="text-xs text-[#6B7280]">(você)</span>}
+                          <p className="font-medium text-[#F4F4F5]">
+                            {u.nome || '—'} {isMe && <span className="text-xs text-[#8A8A93]">(você)</span>}
                           </p>
-                          <p className="text-xs text-[#6B7280]">{u.email}</p>
+                          <p className="text-xs text-[#8A8A93]">{u.email}</p>
                         </div>
                       )}
                     </td>
@@ -174,7 +174,7 @@ export default function UsuariosClient({ usuarios, myRole, myId }: {
                     <td className="px-5 py-3.5">
                       {isEditing ? (
                         <select
-                          className="border border-[#E5E7EB] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                          className="border border-[#26262B] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4F5FE0]"
                           value={editForm.role}
                           onChange={e => setEditForm(f => ({ ...f, role: e.target.value as UserRole }))}
                         >
@@ -191,13 +191,13 @@ export default function UsuariosClient({ usuarios, myRole, myId }: {
                     <td className="px-5 py-3.5">
                       {isEditing ? (
                         <input
-                          className="border border-[#E5E7EB] rounded-lg px-2 py-1.5 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                          className="border border-[#26262B] rounded-lg px-2 py-1.5 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-[#4F5FE0]"
                           value={editForm.id_carteira ?? ''}
                           onChange={e => setEditForm(f => ({ ...f, id_carteira: e.target.value }))}
                           placeholder="ex: 12345"
                         />
                       ) : (
-                        <span className="text-[#6B7280]">{u.id_carteira || '—'}</span>
+                        <span className="text-[#8A8A93]">{u.id_carteira || '—'}</span>
                       )}
                     </td>
 
@@ -209,46 +209,46 @@ export default function UsuariosClient({ usuarios, myRole, myId }: {
                             <button
                               onClick={() => saveEdit(u)}
                               disabled={saving === u.id}
-                              className="text-xs font-medium text-white bg-[#10B981] hover:bg-[#047857] px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60"
+                              className="text-xs font-medium text-white bg-[#4F5FE0] hover:bg-[#3D4BC4] px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60"
                             >
                               {saving === u.id ? 'Salvando...' : 'Salvar'}
                             </button>
                             <button
                               onClick={() => setEditing(null)}
-                              className="text-xs font-medium text-[#6B7280] hover:text-[#111827] px-3 py-1.5 rounded-lg border border-[#E5E7EB] transition-colors"
+                              className="text-xs font-medium text-[#8A8A93] hover:text-[#F4F4F5] px-3 py-1.5 rounded-lg border border-[#26262B] transition-colors"
                             >
                               Cancelar
                             </button>
                           </div>
                         ) : isConfirm ? (
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs text-[#EF4444]">Excluir?</span>
+                            <span className="text-xs text-[#F2777A]">Excluir?</span>
                             <button
                               onClick={() => handleDelete(u.id)}
                               disabled={isDel}
-                              className="text-xs font-medium text-white bg-[#EF4444] hover:bg-[#DC2626] px-2.5 py-1 rounded-lg transition-colors disabled:opacity-60"
+                              className="text-xs font-medium text-white bg-[#F2777A] hover:bg-[#E0585B] px-2.5 py-1 rounded-lg transition-colors disabled:opacity-60"
                             >
                               {isDel ? '...' : 'Sim'}
                             </button>
                             <button
                               onClick={() => { setConfirmDel(null); setDelErr(null) }}
-                              className="text-xs font-medium text-[#6B7280] hover:text-[#111827] px-2.5 py-1 rounded-lg border border-[#E5E7EB] transition-colors"
+                              className="text-xs font-medium text-[#8A8A93] hover:text-[#F4F4F5] px-2.5 py-1 rounded-lg border border-[#26262B] transition-colors"
                             >
                               Não
                             </button>
-                            {delErr && <span className="text-xs text-[#EF4444]">{delErr}</span>}
+                            {delErr && <span className="text-xs text-[#F2777A]">{delErr}</span>}
                           </div>
                         ) : (
                           <div className="flex gap-3">
                             <button
                               onClick={() => startEdit(u)}
-                              className="text-xs font-medium text-[#3B82F6] hover:text-[#2563EB] transition-colors"
+                              className="text-xs font-medium text-[#4F5FE0] hover:text-[#3D4BC4] transition-colors"
                             >
                               Editar
                             </button>
                             <button
                               onClick={() => { setConfirmDel(u.id); setDelErr(null) }}
-                              className="text-xs font-medium text-[#EF4444] hover:text-[#DC2626] transition-colors"
+                              className="text-xs font-medium text-[#F2777A] hover:text-[#E0585B] transition-colors"
                             >
                               Excluir
                             </button>
@@ -262,7 +262,7 @@ export default function UsuariosClient({ usuarios, myRole, myId }: {
 
               {lista.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-5 py-12 text-center text-[#6B7280] text-sm">
+                  <td colSpan={4} className="px-5 py-12 text-center text-[#8A8A93] text-sm">
                     Nenhum usuário cadastrado.
                   </td>
                 </tr>
@@ -275,12 +275,12 @@ export default function UsuariosClient({ usuarios, myRole, myId }: {
       {/* Modal de criação */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-            <div className="px-6 py-5 border-b border-[#E5E7EB] flex items-center justify-between">
-              <h2 className="text-base font-bold text-[#111827]">Novo Usuário</h2>
+          <div className="bg-[#17171B] rounded-2xl shadow-xl w-full max-w-md">
+            <div className="px-6 py-5 border-b border-[#26262B] flex items-center justify-between">
+              <h2 className="text-base font-bold text-[#F4F4F5]">Novo Usuário</h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="text-[#9CA3AF] hover:text-[#374151] transition-colors"
+                className="text-[#5C5C64] hover:text-[#C4C4CC] transition-colors"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -290,10 +290,10 @@ export default function UsuariosClient({ usuarios, myRole, myId }: {
 
             <form onSubmit={handleCreate} className="px-6 py-5 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-[#374151] mb-1.5">Nome completo</label>
+                <label className="block text-xs font-semibold text-[#C4C4CC] mb-1.5">Nome completo</label>
                 <input
                   required
-                  className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                  className="w-full border border-[#26262B] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4F5FE0]"
                   value={createForm.nome}
                   onChange={e => setCreateForm(f => ({ ...f, nome: e.target.value }))}
                   placeholder="Ex: João Silva"
@@ -301,11 +301,11 @@ export default function UsuariosClient({ usuarios, myRole, myId }: {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#374151] mb-1.5">E-mail</label>
+                <label className="block text-xs font-semibold text-[#C4C4CC] mb-1.5">E-mail</label>
                 <input
                   required
                   type="email"
-                  className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                  className="w-full border border-[#26262B] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4F5FE0]"
                   value={createForm.email}
                   onChange={e => setCreateForm(f => ({ ...f, email: e.target.value }))}
                   placeholder="joao@email.com"
@@ -314,9 +314,9 @@ export default function UsuariosClient({ usuarios, myRole, myId }: {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-[#374151] mb-1.5">Cargo</label>
+                  <label className="block text-xs font-semibold text-[#C4C4CC] mb-1.5">Cargo</label>
                   <select
-                    className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                    className="w-full border border-[#26262B] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4F5FE0]"
                     value={createForm.role}
                     onChange={e => setCreateForm(f => ({ ...f, role: e.target.value as UserRole }))}
                   >
@@ -324,9 +324,9 @@ export default function UsuariosClient({ usuarios, myRole, myId }: {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-[#374151] mb-1.5">ID Carteira <span className="font-normal text-[#9CA3AF]">(opcional)</span></label>
+                  <label className="block text-xs font-semibold text-[#C4C4CC] mb-1.5">ID Carteira <span className="font-normal text-[#5C5C64]">(opcional)</span></label>
                   <input
-                    className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                    className="w-full border border-[#26262B] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4F5FE0]"
                     value={createForm.id_carteira}
                     onChange={e => setCreateForm(f => ({ ...f, id_carteira: e.target.value }))}
                     placeholder="ex: 12345"
@@ -335,12 +335,12 @@ export default function UsuariosClient({ usuarios, myRole, myId }: {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#374151] mb-1.5">Senha temporária</label>
+                <label className="block text-xs font-semibold text-[#C4C4CC] mb-1.5">Senha temporária</label>
                 <input
                   required
                   type="password"
                   minLength={8}
-                  className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                  className="w-full border border-[#26262B] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4F5FE0]"
                   value={createForm.senha}
                   onChange={e => setCreateForm(f => ({ ...f, senha: e.target.value }))}
                   placeholder="Mínimo 8 caracteres"
@@ -348,21 +348,21 @@ export default function UsuariosClient({ usuarios, myRole, myId }: {
               </div>
 
               {createErr && (
-                <p className="text-sm text-[#EF4444] bg-[#FEF2F2] rounded-xl px-3 py-2">{createErr}</p>
+                <p className="text-sm text-[#F2777A] bg-[#3C1E22] rounded-xl px-3 py-2">{createErr}</p>
               )}
 
               <div className="flex gap-3 pt-1">
                 <button
                   type="submit"
                   disabled={creating}
-                  className="flex-1 bg-[#10B981] hover:bg-[#047857] text-white text-sm font-medium py-2.5 rounded-xl transition-colors disabled:opacity-60"
+                  className="flex-1 bg-[#4F5FE0] hover:bg-[#3D4BC4] text-white text-sm font-medium py-2.5 rounded-xl transition-colors disabled:opacity-60"
                 >
                   {creating ? 'Criando...' : 'Criar usuário'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2.5 text-sm font-medium text-[#6B7280] border border-[#E5E7EB] rounded-xl hover:bg-[#F9FAFB] transition-colors"
+                  className="px-4 py-2.5 text-sm font-medium text-[#8A8A93] border border-[#26262B] rounded-xl hover:bg-[#1D1D22] transition-colors"
                 >
                   Cancelar
                 </button>

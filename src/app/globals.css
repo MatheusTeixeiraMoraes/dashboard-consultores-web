@@ -1,19 +1,37 @@
 @import "tailwindcss";
 
+/* ============================================================
+ * Design tokens — identidade "Fastboard" (dark), aprovada em /demo-visual.
+ * Paleta extraída da referência (RentFlow / Behance): fundo quase-preto,
+ * cards em cinza-chumbo, accent indigo para ação, verde/âmbar/vermelho para
+ * status. Fonte: Geist (já era a fonte carregada no layout raiz).
+ * ============================================================ */
 :root {
-  --primary:    #10B981;
-  --primary-dk: #047857;
-  --bg:         #F9FAFB;
-  --bg-card:    #ffffff;
-  --bg-dark:    #111827;
-  --border:     #E5E7EB;
-  --text:       #111827;
-  --text-dim:   #6B7280;
-  --accent:     #3B82F6;
-  --good:       #10B981;
-  --warn:       #F59E0B;
-  --bad:        #EF4444;
-  --radius:     12px;
+  /* estrutura */
+  --bg:         #0A0A0C;
+  --card:       #17171B;
+  --card-2:     #1D1D22;
+  --border:     #26262B;
+
+  /* texto */
+  --text:        #F4F4F5;
+  --text-dim:    #C4C4CC;
+  --text-muted:  #8A8A93;
+  --text-faint:  #5C5C64;
+
+  /* marca / ação */
+  --primary:    #4F5FE0;
+  --primary-dk: #3D4BC4;
+
+  /* status */
+  --good:     #3ECF8E;
+  --good-bg:  #163A28;
+  --warn:     #F5B04E;
+  --warn-bg:  #3A2E17;
+  --bad:      #F2777A;
+  --bad-bg:   #3C1E22;
+
+  --radius: 12px;
 }
 
 html, body {

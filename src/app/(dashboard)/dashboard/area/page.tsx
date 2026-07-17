@@ -11,9 +11,9 @@ import { PILARES, PILAR_KEYS, fmtValor, fmtMeta } from '@/lib/pilares'
  */
 function statusStyle(score: number, pontosMax: number) {
   const aproveitamento = pontosMax > 0 ? score / pontosMax : 0
-  if (aproveitamento >= 0.9) return { bg: '#F0FDF4', text: '#10B981' }
-  if (aproveitamento >= 0.6) return { bg: '#FFFBEB', text: '#F59E0B' }
-  return { bg: '#FEF2F2', text: '#EF4444' }
+  if (aproveitamento >= 0.9) return { bg: '#163A28', text: '#3ECF8E' }
+  if (aproveitamento >= 0.6) return { bg: '#3A2E17', text: '#F5B04E' }
+  return { bg: '#3C1E22', text: '#F2777A' }
 }
 
 export default async function AreaPage() {
@@ -35,12 +35,12 @@ export default async function AreaPage() {
     return (
       <div>
         <div className="mb-6">
-          <h1 className="text-xl font-bold text-[#111827]">Por Área</h1>
-          <p className="text-sm text-[#6B7280] mt-0.5">Ranking de cada pilar separadamente</p>
+          <h1 className="text-xl font-bold text-[#F4F4F5]">Por Área</h1>
+          <p className="text-sm text-[#8A8A93] mt-0.5">Ranking de cada pilar separadamente</p>
         </div>
-        <div className="bg-white rounded-2xl border border-[#E5E7EB] p-12 text-center">
-          <p className="font-semibold text-[#111827]">Nenhum dado carregado ainda</p>
-          <p className="text-sm text-[#6B7280] mt-1">Vá em <strong className="text-[#10B981]">Upar Planilha</strong> para começar.</p>
+        <div className="bg-[#17171B] rounded-2xl border border-[#26262B] p-12 text-center">
+          <p className="font-semibold text-[#F4F4F5]">Nenhum dado carregado ainda</p>
+          <p className="text-sm text-[#8A8A93] mt-1">Vá em <strong className="text-[#3ECF8E]">Upar Planilha</strong> para começar.</p>
         </div>
       </div>
     )
@@ -84,8 +84,8 @@ export default async function AreaPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-[#111827]">Por Área</h1>
-        <p className="text-sm text-[#6B7280] mt-0.5">Ranking de cada pilar · {dateDisplay}</p>
+        <h1 className="text-xl font-bold text-[#F4F4F5]">Por Área</h1>
+        <p className="text-sm text-[#8A8A93] mt-0.5">Ranking de cada pilar · {dateDisplay}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -103,48 +103,48 @@ export default async function AreaPage() {
             : null
 
           return (
-            <div key={pilar} className="bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden" style={{ borderTop: `3px solid ${color}` }}>
-              <div className="px-5 py-4 flex items-center justify-between gap-3 border-b border-[#F3F4F6]">
+            <div key={pilar} className="bg-[#17171B] rounded-2xl border border-[#26262B] overflow-hidden" style={{ borderTop: `3px solid ${color}` }}>
+              <div className="px-5 py-4 flex items-center justify-between gap-3 border-b border-[#26262B]">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${color}20` }}>
                     <div className="w-2 h-2 rounded-full" style={{ background: color }} />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold text-[#111827] text-sm">{spec.label}</p>
-                    {spec.nota && <p className="text-[10px] text-[#9CA3AF]">{spec.nota}</p>}
+                    <p className="font-semibold text-[#F4F4F5] text-sm">{spec.label}</p>
+                    {spec.nota && <p className="text-[10px] text-[#5C5C64]">{spec.nota}</p>}
                     {cfg && (
-                      <p className="text-[11px] text-[#9CA3AF] mt-0.5">
-                        Meta: <span className="font-semibold text-[#6B7280]">{fmtMeta(cfg.meta, cfg.unidade)}</span>
+                      <p className="text-[11px] text-[#5C5C64] mt-0.5">
+                        Meta: <span className="font-semibold text-[#8A8A93]">{fmtMeta(cfg.meta, cfg.unidade)}</span>
                       </p>
                     )}
                   </div>
                 </div>
                 {media !== null && cfg && (
                   <div className="text-right flex-shrink-0">
-                    <p className="text-xs text-[#6B7280]">Média score</p>
+                    <p className="text-xs text-[#8A8A93]">Média score</p>
                     <p className="text-sm font-bold" style={{ color }}>
                       {media.toFixed(2).replace('.', ',')}
-                      <span className="text-[#9CA3AF] font-normal"> / {cfg.pontos_max}</span>
+                      <span className="text-[#5C5C64] font-normal"> / {cfg.pontos_max}</span>
                     </p>
                   </div>
                 )}
               </div>
 
               {consultores.length === 0 ? (
-                <div className="px-5 py-6 text-center text-sm text-[#9CA3AF]">Sem dados para este pilar</div>
+                <div className="px-5 py-6 text-center text-sm text-[#5C5C64]">Sem dados para este pilar</div>
               ) : (
-                <div className="divide-y divide-[#F9FAFB]">
+                <div className="divide-y divide-[#1D1D22]">
                   {consultores.map((c, i) => {
                     const st = statusStyle(c.score, cfg?.pontos_max ?? 0)
                     return (
                       <div key={c.id} className="px-5 py-2.5 flex items-center gap-3">
-                        <span className="text-xs font-medium text-[#9CA3AF] w-5 text-center flex-shrink-0">{i + 1}</span>
+                        <span className="text-xs font-medium text-[#5C5C64] w-5 text-center flex-shrink-0">{i + 1}</span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-[#111827] truncate leading-tight">{c.nome}</p>
+                          <p className="text-sm text-[#F4F4F5] truncate leading-tight">{c.nome}</p>
                           {c.valorMetrica != null && valorSpec && (
-                            <p className="text-[11px] text-[#6B7280] mt-0.5">
+                            <p className="text-[11px] text-[#8A8A93] mt-0.5">
                               {valorSpec.label}:{' '}
-                              <span className="font-semibold text-[#374151]">
+                              <span className="font-semibold text-[#C4C4CC]">
                                 {fmtValor(valorSpec.type, c.valorMetrica)}
                               </span>
                             </p>

@@ -208,12 +208,12 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
   return (
     <div className="max-w-4xl pb-4">
       <div className="mb-5">
-        <h1 className="text-xl font-bold text-[#111827]">Roteirizar</h1>
-        <p className="text-sm text-[#6B7280] mt-0.5">Selecione clientes (por bairro, cidade ou busca) e monte a rota.</p>
+        <h1 className="text-xl font-bold text-[#F4F4F5]">Roteirizar</h1>
+        <p className="text-sm text-[#8A8A93] mt-0.5">Selecione clientes (por bairro, cidade ou busca) e monte a rota.</p>
       </div>
 
       {/* Barra fixa de seleção + gerar */}
-      <div className="bg-[#111827] rounded-2xl px-5 py-4 mb-4 flex items-center justify-between gap-4 flex-wrap sticky top-2 z-20">
+      <div className="bg-[#17171B] border border-[#26262B] rounded-2xl px-5 py-4 mb-4 flex items-center justify-between gap-4 flex-wrap sticky top-2 z-20">
         <div>
           <p className="text-[11px] text-gray-400 uppercase tracking-wide">Clientes na rota</p>
           <p className="text-3xl font-bold text-white leading-none">{stops.length}</p>
@@ -221,7 +221,7 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
         <div className="flex items-center gap-2">
           {stops.length > 0 && <button onClick={() => { setStops([]); setResultado(null) }} className="text-sm text-gray-300 hover:text-white">Limpar</button>}
           <button onClick={gerar} disabled={gerando || stops.length === 0}
-            className="bg-[#10B981] hover:bg-[#047857] disabled:opacity-40 text-white text-sm font-semibold px-5 py-2.5 rounded-xl flex items-center gap-2">
+            className="bg-[#4F5FE0] hover:bg-[#3D4BC4] disabled:opacity-40 text-white text-sm font-semibold px-5 py-2.5 rounded-xl flex items-center gap-2">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
             {gerando ? 'Gerando…' : 'Gerar rota'}
           </button>
@@ -229,53 +229,53 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
       </div>
 
       {preSelecionados > 0 && (
-        <div className="mb-4 text-sm bg-[#F0FDF4] text-[#10B981] rounded-xl px-4 py-2.5">
+        <div className="mb-4 text-sm bg-[#163A28] text-[#3ECF8E] rounded-xl px-4 py-2.5">
           {preSelecionados} cliente{preSelecionados !== 1 ? 's' : ''} vieram do Radar.
         </div>
       )}
       {resultado && (
-        <div className="mb-4 text-sm bg-[#F0FDF4] text-[#065F46] rounded-xl px-4 py-2.5 flex items-center justify-between flex-wrap gap-2">
+        <div className="mb-4 text-sm bg-[#163A28] text-[#3ECF8E] rounded-xl px-4 py-2.5 flex items-center justify-between flex-wrap gap-2">
           <span>Rota otimizada: <b>{resultado.km.toFixed(1).replace('.', ',')} km</b> · <b>{Math.round(resultado.min)} min</b> · ordem definida abaixo.</span>
         </div>
       )}
-      {erro && <p className="text-xs text-[#EF4444] bg-[#FEF2F2] rounded-lg px-3 py-2 mb-4">{erro}</p>}
+      {erro && <p className="text-xs text-[#F2777A] bg-[#3C1E22] rounded-lg px-3 py-2 mb-4">{erro}</p>}
 
       {/* Pontos de partida/chegada */}
-      <div className="bg-white rounded-2xl border border-[#E5E7EB] p-5 mb-4">
+      <div className="bg-[#17171B] rounded-2xl border border-[#26262B] p-5 mb-4">
         <div className="flex items-center gap-2 mb-3">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2"><circle cx="12" cy="12" r="2" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="10" /></svg>
-          <span className="text-sm font-semibold text-[#111827]">Pontos de referência</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4F5FE0" strokeWidth="2"><circle cx="12" cy="12" r="2" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="10" /></svg>
+          <span className="text-sm font-semibold text-[#F4F4F5]">Pontos de referência</span>
         </div>
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs font-semibold text-[#6B7280]">Ponto de partida *</span>
-          <button onClick={usarMinhaLocalizacao} className="text-xs text-[#10B981] font-medium hover:underline">Usar minha localização</button>
+          <span className="text-xs font-semibold text-[#8A8A93]">Ponto de partida *</span>
+          <button onClick={usarMinhaLocalizacao} className="text-xs text-[#3ECF8E] font-medium hover:underline">Usar minha localização</button>
         </div>
         <div className="flex items-center gap-2 mb-2">
           <input value={partBuscaEnd} onChange={e => setPartBuscaEnd(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') buscarPartida() }}
             placeholder="Buscar por endereço (ex.: Av. Boa Viagem, Recife)" className={`${inp} flex-1`} />
           <button onClick={buscarPartida} disabled={buscandoPart || !partBuscaEnd.trim()}
-            className="border border-[#10B981]/40 text-[#10B981] text-xs font-semibold px-3 py-2 rounded-xl whitespace-nowrap disabled:opacity-50">{buscandoPart ? '…' : 'Buscar'}</button>
+            className="border border-[#3ECF8E]/40 text-[#3ECF8E] text-xs font-semibold px-3 py-2 rounded-xl whitespace-nowrap disabled:opacity-50">{buscandoPart ? '…' : 'Buscar'}</button>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <input value={partLat} onChange={e => setPartLat(e.target.value)} placeholder="Latitude" className={inp} />
           <input value={partLng} onChange={e => setPartLng(e.target.value)} placeholder="Longitude" className={inp} />
         </div>
-        {partEnd && <p className="text-[11px] text-[#9CA3AF] mt-1">📍 {partEnd}</p>}
+        {partEnd && <p className="text-[11px] text-[#5C5C64] mt-1">📍 {partEnd}</p>}
         <div className="mt-3">
-          <span className="text-xs font-semibold text-[#6B7280] mb-1.5 block">Ponto de chegada (opcional)</span>
+          <span className="text-xs font-semibold text-[#8A8A93] mb-1.5 block">Ponto de chegada (opcional)</span>
           <div className="grid grid-cols-2 gap-2">
             <input value={chegLat} onChange={e => setChegLat(e.target.value)} placeholder="Latitude" className={inp} />
             <input value={chegLng} onChange={e => setChegLng(e.target.value)} placeholder="Longitude" className={inp} />
           </div>
-          <p className="text-[11px] text-[#9CA3AF] mt-1">Sem chegada, a rota termina no último cliente.</p>
+          <p className="text-[11px] text-[#5C5C64] mt-1">Sem chegada, a rota termina no último cliente.</p>
         </div>
       </div>
 
       {/* Rota gerada (ordem) */}
       {stops.length > 0 && (
-        <div className="bg-white rounded-2xl border border-[#E5E7EB] p-5 mb-4">
+        <div className="bg-[#17171B] rounded-2xl border border-[#26262B] p-5 mb-4">
           <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
-            <p className="text-sm font-semibold text-[#111827]">
+            <p className="text-sm font-semibold text-[#F4F4F5]">
               {resultado ? 'Ordem da rota' : `Selecionados (${stops.length})`}
             </p>
             {linksMaps.length > 0 && (
@@ -288,7 +288,7 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
                   </a>
                 ) : (
                   <>
-                    <span className="text-[11px] text-[#6B7280]">Google Maps ({linksMaps.length} trechos):</span>
+                    <span className="text-[11px] text-[#8A8A93]">Google Maps ({linksMaps.length} trechos):</span>
                     {linksMaps.map((l, i) => (
                       <a key={i} href={l} target="_blank" rel="noopener noreferrer"
                         className="bg-[#4285F4] hover:bg-[#3367D6] text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg">{i + 1}</a>
@@ -300,10 +300,10 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
           </div>
           <div className="flex flex-wrap gap-1.5">
             {stops.map((s, i) => (
-              <span key={s.seller_id} className="inline-flex items-center gap-1.5 text-[11px] bg-[#F9FAFB] border border-[#F3F4F6] rounded-lg pl-2 pr-1 py-1 text-[#374151]">
-                {resultado && <span className="w-4 h-4 rounded-full bg-[#10B981] text-white flex items-center justify-center text-[9px] font-bold">{i + 1}</span>}
+              <span key={s.seller_id} className="inline-flex items-center gap-1.5 text-[11px] bg-[#1D1D22] border border-[#26262B] rounded-lg pl-2 pr-1 py-1 text-[#C4C4CC]">
+                {resultado && <span className="w-4 h-4 rounded-full bg-[#3ECF8E] text-white flex items-center justify-center text-[9px] font-bold">{i + 1}</span>}
                 {s.seller_nome || `#${s.seller_id}`}
-                <button onClick={() => removeStop(s.seller_id)} className="text-[#9CA3AF] hover:text-[#EF4444] w-4 text-center">×</button>
+                <button onClick={() => removeStop(s.seller_id)} className="text-[#5C5C64] hover:text-[#F2777A] w-4 text-center">×</button>
               </span>
             ))}
           </div>
@@ -311,7 +311,7 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
       )}
 
       {/* Grade de seleção */}
-      <div className="bg-white rounded-2xl border border-[#E5E7EB] p-5">
+      <div className="bg-[#17171B] rounded-2xl border border-[#26262B] p-5">
         <input value={fBusca} onChange={e => setFBusca(e.target.value)} placeholder="Buscar por ID do cliente ou nome…" className={`${inp} w-full mb-3`} />
         <div className="flex items-center gap-2 flex-wrap mb-3">
           {consultores.length > 1 && (
@@ -329,20 +329,20 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
             {bairros.map(b => <option key={b} value={b}>{b}</option>)}
           </select>
           <button onClick={selecionarTodos} disabled={filtrados.length === 0}
-            className="ml-auto bg-[#111827] hover:bg-black disabled:opacity-40 text-white text-xs font-semibold px-3.5 py-2 rounded-xl whitespace-nowrap">
+            className="ml-auto bg-[#1D1D22] hover:bg-[#26262B] disabled:opacity-40 text-white text-xs font-semibold px-3.5 py-2 rounded-xl whitespace-nowrap">
             Selecionar todos ({filtrados.length})
           </button>
         </div>
 
         {!temFiltro && clientes.length > MAX_CARDS && (
-          <p className="text-[11px] text-[#9CA3AF] mb-2">Filtre por bairro/cidade ou busque para focar. Mostrando {visiveis.length} de {clientes.length}.</p>
+          <p className="text-[11px] text-[#5C5C64] mb-2">Filtre por bairro/cidade ou busque para focar. Mostrando {visiveis.length} de {clientes.length}.</p>
         )}
         {temFiltro && filtrados.length > MAX_CARDS && (
-          <p className="text-[11px] text-[#9CA3AF] mb-2">Mostrando {MAX_CARDS} de {filtrados.length} — &quot;Selecionar todos&quot; pega todos os {filtrados.length}.</p>
+          <p className="text-[11px] text-[#5C5C64] mb-2">Mostrando {MAX_CARDS} de {filtrados.length} — &quot;Selecionar todos&quot; pega todos os {filtrados.length}.</p>
         )}
 
         {filtrados.length === 0 ? (
-          <p className="text-sm text-[#9CA3AF] text-center py-6">Nenhum cliente com esses filtros.</p>
+          <p className="text-sm text-[#5C5C64] text-center py-6">Nenhum cliente com esses filtros.</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[560px] overflow-y-auto pr-1">
             {visiveis.map(c => {
@@ -350,18 +350,18 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
               const wa = whatsappUrl(c.seller_telefone)
               return (
                 <button key={c.seller_id} onClick={() => toggleStop(c)}
-                  className={`text-left rounded-xl border p-3 transition-colors ${sel ? 'border-[#10B981] bg-[#F0FDF4]' : 'border-[#E5E7EB] hover:bg-[#F9FAFB]'}`}>
+                  className={`text-left rounded-xl border p-3 transition-colors ${sel ? 'border-[#3ECF8E] bg-[#163A28]' : 'border-[#26262B] hover:bg-[#1D1D22]'}`}>
                   <div className="flex items-start gap-2">
-                    <span className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${sel ? 'bg-[#10B981] border-[#10B981]' : 'border-[#D1D5DB]'}`}>
+                    <span className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${sel ? 'bg-[#3ECF8E] border-[#3ECF8E]' : 'border-[#52525B]'}`}>
                       {sel && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-mono bg-[#EEF2FF] text-[#4F46E5] px-1.5 py-0.5 rounded">{c.seller_id}</span>
-                        {wa && <span className="text-[#10B981]" title="tem WhatsApp"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347" /></svg></span>}
+                        <span className="text-[10px] font-mono bg-[#1D2142] text-[#4F5FE0] px-1.5 py-0.5 rounded">{c.seller_id}</span>
+                        {wa && <span className="text-[#3ECF8E]" title="tem WhatsApp"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347" /></svg></span>}
                       </div>
-                      <p className="text-sm font-medium text-[#111827] truncate mt-0.5">{c.seller_nome || '—'}</p>
-                      <p className="text-[11px] text-[#9CA3AF] truncate">{c.bairro ? `${c.bairro}, ` : ''}{c.cidade}</p>
+                      <p className="text-sm font-medium text-[#F4F4F5] truncate mt-0.5">{c.seller_nome || '—'}</p>
+                      <p className="text-[11px] text-[#5C5C64] truncate">{c.bairro ? `${c.bairro}, ` : ''}{c.cidade}</p>
                     </div>
                   </div>
                 </button>
@@ -372,14 +372,14 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
       </div>
 
       {/* Salvar */}
-      <div className="bg-white rounded-2xl border border-[#E5E7EB] p-5 mt-4">
-        <span className="text-sm font-semibold text-[#111827] mb-3 block">Salvar na agenda</span>
+      <div className="bg-[#17171B] rounded-2xl border border-[#26262B] p-5 mt-4">
+        <span className="text-sm font-semibold text-[#F4F4F5] mb-3 block">Salvar na agenda</span>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
           <input value={nomeRota} onChange={e => setNomeRota(e.target.value)} placeholder="Nome da rota (ex.: Visitas Boa Viagem)" className={inp} />
           <input type="date" value={dataVisita} onChange={e => setDataVisita(e.target.value)} className={inp} />
         </div>
         <button onClick={salvar} disabled={salvando || stops.length === 0}
-          className="w-full bg-[#10B981] hover:bg-[#047857] disabled:opacity-50 text-white text-sm font-semibold py-2.5 rounded-xl">
+          className="w-full bg-[#4F5FE0] hover:bg-[#3D4BC4] disabled:opacity-50 text-white text-sm font-semibold py-2.5 rounded-xl">
           {salvando ? 'Salvando…' : 'Salvar rota'}
         </button>
       </div>
@@ -387,5 +387,5 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
   )
 }
 
-const inp = 'border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#10B981]'
-const sel = 'border border-[#E5E7EB] rounded-lg px-2.5 py-1.5 text-sm text-[#111827] bg-white focus:outline-none focus:ring-2 focus:ring-[#10B981]'
+const inp = 'border border-[#26262B] rounded-xl px-3 py-2 text-sm text-[#F4F4F5] focus:outline-none focus:ring-2 focus:ring-[#4F5FE0]'
+const sel = 'border border-[#26262B] rounded-lg px-2.5 py-1.5 text-sm text-[#F4F4F5] bg-[#17171B] focus:outline-none focus:ring-2 focus:ring-[#4F5FE0]'

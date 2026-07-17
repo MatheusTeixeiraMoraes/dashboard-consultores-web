@@ -241,8 +241,8 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
     <div className="pb-16">
       <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
         <div>
-          <h1 className="text-xl font-bold text-[#111827]">Clientes</h1>
-          <p className="text-sm text-[#6B7280] mt-0.5">
+          <h1 className="text-xl font-bold text-[#F4F4F5]">Clientes</h1>
+          <p className="text-sm text-[#8A8A93] mt-0.5">
             {podeGerir ? 'Carteira de clientes da equipe' : 'Sua carteira de clientes'} · {clientes.length} no total
             {semGpsCount > 0 && ` · ${semGpsCount} sem GPS`}
           </p>
@@ -250,7 +250,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
         <div className="flex items-center gap-2 flex-wrap">
           {podeGerir && semGpsCount > 0 && (
             <button onClick={geocodarEmMassa} disabled={bulk?.running}
-              className="border border-[#E5E7EB] hover:bg-[#F9FAFB] disabled:opacity-50 text-[#374151] text-sm font-medium px-4 py-2 rounded-xl flex items-center gap-2">
+              className="border border-[#26262B] hover:bg-[#1D1D22] disabled:opacity-50 text-[#C4C4CC] text-sm font-medium px-4 py-2 rounded-xl flex items-center gap-2">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
               Geocodar sem GPS ({semGpsCount})
             </button>
@@ -258,7 +258,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
           {podeGerir && (
             <>
               <button onClick={() => inputImport.current?.click()} disabled={importState.status === 'parsing' || importState.status === 'saving'}
-                className="border border-[#E5E7EB] hover:bg-[#F9FAFB] disabled:opacity-50 text-[#374151] text-sm font-medium px-4 py-2 rounded-xl flex items-center gap-2">
+                className="border border-[#26262B] hover:bg-[#1D1D22] disabled:opacity-50 text-[#C4C4CC] text-sm font-medium px-4 py-2 rounded-xl flex items-center gap-2">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
                 Importar planilha
               </button>
@@ -266,7 +266,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                 onChange={e => { const f = e.target.files?.[0]; if (f) importarPlanilha(f); e.target.value = '' }} />
             </>
           )}
-          <button onClick={abrirNovo} className="bg-[#10B981] hover:bg-[#047857] text-white text-sm font-semibold px-4 py-2 rounded-xl flex items-center gap-2">
+          <button onClick={abrirNovo} className="bg-[#4F5FE0] hover:bg-[#3D4BC4] text-white text-sm font-semibold px-4 py-2 rounded-xl flex items-center gap-2">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
             Novo Cliente
           </button>
@@ -274,20 +274,20 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
       </div>
 
       {bulk && (
-        <div className="mb-4 text-sm rounded-xl px-4 py-2.5 bg-[#F9FAFB] text-[#6B7280] flex items-center gap-2">
+        <div className="mb-4 text-sm rounded-xl px-4 py-2.5 bg-[#1D1D22] text-[#8A8A93] flex items-center gap-2">
           {bulk.running && <Spinner />}
           {bulk.running
             ? <>Geocodificando… {bulk.done}/{bulk.total} ({bulk.ok} com sucesso)</>
             : <>✓ Geocodificação concluída: {bulk.ok} de {bulk.total} localizados.</>}
-          {bulk.running && <button onClick={() => { bulkStop.current = true }} className="ml-auto text-[#EF4444] font-medium">Parar</button>}
+          {bulk.running && <button onClick={() => { bulkStop.current = true }} className="ml-auto text-[#F2777A] font-medium">Parar</button>}
         </div>
       )}
 
       {importState.status !== 'idle' && (
         <div className={`mb-4 text-sm rounded-xl px-4 py-2.5 ${
-          importState.status === 'error' ? 'bg-[#FEF2F2] text-[#EF4444] whitespace-pre-wrap'
-          : importState.status === 'ok' ? 'bg-[#F0FDF4] text-[#10B981]'
-          : 'bg-[#F9FAFB] text-[#6B7280] flex items-center gap-2'}`}>
+          importState.status === 'error' ? 'bg-[#3C1E22] text-[#F2777A] whitespace-pre-wrap'
+          : importState.status === 'ok' ? 'bg-[#163A28] text-[#3ECF8E]'
+          : 'bg-[#1D1D22] text-[#8A8A93] flex items-center gap-2'}`}>
           {importState.status === 'parsing' && <><Spinner /> Lendo planilha…</>}
           {importState.status === 'saving' && <><Spinner /> Importando… {importState.inseridos} inseridos</>}
           {importState.status === 'ok' && `✓ ${importState.inseridos} clientes importados${importState.ignorados ? ` · ${importState.ignorados} já existiam (ignorados)` : ''}.`}
@@ -298,80 +298,80 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
       <div className="mb-4">
         <input type="text" placeholder="Buscar por nome, seller ID, endereço, cidade ou bairro..."
           value={busca} onChange={e => { setBusca(e.target.value); setPagina(0) }}
-          className="w-full max-w-md text-sm bg-white border border-[#E5E7EB] rounded-xl px-3.5 py-2.5 text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#10B981]" />
+          className="w-full max-w-md text-sm bg-[#17171B] border border-[#26262B] rounded-xl px-3.5 py-2.5 text-[#F4F4F5] placeholder-[#5C5C64] focus:outline-none focus:ring-2 focus:ring-[#4F5FE0]" />
       </div>
 
       {filtrados.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-[#E5E7EB] p-12 text-center">
-          <p className="font-semibold text-[#111827]">{clientes.length === 0 ? 'Nenhum cliente ainda' : 'Nenhum resultado'}</p>
-          <p className="text-sm text-[#6B7280] mt-1">
+        <div className="bg-[#17171B] rounded-2xl border border-[#26262B] p-12 text-center">
+          <p className="font-semibold text-[#F4F4F5]">{clientes.length === 0 ? 'Nenhum cliente ainda' : 'Nenhum resultado'}</p>
+          <p className="text-sm text-[#8A8A93] mt-1">
             {clientes.length === 0 ? (podeGerir ? 'Importe a planilha ou cadastre o primeiro cliente.' : 'Cadastre o primeiro cliente no botão acima.') : 'Ajuste a busca.'}
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-[#E5E7EB] overflow-x-auto">
+        <div className="bg-[#17171B] rounded-2xl border border-[#26262B] overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[#E5E7EB] bg-[#F9FAFB] text-left">
+              <tr className="border-b border-[#26262B] bg-[#1D1D22] text-left">
                 <th className="px-3 py-3 w-8"></th>
-                <th className="px-4 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wider">Cliente</th>
-                <th className="px-4 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wider">Local</th>
-                {podeGerir && <th className="px-4 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wider">Consultor</th>}
-                <th className="px-4 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wider text-center">GPS</th>
-                <th className="px-4 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wider text-right">Ações</th>
+                <th className="px-4 py-3 text-xs font-semibold text-[#8A8A93] uppercase tracking-wider">Cliente</th>
+                <th className="px-4 py-3 text-xs font-semibold text-[#8A8A93] uppercase tracking-wider">Local</th>
+                {podeGerir && <th className="px-4 py-3 text-xs font-semibold text-[#8A8A93] uppercase tracking-wider">Consultor</th>}
+                <th className="px-4 py-3 text-xs font-semibold text-[#8A8A93] uppercase tracking-wider text-center">GPS</th>
+                <th className="px-4 py-3 text-xs font-semibold text-[#8A8A93] uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-xs font-semibold text-[#8A8A93] uppercase tracking-wider text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#F3F4F6]">
+            <tbody className="divide-y divide-[#26262B]">
               {visiveis.map(c => {
                 const wa = whatsappUrl(c.seller_telefone)
                 const temGps = c.lat != null && c.lng != null
                 return (
-                  <tr key={c.id} className="hover:bg-[#F9FAFB] transition-colors">
+                  <tr key={c.id} className="hover:bg-[#1D1D22] transition-colors">
                     <td className="px-3 py-3">
-                      <input type="checkbox" checked={waSel.has(c.id)} onChange={() => toggleWa(c.id)} className="accent-[#10B981] w-4 h-4" />
+                      <input type="checkbox" checked={waSel.has(c.id)} onChange={() => toggleWa(c.id)} className="accent-[#3ECF8E] w-4 h-4" />
                     </td>
                     <td className="px-4 py-3">
-                      <p className="font-medium text-[#111827] leading-tight">{c.seller_nome || '—'}</p>
-                      <p className="text-[11px] text-[#9CA3AF]">#{c.seller_id}</p>
+                      <p className="font-medium text-[#F4F4F5] leading-tight">{c.seller_nome || '—'}</p>
+                      <p className="text-[11px] text-[#5C5C64]">#{c.seller_id}</p>
                       <div className="flex items-center gap-2 mt-1">
                         {wa && (
-                          <a href={wa} target="_blank" rel="noopener noreferrer" className="text-[11px] text-[#10B981] hover:underline flex items-center gap-1">
+                          <a href={wa} target="_blank" rel="noopener noreferrer" className="text-[11px] text-[#3ECF8E] hover:underline flex items-center gap-1">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
                             WhatsApp
                           </a>
                         )}
-                        {c.seller_email && <span className="text-[11px] text-[#9CA3AF]" title={c.seller_email}>✉ e-mail</span>}
+                        {c.seller_email && <span className="text-[11px] text-[#5C5C64]" title={c.seller_email}>✉ e-mail</span>}
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <p className="text-[#111827] leading-tight">{c.cidade || '—'}</p>
-                      <p className="text-[11px] text-[#9CA3AF]">{c.bairro || '—'}</p>
+                      <p className="text-[#F4F4F5] leading-tight">{c.cidade || '—'}</p>
+                      <p className="text-[11px] text-[#5C5C64]">{c.bairro || '—'}</p>
                     </td>
-                    {podeGerir && <td className="px-4 py-3"><p className="text-[#374151] leading-tight">{c.consultor_nome || '—'}</p></td>}
+                    {podeGerir && <td className="px-4 py-3"><p className="text-[#C4C4CC] leading-tight">{c.consultor_nome || '—'}</p></td>}
                     <td className="px-4 py-3 text-center">
                       {temGps ? (
-                        <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#F0FDF4] text-[#10B981]">GPS</span>
+                        <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#163A28] text-[#3ECF8E]">GPS</span>
                       ) : geoLinha === c.id ? (
-                        <span className="text-[10px] text-[#6B7280] inline-flex items-center gap-1"><Spinner /> …</span>
+                        <span className="text-[10px] text-[#8A8A93] inline-flex items-center gap-1"><Spinner /> …</span>
                       ) : (
-                        <button onClick={() => geocodarLinha(c)} className="text-[10px] font-semibold text-[#3B82F6] hover:underline">geocodar</button>
+                        <button onClick={() => geocodarLinha(c)} className="text-[10px] font-semibold text-[#4F5FE0] hover:underline">geocodar</button>
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-[11px] font-medium ${c.status_atualizacao === 'Cliente Atualizado' ? 'text-[#10B981]' : 'text-[#9CA3AF]'}`}>{c.status_atualizacao}</span>
+                      <span className={`text-[11px] font-medium ${c.status_atualizacao === 'Cliente Atualizado' ? 'text-[#3ECF8E]' : 'text-[#5C5C64]'}`}>{c.status_atualizacao}</span>
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       {confirmarExcluir === c.id ? (
                         <span className="inline-flex items-center gap-1.5 text-xs">
-                          <span className="text-[#EF4444]">Excluir?</span>
-                          <button onClick={() => excluir(c.id)} className="bg-[#EF4444] text-white px-2 py-0.5 rounded-md font-semibold">Sim</button>
-                          <button onClick={() => setConfirmarExcluir(null)} className="text-[#6B7280] px-1">Não</button>
+                          <span className="text-[#F2777A]">Excluir?</span>
+                          <button onClick={() => excluir(c.id)} className="bg-[#F2777A] text-white px-2 py-0.5 rounded-md font-semibold">Sim</button>
+                          <button onClick={() => setConfirmarExcluir(null)} className="text-[#8A8A93] px-1">Não</button>
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-3">
-                          <button onClick={() => abrirEdicao(c)} className="text-[#3B82F6] hover:underline text-xs font-medium">Editar</button>
-                          <button onClick={() => setConfirmarExcluir(c.id)} className="text-[#EF4444] hover:underline text-xs font-medium">Excluir</button>
+                          <button onClick={() => abrirEdicao(c)} className="text-[#4F5FE0] hover:underline text-xs font-medium">Editar</button>
+                          <button onClick={() => setConfirmarExcluir(c.id)} className="text-[#F2777A] hover:underline text-xs font-medium">Excluir</button>
                         </span>
                       )}
                     </td>
@@ -385,31 +385,31 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
 
       {totalPaginas > 1 && (
         <div className="flex items-center justify-between mt-4 text-sm">
-          <span className="text-[#6B7280]">{paginaAtual * POR_PAGINA + 1}–{Math.min((paginaAtual + 1) * POR_PAGINA, filtrados.length)} de {filtrados.length}</span>
+          <span className="text-[#8A8A93]">{paginaAtual * POR_PAGINA + 1}–{Math.min((paginaAtual + 1) * POR_PAGINA, filtrados.length)} de {filtrados.length}</span>
           <div className="flex items-center gap-2">
-            <button onClick={() => setPagina(p => Math.max(0, p - 1))} disabled={paginaAtual === 0} className="px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-[#374151] disabled:opacity-40 hover:bg-[#F9FAFB]">Anterior</button>
-            <span className="text-[#6B7280]">{paginaAtual + 1} / {totalPaginas}</span>
-            <button onClick={() => setPagina(p => Math.min(totalPaginas - 1, p + 1))} disabled={paginaAtual >= totalPaginas - 1} className="px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-[#374151] disabled:opacity-40 hover:bg-[#F9FAFB]">Próxima</button>
+            <button onClick={() => setPagina(p => Math.max(0, p - 1))} disabled={paginaAtual === 0} className="px-3 py-1.5 rounded-lg border border-[#26262B] text-[#C4C4CC] disabled:opacity-40 hover:bg-[#1D1D22]">Anterior</button>
+            <span className="text-[#8A8A93]">{paginaAtual + 1} / {totalPaginas}</span>
+            <button onClick={() => setPagina(p => Math.min(totalPaginas - 1, p + 1))} disabled={paginaAtual >= totalPaginas - 1} className="px-3 py-1.5 rounded-lg border border-[#26262B] text-[#C4C4CC] disabled:opacity-40 hover:bg-[#1D1D22]">Próxima</button>
           </div>
         </div>
       )}
 
       {/* Barra de seleção WhatsApp */}
       {waSel.size > 0 && (
-        <div className="fixed bottom-0 left-60 right-0 bg-white border-t border-[#E5E7EB] px-6 py-3 flex items-center gap-3 z-30 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
-          <span className="text-sm font-semibold text-[#111827]">{waSel.size} selecionado{waSel.size !== 1 ? 's' : ''}</span>
-          <button onClick={() => setWaSel(new Set())} className="text-sm text-[#6B7280] hover:underline ml-auto">Limpar</button>
-          <button onClick={() => setWaOpen(true)} className="bg-[#10B981] hover:bg-[#047857] text-white text-sm font-semibold px-5 py-2 rounded-xl">Enviar WhatsApp</button>
+        <div className="fixed bottom-0 left-60 right-0 bg-[#17171B] border-t border-[#26262B] px-6 py-3 flex items-center gap-3 z-30 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
+          <span className="text-sm font-semibold text-[#F4F4F5]">{waSel.size} selecionado{waSel.size !== 1 ? 's' : ''}</span>
+          <button onClick={() => setWaSel(new Set())} className="text-sm text-[#8A8A93] hover:underline ml-auto">Limpar</button>
+          <button onClick={() => setWaOpen(true)} className="bg-[#4F5FE0] hover:bg-[#3D4BC4] text-white text-sm font-semibold px-5 py-2 rounded-xl">Enviar WhatsApp</button>
         </div>
       )}
 
       {/* Modal cadastro/edição */}
       {modalAberto && (
         <div className="fixed inset-0 bg-black/40 flex items-start justify-center p-4 z-50 overflow-y-auto" onClick={() => setModalAberto(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-lg my-8 shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="px-5 py-4 border-b border-[#F3F4F6] flex items-center justify-between">
-              <h2 className="font-bold text-[#111827]">{editando ? 'Editar cliente' : 'Novo cliente'}</h2>
-              <button onClick={() => setModalAberto(false)} className="text-[#9CA3AF] hover:text-[#374151] text-xl leading-none">×</button>
+          <div className="bg-[#17171B] rounded-2xl w-full max-w-lg my-8 shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-[#26262B] flex items-center justify-between">
+              <h2 className="font-bold text-[#F4F4F5]">{editando ? 'Editar cliente' : 'Novo cliente'}</h2>
+              <button onClick={() => setModalAberto(false)} className="text-[#5C5C64] hover:text-[#C4C4CC] text-xl leading-none">×</button>
             </div>
             <div className="p-5 space-y-3">
               {podeGerir && (
@@ -446,16 +446,16 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                   <Campo label="Latitude"><input value={form.lat} onChange={e => set('lat')(e.target.value)} className={inputCls} placeholder="-23.55" /></Campo>
                   <Campo label="Longitude"><input value={form.lng} onChange={e => set('lng')(e.target.value)} className={inputCls} placeholder="-46.63" /></Campo>
                 </div>
-                <button onClick={geocodarForm} disabled={geoForm} className="border border-[#10B981]/40 text-[#10B981] text-xs font-semibold px-3 py-2 rounded-xl whitespace-nowrap disabled:opacity-50">
+                <button onClick={geocodarForm} disabled={geoForm} className="border border-[#3ECF8E]/40 text-[#3ECF8E] text-xs font-semibold px-3 py-2 rounded-xl whitespace-nowrap disabled:opacity-50">
                   {geoForm ? '…' : 'Buscar do endereço'}
                 </button>
               </div>
-              <p className="text-[11px] text-[#9CA3AF]">Sem lat/lng o cliente não aparece no Radar. Use &quot;Buscar do endereço&quot; para geocodificar.</p>
-              {erro && <p className="text-xs text-[#EF4444] bg-[#FEF2F2] rounded-lg px-3 py-2">{erro}</p>}
+              <p className="text-[11px] text-[#5C5C64]">Sem lat/lng o cliente não aparece no Radar. Use &quot;Buscar do endereço&quot; para geocodificar.</p>
+              {erro && <p className="text-xs text-[#F2777A] bg-[#3C1E22] rounded-lg px-3 py-2">{erro}</p>}
             </div>
-            <div className="px-5 py-4 border-t border-[#F3F4F6] flex justify-end gap-2">
-              <button onClick={() => setModalAberto(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-[#374151] hover:bg-[#F9FAFB]">Cancelar</button>
-              <button onClick={salvar} disabled={salvando} className="bg-[#10B981] hover:bg-[#047857] disabled:opacity-60 text-white text-sm font-semibold px-5 py-2 rounded-xl">
+            <div className="px-5 py-4 border-t border-[#26262B] flex justify-end gap-2">
+              <button onClick={() => setModalAberto(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-[#C4C4CC] hover:bg-[#1D1D22]">Cancelar</button>
+              <button onClick={salvar} disabled={salvando} className="bg-[#4F5FE0] hover:bg-[#3D4BC4] disabled:opacity-60 text-white text-sm font-semibold px-5 py-2 rounded-xl">
                 {salvando ? 'Salvando…' : editando ? 'Salvar alterações' : 'Cadastrar'}
               </button>
             </div>
@@ -466,31 +466,31 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
       {/* Diálogo WhatsApp em massa */}
       {waOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-start justify-center p-4 z-50 overflow-y-auto" onClick={() => setWaOpen(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-lg my-8 shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="px-5 py-4 border-b border-[#F3F4F6] flex items-center justify-between">
-              <h2 className="font-bold text-[#111827]">WhatsApp — {selecionadosWa.length} cliente{selecionadosWa.length !== 1 ? 's' : ''}</h2>
-              <button onClick={() => setWaOpen(false)} className="text-[#9CA3AF] hover:text-[#374151] text-xl leading-none">×</button>
+          <div className="bg-[#17171B] rounded-2xl w-full max-w-lg my-8 shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-[#26262B] flex items-center justify-between">
+              <h2 className="font-bold text-[#F4F4F5]">WhatsApp — {selecionadosWa.length} cliente{selecionadosWa.length !== 1 ? 's' : ''}</h2>
+              <button onClick={() => setWaOpen(false)} className="text-[#5C5C64] hover:text-[#C4C4CC] text-xl leading-none">×</button>
             </div>
             <div className="p-5 space-y-3">
               <Campo label="Mensagem (use {nome} para o nome do cliente)">
                 <textarea value={waMsg} onChange={e => setWaMsg(e.target.value)} rows={3} className={`${inputCls} resize-none`} />
               </Campo>
-              <p className="text-[11px] text-[#9CA3AF]">
+              <p className="text-[11px] text-[#5C5C64]">
                 O WhatsApp não permite disparo automático em massa. Abra a conversa de cada cliente abaixo — a mensagem já vai preenchida.
               </p>
-              <div className="max-h-64 overflow-y-auto divide-y divide-[#F3F4F6] border border-[#F3F4F6] rounded-xl">
+              <div className="max-h-64 overflow-y-auto divide-y divide-[#26262B] border border-[#26262B] rounded-xl">
                 {selecionadosWa.map(c => {
                   const link = whatsappUrl(c.seller_telefone, waMsg.replace(/\{nome\}/g, c.seller_nome || 'cliente'))
                   return (
                     <div key={c.id} className="flex items-center gap-3 px-3 py-2">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-[#111827] truncate">{c.seller_nome || `#${c.seller_id}`}</p>
-                        <p className="text-[11px] text-[#9CA3AF]">{c.seller_telefone || 'sem telefone'}</p>
+                        <p className="text-sm text-[#F4F4F5] truncate">{c.seller_nome || `#${c.seller_id}`}</p>
+                        <p className="text-[11px] text-[#5C5C64]">{c.seller_telefone || 'sem telefone'}</p>
                       </div>
                       {link ? (
-                        <a href={link} target="_blank" rel="noopener noreferrer" className="bg-[#10B981] text-white text-xs font-semibold px-3 py-1.5 rounded-lg">Abrir</a>
+                        <a href={link} target="_blank" rel="noopener noreferrer" className="bg-[#3ECF8E] text-white text-xs font-semibold px-3 py-1.5 rounded-lg">Abrir</a>
                       ) : (
-                        <span className="text-[11px] text-[#9CA3AF]">sem telefone</span>
+                        <span className="text-[11px] text-[#5C5C64]">sem telefone</span>
                       )}
                     </div>
                   )
@@ -547,17 +547,17 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   }
 }
 
-const inputCls = 'w-full border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#10B981] disabled:bg-[#F9FAFB] disabled:text-[#9CA3AF]'
+const inputCls = 'w-full border border-[#26262B] rounded-xl px-3 py-2 text-sm text-[#F4F4F5] focus:outline-none focus:ring-2 focus:ring-[#4F5FE0] disabled:bg-[#1D1D22] disabled:text-[#5C5C64]'
 
 function Campo({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="text-xs text-[#6B7280] mb-1 block">{label}</span>
+      <span className="text-xs text-[#8A8A93] mb-1 block">{label}</span>
       {children}
     </label>
   )
 }
 
 function Spinner() {
-  return <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-[#10B981] border-t-transparent rounded-full" />
+  return <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-[#3ECF8E] border-t-transparent rounded-full" />
 }

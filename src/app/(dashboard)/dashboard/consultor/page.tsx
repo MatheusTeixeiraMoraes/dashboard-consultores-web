@@ -22,12 +22,12 @@ export default async function ConsultorPage() {
     return (
       <div>
         <div className="mb-6">
-          <h1 className="text-xl font-bold text-[#111827]">Consultor</h1>
-          <p className="text-sm text-[#6B7280] mt-0.5">Performance individual</p>
+          <h1 className="text-xl font-bold text-[#F4F4F5]">Consultor</h1>
+          <p className="text-sm text-[#8A8A93] mt-0.5">Performance individual</p>
         </div>
-        <div className="bg-white rounded-2xl border border-[#E5E7EB] p-12 text-center">
-          <p className="font-semibold text-[#111827]">Nenhum dado carregado ainda</p>
-          <p className="text-sm text-[#6B7280] mt-1">Vá em <strong className="text-[#10B981]">Upar Planilha</strong> para começar.</p>
+        <div className="bg-[#17171B] rounded-2xl border border-[#26262B] p-12 text-center">
+          <p className="font-semibold text-[#F4F4F5]">Nenhum dado carregado ainda</p>
+          <p className="text-sm text-[#8A8A93] mt-1">Vá em <strong className="text-[#3ECF8E]">Upar Planilha</strong> para começar.</p>
         </div>
       </div>
     )

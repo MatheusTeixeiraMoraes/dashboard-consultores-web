@@ -74,17 +74,17 @@ export default function RadarMapa({ pos, raio, clientes, onToggle }: Props) {
 
     meRef.current?.remove()
     meRef.current = L.circleMarker([pos.lat, pos.lng], {
-      radius: 8, color: '#2563eb', fillColor: '#3b82f6', fillOpacity: 1, weight: 2,
+      radius: 8, color: '#3D4BC4', fillColor: '#4F5FE0', fillOpacity: 1, weight: 2,
     }).bindPopup('📍 Sua localização').addTo(map)
 
     circleRef.current?.remove()
     circleRef.current = L.circle([pos.lat, pos.lng], {
-      radius: raio * 1000, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.06, weight: 1,
+      radius: raio * 1000, color: '#4F5FE0', fillColor: '#4F5FE0', fillOpacity: 0.06, weight: 1,
     }).addTo(map)
 
     cluster.clearLayers()
     for (const c of clientes) {
-      const cor = c.selecionado ? '#10B981' : '#EF4444'
+      const cor = c.selecionado ? '#3ECF8E' : '#F2777A'
       const icon = L.divIcon({
         className: '',
         html: `<div style="width:14px;height:14px;border-radius:50%;background:${cor};border:2px solid #fff;box-shadow:0 0 0 1px ${cor}"></div>`,
@@ -93,7 +93,7 @@ export default function RadarMapa({ pos, raio, clientes, onToggle }: Props) {
       const marker = L.marker([c.lat, c.lng], { icon })
 
       const tel = (c.seller_telefone ?? '').replace(/\D/g, '')
-      const wa = tel ? `<a href="https://wa.me/${tel.startsWith('55') ? tel : '55' + tel}" target="_blank" rel="noopener" style="color:#10B981">WhatsApp</a>` : ''
+      const wa = tel ? `<a href="https://wa.me/${tel.startsWith('55') ? tel : '55' + tel}" target="_blank" rel="noopener" style="color:#3ECF8E">WhatsApp</a>` : ''
       const el = document.createElement('div')
       el.style.fontSize = '12px'
       el.style.minWidth = '170px'
@@ -101,7 +101,7 @@ export default function RadarMapa({ pos, raio, clientes, onToggle }: Props) {
         <b>${esc(c.seller_nome || '#' + c.seller_id)}</b><br/>
         #${esc(c.seller_id)}<br/>${c.bairro ? esc(c.bairro) + ', ' : ''}${esc(c.cidade)}<br/>
         <b>${c.dist.toFixed(1).replace('.', ',')} km</b>${wa ? ' · ' + wa : ''}<br/>
-        <button type="button" style="margin-top:6px;background:${c.selecionado ? '#F0FDF4' : '#10B981'};color:${c.selecionado ? '#10B981' : '#fff'};border:1px solid ${c.selecionado ? '#10B981' : 'transparent'};border-radius:6px;padding:3px 10px;cursor:pointer;font-weight:600">
+        <button type="button" style="margin-top:6px;background:${c.selecionado ? '#163A28' : '#3ECF8E'};color:${c.selecionado ? '#3ECF8E' : '#fff'};border:1px solid ${c.selecionado ? '#3ECF8E' : 'transparent'};border-radius:6px;padding:3px 10px;cursor:pointer;font-weight:600">
           ${c.selecionado ? '✓ Selecionado' : '+ Selecionar'}
         </button>`
       el.querySelector('button')!.addEventListener('click', () => onToggleRef.current(c.seller_id))
@@ -110,5 +110,5 @@ export default function RadarMapa({ pos, raio, clientes, onToggle }: Props) {
     }
   }
 
-  return <div ref={divRef} className="h-[520px] rounded-2xl border border-[#E5E7EB] overflow-hidden relative z-0" />
+  return <div ref={divRef} className="h-[520px] rounded-2xl border border-[#26262B] overflow-hidden relative z-0" />
 }

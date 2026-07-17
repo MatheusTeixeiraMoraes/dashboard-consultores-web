@@ -176,25 +176,25 @@ export default function UploadClient({ uploadedBy }: { uploadedBy: string }) {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-[#111827]">Upar Planilha</h1>
-        <p className="text-sm text-[#6B7280] mt-0.5">
+        <h1 className="text-xl font-bold text-[#F4F4F5]">Upar Planilha</h1>
+        <p className="text-sm text-[#8A8A93] mt-0.5">
           Envie a planilha de cada pilar separadamente sempre que receber do Mercado Pago. O histórico completo é preservado.
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-[#E5E7EB] p-5 mb-6 flex items-center gap-4 flex-wrap">
+      <div className="bg-[#17171B] rounded-2xl border border-[#26262B] p-5 mb-6 flex items-center gap-4 flex-wrap">
         <div>
-          <p className="text-sm font-semibold text-[#111827]">Data de referência</p>
-          <p className="text-xs text-[#6B7280] mt-0.5">Preenchida automaticamente com hoje</p>
+          <p className="text-sm font-semibold text-[#F4F4F5]">Data de referência</p>
+          <p className="text-xs text-[#8A8A93] mt-0.5">Preenchida automaticamente com hoje</p>
         </div>
         <div className="ml-auto flex items-center gap-3">
-          <span className="text-sm font-medium text-[#10B981]">{formatDateBR(date)}</span>
+          <span className="text-sm font-medium text-[#3ECF8E]">{formatDateBR(date)}</span>
           <input
             type="date"
             value={date}
             max={today()}
             onChange={e => setDate(e.target.value)}
-            className="border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+            className="border border-[#26262B] rounded-xl px-3 py-2 text-sm text-[#F4F4F5] focus:outline-none focus:ring-2 focus:ring-[#4F5FE0]"
           />
         </div>
       </div>
@@ -205,37 +205,37 @@ export default function UploadClient({ uploadedBy }: { uploadedBy: string }) {
           return (
             <div
               key={key}
-              className="bg-white rounded-2xl border border-[#E5E7EB] p-5 hover:shadow-md transition-shadow"
+              className="bg-[#17171B] rounded-2xl border border-[#26262B] p-5 hover:shadow-md transition-shadow"
               style={{ borderLeft: `4px solid ${cfg.color}` }}
             >
               <div className="flex items-center gap-2.5 mb-4">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${cfg.color}20` }}>
                   <div className="w-2.5 h-2.5 rounded-full" style={{ background: cfg.color }} />
                 </div>
-                <p className="text-sm font-semibold text-[#111827]">{cfg.label}</p>
+                <p className="text-sm font-semibold text-[#F4F4F5]">{cfg.label}</p>
               </div>
 
               {state.status === 'ok' && (
-                <div className="text-xs text-[#10B981] bg-[#F0FDF4] rounded-lg px-3 py-2 mb-3 flex items-center gap-1.5">
+                <div className="text-xs text-[#3ECF8E] bg-[#163A28] rounded-lg px-3 py-2 mb-3 flex items-center gap-1.5">
                   <span>✓</span> {state.count} registros salvos — {formatDateBR(date)}
                 </div>
               )}
               {state.status === 'error' && (
-                <div className="text-xs text-[#EF4444] bg-[#FEF2F2] rounded-lg px-3 py-2 mb-3 whitespace-pre-wrap">
+                <div className="text-xs text-[#F2777A] bg-[#3C1E22] rounded-lg px-3 py-2 mb-3 whitespace-pre-wrap">
                   {state.message}
                 </div>
               )}
               {(state.status === 'parsing' || state.status === 'saving') && (
-                <div className="text-xs text-[#6B7280] bg-[#F9FAFB] rounded-lg px-3 py-2 mb-3 flex items-center gap-2">
-                  <span className="animate-spin inline-block w-3 h-3 border-2 border-[#10B981] border-t-transparent rounded-full" />
+                <div className="text-xs text-[#8A8A93] bg-[#1D1D22] rounded-lg px-3 py-2 mb-3 flex items-center gap-2">
+                  <span className="animate-spin inline-block w-3 h-3 border-2 border-[#3ECF8E] border-t-transparent rounded-full" />
                   {state.status === 'parsing' ? 'Lendo planilha...' : 'Salvando...'}
                 </div>
               )}
 
               <label className={`flex items-center justify-center gap-2 w-full text-sm font-medium rounded-xl py-2.5 transition-colors cursor-pointer ${
                 state.status === 'parsing' || state.status === 'saving'
-                  ? 'opacity-50 cursor-not-allowed bg-gray-50 text-gray-400 border border-gray-200'
-                  : 'text-[#10B981] border border-[#10B981]/30 bg-[#F0FDF4] hover:bg-[#D1FAE5]'
+                  ? 'opacity-50 cursor-not-allowed bg-[#1D1D22] text-[#5C5C64] border border-[#26262B]'
+                  : 'text-[#3ECF8E] border border-[#3ECF8E]/30 bg-[#163A28] hover:bg-[#1B4531]'
               }`}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />

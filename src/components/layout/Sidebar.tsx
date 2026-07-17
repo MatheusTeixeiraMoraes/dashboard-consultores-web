@@ -105,8 +105,8 @@ const ROLE_LABEL: Record<UserRole, string> = {
 
 const ROLE_COLOR: Record<UserRole, string> = {
   admin:     'bg-purple-500',
-  dono:      'bg-[#10B981]',
-  lider:     'bg-[#3B82F6]',
+  dono:      'bg-[#3ECF8E]',
+  lider:     'bg-[#4F5FE0]',
   consultor: 'bg-gray-500',
 }
 
@@ -118,11 +118,11 @@ export default function Sidebar({ role }: { role: UserRole }) {
   const mainItems = visible.filter(i => !adminItems.includes(i))
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-60 bg-[#111827] flex flex-col z-40 border-r border-white/5">
+    <aside className="fixed left-0 top-0 h-full w-60 bg-[#0A0A0C] flex flex-col z-40 border-r border-white/5">
       {/* Brand */}
       <div className="px-5 py-5 border-b border-white/5">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[#10B981] flex items-center justify-center flex-shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-[#4F5FE0] flex items-center justify-center flex-shrink-0">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
             </svg>
@@ -147,8 +147,8 @@ export default function Sidebar({ role }: { role: UserRole }) {
                 <Link key={href} href={href}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     active
-                      ? 'bg-[#10B981] text-white shadow-lg shadow-[#10B981]/20'
-                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                      ? 'bg-[#4F5FE0] text-white shadow-lg shadow-[#4F5FE0]/20'
+                      : 'text-gray-400 hover:bg-[#17171B]/5 hover:text-white'
                   }`}
                 >
                   <span className={active ? 'text-white' : 'text-gray-500'}>{icon}</span>
@@ -168,8 +168,8 @@ export default function Sidebar({ role }: { role: UserRole }) {
                 <Link key={href} href={href}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     active
-                      ? 'bg-[#10B981] text-white shadow-lg shadow-[#10B981]/20'
-                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                      ? 'bg-[#4F5FE0] text-white shadow-lg shadow-[#4F5FE0]/20'
+                      : 'text-gray-400 hover:bg-[#17171B]/5 hover:text-white'
                   }`}
                 >
                   <span className={active ? 'text-white' : 'text-gray-500'}>{icon}</span>
