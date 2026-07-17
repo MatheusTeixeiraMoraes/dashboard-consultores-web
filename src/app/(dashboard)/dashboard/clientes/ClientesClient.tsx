@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import MultiFiltro from '@/components/MultiFiltro'
 import { findCol } from '@/lib/pilares'
 import { geocodar, sleep } from '@/lib/geo'
-import { tituloCaso } from '@/lib/texto'
+import { tituloCaso, tipoDoc } from '@/lib/texto'
 import type { Cliente, UserRole } from '@/lib/types'
 
 const POR_PAGINA = 48        // múltiplo de 2 e 3: fecha a última fila do grid
@@ -436,6 +436,10 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
             const wa = whatsappUrl(c.seller_telefone)
             const gps = temGps(c)
             const local = [c.bairro, c.cidade].filter(Boolean).join(', ') || '—'
+            // "Endereço não informado" é placeholder da planilha, não endereço:
+            // exibi-lo seria fingir que o dado existe.
+            const end = c.endereco_completo.trim()
+            const endereco = end && !SEM_ENDERECO.test(end) ? end : ''
             const marcado = waSel.has(c.id)
             return (
               <div key={c.id} className={`glass rounded-2xl border p-4 flex flex-col transition-colors ${marcado ? 'border-primary/60' : 'border-line'}`}>
@@ -454,6 +458,9 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                   <Selo ok={c.status_atualizacao === 'Cliente Atualizado'} />
                 </div>
 
+                {/* Ficha completa no card. Estes dados só apareciam abrindo o
+                    "Editar" — para consultar um cliente em campo, ler não pode
+                    exigir entrar no formulário de edição. */}
                 <div className="flex flex-col gap-1.5 mt-3.5 pt-3.5 border-t border-line">
                   <Linha icon="pin" iconCls={gps ? 'text-ink-faint' : 'text-warn'}>
                     <span className="truncate">{local}</span>
@@ -463,10 +470,25 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                           sem GPS · geocodar
                         </button>)}
                   </Linha>
+                  <Linha icon="home">
+                    {endereco
+                      ? <span className="truncate" title={endereco}>{endereco}</span>
+                      : <span className="text-ink-faint">sem endereço</span>}
+                  </Linha>
                   <Linha icon="phone">
                     {wa
                       ? <a href={wa} target="_blank" rel="noopener noreferrer" className="text-good hover:underline truncate">{c.seller_telefone}</a>
                       : <span className="text-ink-faint">sem telefone</span>}
+                  </Linha>
+                  <Linha icon="mail">
+                    {c.seller_email
+                      ? <a href={`mailto:${c.seller_email}`} className="truncate hover:underline hover:text-ink" title={c.seller_email}>{c.seller_email}</a>
+                      : <span className="text-ink-faint">sem e-mail</span>}
+                  </Linha>
+                  <Linha icon="doc">
+                    {c.cpf_cnpj
+                      ? <span className="truncate">{c.doc_tipo ? `${c.doc_tipo} ${c.cpf_cnpj}` : c.cpf_cnpj}</span>
+                      : <span className="text-ink-faint">sem CPF/CNPJ</span>}
                   </Linha>
                   {podeGerir && (
                     <Linha icon="user"><span className="truncate">{c.consultor_nome || '—'}</span></Linha>
@@ -655,11 +677,17 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
         nome: findCol(h, 'seller_nome'), tel: findCol(h, 'seller_telefone'), email: findCol(h, 'seller_email'),
         cons: findCol(h, 'nome_consultor') ?? findCol(h, 'consultor_nome'), end: findCol(h, 'endereco_completo'),
         cid: findCol(h, 'cidade'), bai: findCol(h, 'bairro'), lat: findCol(h, 'lat'), lng: findCol(h, 'lng'), stat: findCol(h, 'status_atualizacao'),
+        // O documento vem numa coluna só e com o nome do MP ("CPF/CNPJ"). Sem
+        // ler as duas grafias, o import descartava calado — era por isso que os
+        // 3.272 clientes estavam com cpf_cnpj vazio, apesar de a planilha ter.
+        cpf: findCol(h, 'cpf_cnpj') ?? findCol(h, 'CPF/CNPJ'),
       }
       const val = (r: Record<string, unknown>, col: string | null) => col ? String(r[col] ?? '').trim() : ''
       const linhas = rows.filter(r => val(r, cSeller) !== '').map(r => ({
         seller_id: val(r, cSeller), seller_nome: val(r, c.nome),
         seller_telefone: val(r, c.tel) || null, seller_email: val(r, c.email) || null,
+        // A planilha não diz se é CPF ou CNPJ — quem diz é a quantidade de dígitos.
+        cpf_cnpj: val(r, c.cpf) || null, doc_tipo: tipoDoc(val(r, c.cpf)),
         consultor_nome: val(r, c.cons), endereco_completo: val(r, c.end),
         // Mesma canonização do cadastro manual: a planilha traz "RECIFE" e
         // "Recife" misturados, e cada variante viraria um filtro separado.
@@ -757,6 +785,9 @@ function Icon({ name, size = 14 }: { name: string; size?: number }) {
     case 'users': return <svg {...p}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
     case 'user': return <svg {...p}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
     case 'pin': return <svg {...p}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
+    case 'home': return <svg {...p}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+    case 'mail': return <svg {...p}><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
+    case 'doc': return <svg {...p}><rect x="2" y="4" width="20" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="M15 9h3M15 13h3M5.5 16c.7-1.5 2-2.2 3.5-2.2s2.8.7 3.5 2.2" /></svg>
     case 'alert': return <svg {...p}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
     case 'check': return <svg {...p}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
     case 'phone': return <svg {...p}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" /></svg>

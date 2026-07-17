@@ -7,7 +7,7 @@
 // dois bugs de verdade.
 
 import assert from 'node:assert/strict'
-import { tituloCaso } from './texto.ts'
+import { tituloCaso, tipoDoc } from './texto.ts'
 
 let n = 0
 const t = (nome, fn) => { fn(); n++; console.log('  ok:', nome) }
@@ -54,6 +54,21 @@ t('é idempotente (rodar de novo não muda)', () => {
   for (const s of ['Centro', 'Rio de Janeiro', 'Tapanã (Icoaraci)', 'Cidade Nova II']) {
     assert.equal(tituloCaso(tituloCaso(s)), tituloCaso(s))
   }
+})
+
+t('tipoDoc lê o formato real da planilha', () => {
+  assert.equal(tipoDoc('45.950.024/0001-40'), 'CNPJ')   // como vem em Clientes_*.xlsx
+  assert.equal(tipoDoc('123.456.789-09'), 'CPF')
+  assert.equal(tipoDoc('45950024000140'), 'CNPJ')       // sem pontuação
+  assert.equal(tipoDoc('12345678909'), 'CPF')
+})
+
+t('tipoDoc não chuta tipo em dado sujo', () => {
+  assert.equal(tipoDoc(''), null)
+  assert.equal(tipoDoc('não informado'), null)
+  assert.equal(tipoDoc('123'), null)                    // curto demais
+  assert.equal(tipoDoc('123456789012345'), null)        // longo demais
+  assert.equal(tipoDoc(null), null)
 })
 
 console.log(`\n${n} testes passaram`)

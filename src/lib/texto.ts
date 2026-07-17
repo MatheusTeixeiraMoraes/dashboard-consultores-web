@@ -17,6 +17,20 @@ const ROMANO = /^(i{1,3}|iv|v|vi{1,3}|ix|x{1,3})$/
  * Limitação aceita: siglas viram Title Case ("SESI" → "Sesi"). É cosmético e
  * não atrapalha o objetivo, que é ter UM valor por localidade.
  */
+/**
+ * Deduz CPF ou CNPJ pela quantidade de dígitos.
+ *
+ * A planilha traz uma coluna só ("CPF/CNPJ", ex.: "45.950.024/0001-40") e não
+ * diz qual é — mas o número diz: CPF tem 11 dígitos, CNPJ tem 14. Qualquer
+ * outra contagem é dado sujo e vira null, em vez de chutar um tipo errado.
+ */
+export function tipoDoc(s: string): 'CPF' | 'CNPJ' | null {
+  const digitos = (s ?? '').replace(/\D/g, '').length
+  if (digitos === 11) return 'CPF'
+  if (digitos === 14) return 'CNPJ'
+  return null
+}
+
 export function tituloCaso(s: string): string {
   const limpo = (s ?? '').trim().replace(/\s+/g, ' ')
   if (!limpo) return ''
