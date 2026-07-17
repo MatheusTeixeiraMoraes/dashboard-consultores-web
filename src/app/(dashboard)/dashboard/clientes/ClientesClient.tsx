@@ -3,12 +3,13 @@
 import { useState, useMemo, useRef, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import MultiFiltro from '@/components/MultiFiltro'
 import { findCol } from '@/lib/pilares'
 import { geocodar, sleep } from '@/lib/geo'
 import { tituloCaso } from '@/lib/texto'
 import type { Cliente, UserRole } from '@/lib/types'
 
-const POR_PAGINA = 50
+const POR_PAGINA = 48        // múltiplo de 2 e 3: fecha a última fila do grid
 const LOTE_IMPORT = 500
 
 const VAZIO = {
@@ -48,6 +49,32 @@ function paraForm(c: Cliente): FormState {
   }
 }
 
+const temGps = (c: Cliente) => c.lat != null && c.lng != null
+
+// Rótulos curtos dos filtros e do selo. São os dois valores de
+// status_atualizacao, só que sem o "Cliente " na frente.
+const ATUALIZADO = 'Atualizado'
+const STATUS_OPCOES = [ATUALIZADO, 'Não atualizado']
+const GPS_OPCOES = ['Com GPS', 'Sem GPS']
+const rotuloStatus = (c: Cliente) => (c.status_atualizacao === 'Cliente Atualizado' ? ATUALIZADO : 'Não atualizado')
+const rotuloGps = (c: Cliente) => (temGps(c) ? 'Com GPS' : 'Sem GPS')
+
+const ordenar = (s: Iterable<string>) => [...new Set(s)].filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR'))
+
+const nBR = (n: number) => n.toLocaleString('pt-BR')
+
+// Cor do avatar sorteada pelo nome — estável por cliente, sem significado.
+// Classes escritas por extenso porque o Tailwind não gera nome montado em runtime.
+const AVATARES = ['bg-av-1', 'bg-av-2', 'bg-av-3', 'bg-av-4', 'bg-av-5']
+function corAvatar(chave: string) {
+  let soma = 0
+  for (let i = 0; i < chave.length; i++) soma += chave.charCodeAt(i)
+  return AVATARES[soma % AVATARES.length]
+}
+// Primeira LETRA, não primeiro caractere: quase todo seller_nome vem com o
+// CNPJ na frente ("01.467.973 LUCIANO TEIXEIRA"), e o avatar viraria "0".
+const inicial = (c: Cliente) => (c.seller_nome.match(/\p{L}/u)?.[0] ?? '?').toUpperCase()
+
 // Placeholders que NÃO são endereço — geocodá-los devolveria um pino aleatório.
 const SEM_ENDERECO = /^(endereç?o\s+n[ãa]o\s+informad[oa]|n[ãa]o\s+informad[oa]|sem\s+endereç?o|n\/?a|-+|—+)$/i
 
@@ -56,6 +83,16 @@ const enderecoDe = (c: { endereco_completo: string; bairro: string; cidade: stri
   const end = c.endereco_completo.trim()
   const real = end && !SEM_ENDERECO.test(end) ? end : ''
   return real || [c.bairro, c.cidade].filter(Boolean).join(', ')
+}
+
+/** Top N de uma dimensão, para os painéis do rodapé. */
+function contar(lista: Cliente[], campo: (c: Cliente) => string, n = 6): [string, number][] {
+  const m = new Map<string, number>()
+  for (const c of lista) {
+    const k = campo(c)
+    if (k) m.set(k, (m.get(k) ?? 0) + 1)
+  }
+  return [...m].sort((a, b) => b[1] - a[1]).slice(0, n)
 }
 
 interface ImportState {
@@ -87,6 +124,13 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   const [importState, setImportState] = useState<ImportState>({ status: 'idle' })
   const inputImport = useRef<HTMLInputElement>(null)
 
+  // Filtros (mesmo componente do Roteirizar)
+  const [fConsultores, setFConsultores] = useState<Set<string>>(new Set())
+  const [fCidades, setFCidades] = useState<Set<string>>(new Set())
+  const [fBairros, setFBairros] = useState<Set<string>>(new Set())
+  const [fStatus, setFStatus] = useState<Set<string>>(new Set())
+  const [fGps, setFGps] = useState<Set<string>>(new Set())
+
   // Geocodificação
   const [geoLinha, setGeoLinha] = useState<string | null>(null)
   const [geoForm, setGeoForm] = useState(false)
@@ -98,20 +142,64 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   const [waOpen, setWaOpen] = useState(false)
   const [waMsg, setWaMsg] = useState('Olá {nome}, tudo bem?')
 
-  const semGpsCount = useMemo(() => clientes.filter(c => c.lat == null || c.lng == null).length, [clientes])
+  const consultores = useMemo(() => ordenar(clientes.map(c => c.consultor_nome)), [clientes])
+  const cidades = useMemo(() => ordenar(clientes.map(c => c.cidade)), [clientes])
+  // Bairros seguem as cidades escolhidas — senão a lista tem 800 opções, quase
+  // todas de cidades que o usuário nem está olhando.
+  const bairros = useMemo(() => {
+    const base = fCidades.size ? clientes.filter(c => fCidades.has(c.cidade)) : clientes
+    return ordenar(base.map(c => c.bairro))
+  }, [clientes, fCidades])
 
   const filtrados = useMemo(() => {
     const q = busca.trim().toLowerCase()
-    if (!q) return clientes
     return clientes.filter(c =>
-      [c.seller_nome, c.seller_id, c.endereco_completo, c.cidade, c.bairro, c.consultor_nome]
-        .some(v => (v ?? '').toLowerCase().includes(q))
+      (fConsultores.size === 0 || fConsultores.has(c.consultor_nome)) &&
+      (fCidades.size === 0 || fCidades.has(c.cidade)) &&
+      (fBairros.size === 0 || fBairros.has(c.bairro)) &&
+      (fStatus.size === 0 || fStatus.has(rotuloStatus(c))) &&
+      (fGps.size === 0 || fGps.has(rotuloGps(c))) &&
+      (!q || [c.seller_nome, c.seller_id, c.endereco_completo, c.cidade, c.bairro, c.consultor_nome]
+        .some(v => (v ?? '').toLowerCase().includes(q)))
     )
-  }, [clientes, busca])
+  }, [clientes, busca, fConsultores, fCidades, fBairros, fStatus, fGps])
+
+  // Os KPIs leem o resultado filtrado: eles são o placar do que está na tela,
+  // não um total fixo que ignora os filtros.
+  const semGps = useMemo(() => filtrados.filter(c => !temGps(c)), [filtrados])
+  const kpis = useMemo(() => {
+    const comGps = filtrados.length - semGps.length
+    return [
+      { icon: 'users', label: 'Clientes', valor: filtrados.length },
+      { icon: 'pin', label: 'Com GPS', valor: comGps },
+      { icon: 'alert', label: 'Sem GPS', valor: semGps.length },
+      { icon: 'check', label: 'Atualizados', valor: filtrados.filter(c => c.status_atualizacao === 'Cliente Atualizado').length },
+    ]
+  }, [filtrados, semGps])
+
+  const porCidade = useMemo(() => contar(filtrados, c => c.cidade), [filtrados])
+  const porSegundo = useMemo(
+    () => contar(filtrados, c => (podeGerir ? c.consultor_nome : c.bairro)),
+    [filtrados, podeGerir],
+  )
 
   const totalPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA))
   const paginaAtual = Math.min(pagina, totalPaginas - 1)
   const visiveis = filtrados.slice(paginaAtual * POR_PAGINA, (paginaAtual + 1) * POR_PAGINA)
+
+  const qtdFiltros = fConsultores.size + fCidades.size + fBairros.size + fStatus.size + fGps.size
+  const filtrando = qtdFiltros > 0 || busca.trim() !== ''
+
+  // Trocar de filtro volta pra primeira página: manter a página 7 depois de
+  // filtrar para 30 clientes mostraria uma tela vazia.
+  const aoFiltrar = (aplicar: (s: Set<string>) => void) => (s: Set<string>) => { aplicar(s); setPagina(0) }
+
+  function limparFiltros() {
+    setBusca('')
+    setFConsultores(new Set()); setFCidades(new Set()); setFBairros(new Set())
+    setFStatus(new Set()); setFGps(new Set())
+    setPagina(0)
+  }
 
   function abrirNovo() {
     setEditando(null)
@@ -209,60 +297,63 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
     router.refresh()
   }
 
-  // Geocodifica em massa os clientes sem lat/lng. Throttle de ~1s respeita a
-  // política do Nominatim. Interrompível.
+  // Geocodifica em massa os clientes sem lat/lng DO FILTRO ATUAL — o botão diz
+  // o mesmo número que o KPI "Sem GPS" ao lado, então tem que agir sobre os
+  // mesmos clientes. Throttle de ~1s respeita a política do Nominatim.
+  // Interrompível.
   async function geocodarEmMassa() {
-    const semGps = clientes.filter(c => c.lat == null || c.lng == null)
     if (semGps.length === 0) return
+    const alvo = semGps
     setErro(''); bulkStop.current = false
-    setBulk({ running: true, done: 0, ok: 0, total: semGps.length })
+    setBulk({ running: true, done: 0, ok: 0, total: alvo.length })
     const supabase = createClient()
     let done = 0, ok = 0
-    for (const c of semGps) {
+    for (const c of alvo) {
       if (bulkStop.current) break
       const end = enderecoDe(c)
-      if (!end) { done++; setBulk({ running: true, done, ok, total: semGps.length }); continue }  // sem endereço → pula sem request
+      if (!end) { done++; setBulk({ running: true, done, ok, total: alvo.length }); continue }  // sem endereço → pula sem request
       const p = await geocodar(end)
       if (p) {
         const { error } = await supabase.from('clientes').update({ lat: p.lat, lng: p.lng, updated_at: new Date().toISOString() }).eq('id', c.id)
         if (!error) ok++
       }
       done++
-      setBulk({ running: true, done, ok, total: semGps.length })
+      setBulk({ running: true, done, ok, total: alvo.length })
       await sleep(1100)
     }
-    setBulk({ running: false, done, ok, total: semGps.length })
+    setBulk({ running: false, done, ok, total: alvo.length })
     router.refresh()
   }
 
   function toggleWa(id: string) {
-    setWaSel(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
+    setWaSel(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
   }
   const selecionadosWa = useMemo(() => clientes.filter(c => waSel.has(c.id)), [clientes, waSel])
 
   return (
-    <div className="pb-16">
+    <div className="pb-20">
+      {/* Cabeçalho + ações */}
       <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
         <div>
           <h1 className="text-xl font-bold text-ink">Clientes</h1>
           <p className="text-sm text-ink-muted mt-0.5">
-            {podeGerir ? 'Carteira de clientes da equipe' : 'Sua carteira de clientes'} · {clientes.length} no total
-            {semGpsCount > 0 && ` · ${semGpsCount} sem GPS`}
+            {podeGerir ? 'Carteira de clientes da equipe' : 'Sua carteira de clientes'}
+            {filtrando ? ` · ${nBR(filtrados.length)} de ${nBR(clientes.length)}` : ` · ${nBR(clientes.length)} no total`}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {podeGerir && semGpsCount > 0 && (
+          {podeGerir && semGps.length > 0 && (
             <button onClick={geocodarEmMassa} disabled={bulk?.running}
               className="border border-line hover:bg-card-2 disabled:opacity-50 text-ink-dim text-sm font-medium px-4 py-2 rounded-xl flex items-center gap-2">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
-              Geocodar sem GPS ({semGpsCount})
+              <Icon name="pin" size={15} />
+              Geocodar sem GPS ({nBR(semGps.length)})
             </button>
           )}
           {podeGerir && (
             <>
               <button onClick={() => inputImport.current?.click()} disabled={importState.status === 'parsing' || importState.status === 'saving'}
                 className="border border-line hover:bg-card-2 disabled:opacity-50 text-ink-dim text-sm font-medium px-4 py-2 rounded-xl flex items-center gap-2">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+                <Icon name="upload" size={15} />
                 Importar planilha
               </button>
               <input ref={inputImport} type="file" accept=".xlsx,.xls,.csv" className="hidden"
@@ -270,7 +361,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
             </>
           )}
           <button onClick={abrirNovo} className="bg-primary hover:bg-primary-dk text-white text-sm font-semibold px-4 py-2 rounded-xl flex items-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            <Icon name="plus" size={16} />
             Novo Cliente
           </button>
         </div>
@@ -298,102 +389,144 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
         </div>
       )}
 
-      <div className="mb-4">
-        <input type="text" placeholder="Buscar por nome, seller ID, endereço, cidade ou bairro..."
-          value={busca} onChange={e => { setBusca(e.target.value); setPagina(0) }}
-          className="w-full max-w-md text-sm bg-field border border-field-line rounded-xl px-3.5 py-2.5 text-ink placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-primary" />
+      {/* KPIs */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        {kpis.map(k => (
+          <div key={k.label} className="glass rounded-2xl border border-line px-4 py-3.5">
+            <div className="flex items-center gap-2 text-ink-muted mb-2">
+              <Icon name={k.icon} size={14} />
+              <span className="text-xs font-medium">{k.label}</span>
+            </div>
+            <p className="text-2xl font-semibold text-ink tracking-tight">{nBR(k.valor)}</p>
+          </div>
+        ))}
       </div>
 
+      {/* Busca + filtros */}
+      <div className="flex items-center gap-2 flex-wrap mb-4">
+        <div className="relative flex-1 min-w-56 max-w-sm">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none"><Icon name="search" size={14} /></span>
+          <input type="text" placeholder="Buscar nome, seller ID, endereço…"
+            value={busca} onChange={e => { setBusca(e.target.value); setPagina(0) }}
+            className="w-full text-sm bg-field border border-field-line rounded-lg pl-9 pr-3 py-1.5 text-ink placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-primary" />
+        </div>
+        {podeGerir && <MultiFiltro label="Consultores" opcoes={consultores} sel={fConsultores} onChange={aoFiltrar(setFConsultores)} />}
+        <MultiFiltro label="Cidades" opcoes={cidades} sel={fCidades} onChange={aoFiltrar(setFCidades)} />
+        <MultiFiltro label="Bairros" opcoes={bairros} sel={fBairros} onChange={aoFiltrar(setFBairros)} />
+        <MultiFiltro label="Status" opcoes={STATUS_OPCOES} sel={fStatus} onChange={aoFiltrar(setFStatus)} />
+        <MultiFiltro label="GPS" opcoes={GPS_OPCOES} sel={fGps} onChange={aoFiltrar(setFGps)} />
+        {filtrando && (
+          <button onClick={limparFiltros} className="text-xs text-ink-muted hover:text-ink underline underline-offset-2">Limpar filtros</button>
+        )}
+      </div>
+
+      {/* Cards */}
       {filtrados.length === 0 ? (
         <div className="glass rounded-2xl border border-line p-12 text-center">
-          <p className="font-semibold text-ink">{clientes.length === 0 ? 'Nenhum cliente ainda' : 'Nenhum resultado'}</p>
+          <p className="font-semibold text-ink">{clientes.length === 0 ? 'Nenhum cliente ainda' : 'Nenhum cliente com esses filtros'}</p>
           <p className="text-sm text-ink-muted mt-1">
-            {clientes.length === 0 ? (podeGerir ? 'Importe a planilha ou cadastre o primeiro cliente.' : 'Cadastre o primeiro cliente no botão acima.') : 'Ajuste a busca.'}
+            {clientes.length === 0
+              ? (podeGerir ? 'Importe a planilha ou cadastre o primeiro cliente.' : 'Cadastre o primeiro cliente no botão acima.')
+              : 'Tire um filtro ou ajuste a busca.'}
           </p>
         </div>
       ) : (
-        <div className="glass rounded-2xl border border-line overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-line bg-card-2 text-left">
-                <th className="px-3 py-3 w-8"></th>
-                <th className="px-4 py-3 text-xs font-semibold text-ink-muted uppercase tracking-wider">Cliente</th>
-                <th className="px-4 py-3 text-xs font-semibold text-ink-muted uppercase tracking-wider">Local</th>
-                {podeGerir && <th className="px-4 py-3 text-xs font-semibold text-ink-muted uppercase tracking-wider">Consultor</th>}
-                <th className="px-4 py-3 text-xs font-semibold text-ink-muted uppercase tracking-wider text-center">GPS</th>
-                <th className="px-4 py-3 text-xs font-semibold text-ink-muted uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-xs font-semibold text-ink-muted uppercase tracking-wider text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {visiveis.map(c => {
-                const wa = whatsappUrl(c.seller_telefone)
-                const temGps = c.lat != null && c.lng != null
-                return (
-                  <tr key={c.id} className="hover:bg-card-2 transition-colors">
-                    <td className="px-3 py-3">
-                      <input type="checkbox" checked={waSel.has(c.id)} onChange={() => toggleWa(c.id)} className="accent-good w-4 h-4" />
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-ink leading-tight">{c.seller_nome || '—'}</p>
-                      <p className="text-[11px] text-ink-faint">#{c.seller_id}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        {wa && (
-                          <a href={wa} target="_blank" rel="noopener noreferrer" className="text-[11px] text-good hover:underline flex items-center gap-1">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
-                            WhatsApp
-                          </a>
-                        )}
-                        {c.seller_email && <span className="text-[11px] text-ink-faint" title={c.seller_email}>✉ e-mail</span>}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-ink leading-tight">{c.cidade || '—'}</p>
-                      <p className="text-[11px] text-ink-faint">{c.bairro || '—'}</p>
-                    </td>
-                    {podeGerir && <td className="px-4 py-3"><p className="text-ink-dim leading-tight">{c.consultor_nome || '—'}</p></td>}
-                    <td className="px-4 py-3 text-center">
-                      {temGps ? (
-                        <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-good-bg text-good">GPS</span>
-                      ) : geoLinha === c.id ? (
-                        <span className="text-[10px] text-ink-muted inline-flex items-center gap-1"><Spinner /> …</span>
-                      ) : (
-                        <button onClick={() => geocodarLinha(c)} className="text-[10px] font-semibold text-primary hover:underline">geocodar</button>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {visiveis.map(c => {
+            const wa = whatsappUrl(c.seller_telefone)
+            const gps = temGps(c)
+            const local = [c.bairro, c.cidade].filter(Boolean).join(', ') || '—'
+            const marcado = waSel.has(c.id)
+            return (
+              <div key={c.id} className={`glass rounded-2xl border p-4 flex flex-col transition-colors ${marcado ? 'border-primary/60' : 'border-line'}`}>
+                <div className="flex items-start gap-2.5">
+                  <input type="checkbox" checked={marcado} onChange={() => toggleWa(c.id)} title="Selecionar para WhatsApp"
+                    className="accent-primary w-4 h-4 mt-1 flex-shrink-0 cursor-pointer" />
+                  <span className={`w-9 h-9 rounded-full grid place-items-center text-white text-sm font-semibold flex-shrink-0 ${corAvatar(c.seller_id)}`}>
+                    {inicial(c)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    {/* Duas linhas: o nome real vem depois do CNPJ, e numa linha
+                        só o corte cai antes da pessoa aparecer. */}
+                    <p className="text-sm font-semibold text-ink leading-snug line-clamp-2" title={c.seller_nome || undefined}>{c.seller_nome || '—'}</p>
+                    <p className="text-[11px] text-ink-faint truncate mt-0.5">#{c.seller_id}</p>
+                  </div>
+                  <Selo ok={c.status_atualizacao === 'Cliente Atualizado'} />
+                </div>
+
+                <div className="flex flex-col gap-1.5 mt-3.5 pt-3.5 border-t border-line">
+                  <Linha icon="pin" iconCls={gps ? 'text-ink-faint' : 'text-warn'}>
+                    <span className="truncate">{local}</span>
+                    {!gps && (geoLinha === c.id
+                      ? <span className="ml-auto flex-shrink-0 inline-flex items-center gap-1 text-[11px]"><Spinner /> …</span>
+                      : <button onClick={() => geocodarLinha(c)} className="ml-auto flex-shrink-0 text-[11px] font-semibold text-warn hover:underline">
+                          sem GPS · geocodar
+                        </button>)}
+                  </Linha>
+                  <Linha icon="phone">
+                    {wa
+                      ? <a href={wa} target="_blank" rel="noopener noreferrer" className="text-good hover:underline truncate">{c.seller_telefone}</a>
+                      : <span className="text-ink-faint">sem telefone</span>}
+                  </Linha>
+                  {podeGerir && (
+                    <Linha icon="user"><span className="truncate">{c.consultor_nome || '—'}</span></Linha>
+                  )}
+                </div>
+
+                <div className="mt-3.5 pt-3.5 border-t border-line">
+                  {confirmarExcluir === c.id ? (
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-bad font-medium">Excluir?</span>
+                      <button onClick={() => excluir(c.id)} className="ml-auto bg-bad hover:bg-bad-dk text-white px-3 py-1.5 rounded-lg font-semibold">Sim</button>
+                      <button onClick={() => setConfirmarExcluir(null)} className="text-ink-muted hover:text-ink px-2 py-1.5">Não</button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button onClick={() => abrirEdicao(c)} className="flex-1 bg-primary/15 hover:bg-primary/25 text-primary-lt text-xs font-semibold py-2 rounded-lg transition-colors">
+                        Editar
+                      </button>
+                      {wa && (
+                        <a href={wa} target="_blank" rel="noopener noreferrer" title="Abrir WhatsApp"
+                          className="w-9 grid place-items-center border border-line rounded-lg text-good hover:bg-card-2 transition-colors">
+                          <IconWhats />
+                        </a>
                       )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`text-[11px] font-medium ${c.status_atualizacao === 'Cliente Atualizado' ? 'text-good' : 'text-ink-faint'}`}>{c.status_atualizacao}</span>
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      {confirmarExcluir === c.id ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs">
-                          <span className="text-bad">Excluir?</span>
-                          <button onClick={() => excluir(c.id)} className="bg-bad text-white px-2 py-0.5 rounded-md font-semibold">Sim</button>
-                          <button onClick={() => setConfirmarExcluir(null)} className="text-ink-muted px-1">Não</button>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-3">
-                          <button onClick={() => abrirEdicao(c)} className="text-primary hover:underline text-xs font-medium">Editar</button>
-                          <button onClick={() => setConfirmarExcluir(c.id)} className="text-bad hover:underline text-xs font-medium">Excluir</button>
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                      <button onClick={() => setConfirmarExcluir(c.id)} title="Excluir cliente"
+                        className="w-9 grid place-items-center border border-line rounded-lg text-ink-muted hover:text-bad hover:bg-card-2 transition-colors">
+                        <Icon name="trash" size={14} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 
-      {totalPaginas > 1 && (
-        <div className="flex items-center justify-between mt-4 text-sm">
-          <span className="text-ink-muted">{paginaAtual * POR_PAGINA + 1}–{Math.min((paginaAtual + 1) * POR_PAGINA, filtrados.length)} de {filtrados.length}</span>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setPagina(p => Math.max(0, p - 1))} disabled={paginaAtual === 0} className="px-3 py-1.5 rounded-lg border border-line text-ink-dim disabled:opacity-40 hover:bg-card-2">Anterior</button>
-            <span className="text-ink-muted">{paginaAtual + 1} / {totalPaginas}</span>
-            <button onClick={() => setPagina(p => Math.min(totalPaginas - 1, p + 1))} disabled={paginaAtual >= totalPaginas - 1} className="px-3 py-1.5 rounded-lg border border-line text-ink-dim disabled:opacity-40 hover:bg-card-2">Próxima</button>
-          </div>
+      {/* Paginação */}
+      {filtrados.length > 0 && (
+        <div className="flex items-center justify-between gap-3 flex-wrap mt-4 text-sm">
+          <span className="text-ink-faint text-xs">
+            Mostrando {nBR(paginaAtual * POR_PAGINA + 1)}–{nBR(Math.min((paginaAtual + 1) * POR_PAGINA, filtrados.length))} de {nBR(filtrados.length)} clientes
+          </span>
+          {totalPaginas > 1 && (
+            <div className="flex items-center gap-2">
+              <button onClick={() => setPagina(p => Math.max(0, p - 1))} disabled={paginaAtual === 0}
+                className="px-3 py-1.5 rounded-lg border border-line text-ink-dim text-xs disabled:opacity-40 hover:bg-card-2">Anterior</button>
+              <span className="text-ink-muted text-xs">{paginaAtual + 1} / {totalPaginas}</span>
+              <button onClick={() => setPagina(p => Math.min(totalPaginas - 1, p + 1))} disabled={paginaAtual >= totalPaginas - 1}
+                className="px-3 py-1.5 rounded-lg border border-line text-ink-dim text-xs disabled:opacity-40 hover:bg-card-2">Próxima</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Painéis: recorte do que está filtrado, não da base inteira */}
+      {filtrados.length > 0 && (
+        <div className="grid gap-3 lg:grid-cols-[1.4fr_1fr] mt-4">
+          <Painel titulo="Clientes por cidade" dados={porCidade} />
+          <Painel titulo={podeGerir ? 'Clientes por consultor' : 'Clientes por bairro'} dados={porSegundo} />
         </div>
       )}
 
@@ -566,4 +699,71 @@ function Campo({ label, children }: { label: string; children: ReactNode }) {
 
 function Spinner() {
   return <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-good border-t-transparent rounded-full" />
+}
+
+/** Linha de informação do card: ícone + conteúdo, tudo truncável. */
+function Linha({ icon, iconCls = 'text-ink-faint', children }: { icon: string; iconCls?: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 text-xs text-ink-muted min-w-0">
+      <span className={`${iconCls} flex-shrink-0`}><Icon name={icon} size={13} /></span>
+      {children}
+    </div>
+  )
+}
+
+function Selo({ ok }: { ok: boolean }) {
+  return (
+    <span className={`flex-shrink-0 inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-1 rounded-md ${ok ? 'bg-good-bg text-good' : 'bg-warn-bg text-warn'}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${ok ? 'bg-good' : 'bg-warn'}`} />
+      {ok ? ATUALIZADO : 'Não atualizado'}
+    </span>
+  )
+}
+
+/** Painel de distribuição. A barra é relativa ao maior item, não ao total —
+ *  com 148 cidades, barras relativas ao total ficariam todas invisíveis. */
+function Painel({ titulo, dados }: { titulo: string; dados: [string, number][] }) {
+  const maior = dados[0]?.[1] ?? 1
+  return (
+    <div className="glass rounded-2xl border border-line p-5">
+      <p className="font-semibold text-ink text-sm mb-3">{titulo}</p>
+      {dados.length === 0 ? (
+        <p className="text-xs text-ink-faint">Sem dados.</p>
+      ) : dados.map(([nome, n]) => (
+        <div key={nome} className="py-1.5">
+          <div className="flex justify-between gap-3 text-xs mb-1">
+            <span className="text-ink-dim truncate">{nome}</span>
+            <span className="text-ink-muted flex-shrink-0 tabular-nums">{nBR(n)}</span>
+          </div>
+          <div className="h-1.5 rounded-full bg-card-2 overflow-hidden">
+            <div className="h-full rounded-full bg-primary" style={{ width: `${(n / maior) * 100}%` }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const IconWhats = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
+)
+
+function Icon({ name, size = 14 }: { name: string; size?: number }) {
+  const p = {
+    width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+    strokeWidth: 1.9, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const,
+  }
+  switch (name) {
+    case 'users': return <svg {...p}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+    case 'user': return <svg {...p}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+    case 'pin': return <svg {...p}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
+    case 'alert': return <svg {...p}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+    case 'check': return <svg {...p}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+    case 'phone': return <svg {...p}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
+    case 'search': return <svg {...p}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+    case 'upload': return <svg {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+    case 'plus': return <svg {...p} strokeWidth={2.4}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+    case 'trash': return <svg {...p}><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+    default: return null
+  }
 }

@@ -46,6 +46,16 @@
   --color-bad-dk:  #E0585B;
   --color-bad-bg:  rgba(242, 119, 122, 0.14);
 
+  /* avatares de cliente. A cor é sorteada pelo nome (estável por cliente), só
+     pra dar rosto a uma lista de milhares — não codifica status nenhum.
+     Como o Tailwind não gera classe montada em runtime, o componente escolhe
+     entre `bg-av-1..5` escritos por extenso. */
+  --color-av-1: #F0993B;
+  --color-av-2: #B48CF2;
+  --color-av-3: #63A6F2;
+  --color-av-4: #3ECF8E;
+  --color-av-5: #F2777A;
+
   /* marca Google (botão "Abrir no Maps") — não é paleta nossa, não mexer */
   --color-gmaps:    #4285F4;
   --color-gmaps-dk: #3367D6;
