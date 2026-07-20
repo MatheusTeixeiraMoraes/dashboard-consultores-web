@@ -8,6 +8,7 @@ import { findCol } from '@/lib/pilares'
 import { geocodar, sleep } from '@/lib/geo'
 import { tituloCaso, tipoDoc } from '@/lib/texto'
 import type { Cliente, UserRole } from '@/lib/types'
+import type { FichaMP } from './page'
 
 const POR_PAGINA = 48        // múltiplo de 2 e 3: fecha a última fila do grid
 const LOTE_IMPORT = 500
@@ -62,6 +63,8 @@ const rotuloGps = (c: Cliente) => (temGps(c) ? 'Com GPS' : 'Sem GPS')
 const ordenar = (s: Iterable<string>) => [...new Set(s)].filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR'))
 
 const nBR = (n: number) => n.toLocaleString('pt-BR')
+const brl = (n: number) => 'R$ ' + n.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+const dataBR = (iso: string | null) => (iso ? iso.slice(0, 10).split('-').reverse().join('/') : null)
 
 // Cor do avatar sorteada pelo nome — estável por cliente, sem significado.
 // Classes escritas por extenso porque o Tailwind não gera nome montado em runtime.
@@ -107,9 +110,13 @@ interface Props {
   role: UserRole
   meuNome: string
   nomesConsultores: string[]
+  /** Ficha da Planilha Geral, por seller_id. Vazio se a planilha não foi importada. */
+  fichaTecnica: Record<string, FichaMP>
+  /** Data do snapshot do MP — o TPV do mês é parcial até esta data. */
+  dataMP: string | null
 }
 
-export default function ClientesClient({ clientes, role, meuNome, nomesConsultores }: Props) {
+export default function ClientesClient({ clientes, role, meuNome, nomesConsultores, fichaTecnica, dataMP }: Props) {
   const router = useRouter()
   const podeGerir = role === 'admin' || role === 'dono'
 
@@ -130,6 +137,10 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   const [fBairros, setFBairros] = useState<Set<string>>(new Set())
   const [fStatus, setFStatus] = useState<Set<string>>(new Set())
   const [fGps, setFGps] = useState<Set<string>>(new Set())
+  // Filtros que vem da Planilha Geral (so aparecem se ela foi importada).
+  const [fSituacao, setFSituacao] = useState<Set<string>>(new Set())
+  const [fQuartil, setFQuartil] = useState<Set<string>>(new Set())
+  const [fMcc, setFMcc] = useState<Set<string>>(new Set())
 
   // Geocodificação
   const [geoLinha, setGeoLinha] = useState<string | null>(null)
@@ -141,6 +152,12 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   const [waSel, setWaSel] = useState<Set<string>>(new Set())
   const [waOpen, setWaOpen] = useState(false)
   const [waMsg, setWaMsg] = useState('Olá {nome}, tudo bem?')
+
+  const temFicha = Object.keys(fichaTecnica).length > 0
+  const mccs = useMemo(
+    () => ordenar(clientes.map(c => fichaTecnica[c.seller_id]?.mcc ?? '')),
+    [clientes, fichaTecnica],
+  )
 
   const consultores = useMemo(() => ordenar(clientes.map(c => c.consultor_nome)), [clientes])
   const cidades = useMemo(() => ordenar(clientes.map(c => c.cidade)), [clientes])
@@ -159,10 +176,13 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
       (fBairros.size === 0 || fBairros.has(c.bairro)) &&
       (fStatus.size === 0 || fStatus.has(rotuloStatus(c))) &&
       (fGps.size === 0 || fGps.has(rotuloGps(c))) &&
+      (fSituacao.size === 0 || fSituacao.has(fichaTecnica[c.seller_id]?.status ?? '')) &&
+      (fQuartil.size === 0 || fQuartil.has(fichaTecnica[c.seller_id]?.quartil ?? '')) &&
+      (fMcc.size === 0 || fMcc.has(fichaTecnica[c.seller_id]?.mcc ?? '')) &&
       (!q || [c.seller_nome, c.seller_id, c.endereco_completo, c.cidade, c.bairro, c.consultor_nome]
         .some(v => (v ?? '').toLowerCase().includes(q)))
     )
-  }, [clientes, busca, fConsultores, fCidades, fBairros, fStatus, fGps])
+  }, [clientes, busca, fConsultores, fCidades, fBairros, fStatus, fGps, fSituacao, fQuartil, fMcc, fichaTecnica])
 
   // Os KPIs leem o resultado filtrado: eles são o placar do que está na tela,
   // não um total fixo que ignora os filtros.
@@ -187,7 +207,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   const paginaAtual = Math.min(pagina, totalPaginas - 1)
   const visiveis = filtrados.slice(paginaAtual * POR_PAGINA, (paginaAtual + 1) * POR_PAGINA)
 
-  const qtdFiltros = fConsultores.size + fCidades.size + fBairros.size + fStatus.size + fGps.size
+  const qtdFiltros = fConsultores.size + fCidades.size + fBairros.size + fStatus.size + fGps.size + fSituacao.size + fQuartil.size + fMcc.size
   const filtrando = qtdFiltros > 0 || busca.trim() !== ''
 
   // Trocar de filtro volta pra primeira página: manter a página 7 depois de
@@ -198,6 +218,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
     setBusca('')
     setFConsultores(new Set()); setFCidades(new Set()); setFBairros(new Set())
     setFStatus(new Set()); setFGps(new Set())
+    setFSituacao(new Set()); setFQuartil(new Set()); setFMcc(new Set())
     setPagina(0)
   }
 
@@ -339,6 +360,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
           <p className="text-sm text-ink-muted mt-0.5">
             {podeGerir ? 'Carteira de clientes da equipe' : 'Sua carteira de clientes'}
             {filtrando ? ` · ${nBR(filtrados.length)} de ${nBR(clientes.length)}` : ` · ${nBR(clientes.length)} no total`}
+            {dataMP && <> · ficha do MP de {dataBR(dataMP)}</>}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -415,6 +437,11 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
         <MultiFiltro label="Bairros" opcoes={bairros} sel={fBairros} onChange={aoFiltrar(setFBairros)} />
         <MultiFiltro label="Status" opcoes={STATUS_OPCOES} sel={fStatus} onChange={aoFiltrar(setFStatus)} />
         <MultiFiltro label="GPS" opcoes={GPS_OPCOES} sel={fGps} onChange={aoFiltrar(setFGps)} />
+        {temFicha && <>
+          <MultiFiltro label="Situação" opcoes={['ATIVO', 'CHURN', 'INATIVO', 'REATIVADO']} sel={fSituacao} onChange={aoFiltrar(setFSituacao)} />
+          <MultiFiltro label="Prioridade" opcoes={['P1', 'P2', 'P3', 'P4']} sel={fQuartil} onChange={aoFiltrar(setFQuartil)} />
+          <MultiFiltro label="Segmento" opcoes={mccs} sel={fMcc} onChange={aoFiltrar(setFMcc)} />
+        </>}
         {filtrando && (
           <button onClick={limparFiltros} className="text-xs text-ink-muted hover:text-ink underline underline-offset-2">Limpar filtros</button>
         )}
@@ -441,6 +468,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
             const end = c.endereco_completo.trim()
             const endereco = end && !SEM_ENDERECO.test(end) ? end : ''
             const marcado = waSel.has(c.id)
+            const ficha = fichaTecnica[c.seller_id]
             return (
               // min-w-0: item de grid tem min-width:auto e NÃO encolhe abaixo do
               // conteúdo. Sem isto, um e-mail ou endereço longo estica o card e
@@ -498,6 +526,59 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                     <Linha icon="user"><span className="truncate">{c.consultor_nome || '—'}</span></Linha>
                   )}
                 </div>
+
+                {/* Ficha técnica da Planilha Geral. Só aparece para quem está
+                    nela — os dois cadastros seguem separados, isto é leitura. */}
+                {ficha && (
+                  <div className="mt-3 pt-3 border-t border-line">
+                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                      {ficha.status && (
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                          ficha.status === 'CHURN' ? 'bg-bad-bg text-bad'
+                          : ficha.status === 'INATIVO' ? 'bg-warn-bg text-warn' : 'bg-good-bg text-good'}`}>
+                          {ficha.status}
+                        </span>
+                      )}
+                      {ficha.quartil && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/15 text-primary-lt">
+                          {ficha.quartil}{ficha.prio != null && ` #${ficha.prio}`}
+                        </span>
+                      )}
+                      {!!ficha.qtd_acionaveis && (
+                        <span className="text-[10px] text-ink-muted">
+                          {ficha.qtd_acionaveis} acionáve{ficha.qtd_acionaveis === 1 ? 'l' : 'is'}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Os dois TPVs aparecem ROTULADOS e sem variação calculada:
+                        o do mês é parcial (planilha tirada no meio do mês) e o
+                        do mês passado é fechado. Comparar aqui mostraria uma
+                        queda que não existe — quem compara direito, dividindo
+                        por dias úteis, é a tela de Queda de TPV. */}
+                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                      <div>
+                        <p className="text-ink-faint">TPV no mês (parcial)</p>
+                        <p className="text-ink font-medium tabular-nums">
+                          {ficha.tpv_mes_atual != null ? brl(ficha.tpv_mes_atual) : '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-ink-faint">Mês passado (fechado)</p>
+                        <p className="text-ink-dim tabular-nums">
+                          {ficha.tpv_mes_passado != null ? brl(ficha.tpv_mes_passado) : '—'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-0.5 mt-2 text-[11px] text-ink-muted">
+                      {ficha.mcc && <span className="truncate">{ficha.mcc}</span>}
+                      {ficha.status_credito && <span>{ficha.status_credito.replace(/^\d+\.\s*/, '')}</span>}
+                      {ficha.recorrencia && <span>Recorrência {ficha.recorrencia.toLowerCase()}</span>}
+                      <span>{ficha.ultimo_contato ? `Contato em ${dataBR(ficha.ultimo_contato)}` : 'Nunca contatado'}</span>
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-3.5 pt-3.5 border-t border-line">
                   {confirmarExcluir === c.id ? (

@@ -84,6 +84,12 @@ const IconCampanha = () => (
   </svg>
 )
 
+const IconQueda = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="22 17 13.5 8.5 8.5 13.5 2 7" /><polyline points="16 17 22 17 22 11" />
+  </svg>
+)
+
 const NAV: NavItem[] = [
   { href: '/dashboard',           label: 'Visão Geral',    roles: ['admin','dono','lider'],        icon: <IconGrid /> },
   { href: '/dashboard/area',      label: 'Por Área',       roles: ['admin','dono','lider'],        icon: <IconBars /> },
@@ -92,7 +98,8 @@ const NAV: NavItem[] = [
   { href: '/dashboard/alertas',   label: 'Alertas',        roles: ['admin','dono','lider'],        icon: <IconAlert /> },
   { href: '/dashboard/meu-score', label: 'Meu Desempenho', roles: ['consultor'],                   icon: <IconActivity /> },
   { href: '/dashboard/comparar',  label: 'Comparar Datas', roles: ['consultor'],                   icon: <IconActivity /> },
-  { href: '/dashboard/campanhas', label: 'Campanhas',      roles: ['admin','dono','lider','consultor'], icon: <IconCampanha /> },
+  { href: '/dashboard/acionaveis', label: 'Acionáveis',      roles: ['admin','dono','lider','consultor'], icon: <IconCampanha /> },
+  { href: '/dashboard/queda-tpv', label: 'Queda de TPV',   roles: ['admin','dono','lider','consultor'], icon: <IconQueda /> },
   { href: '/dashboard/clientes',  label: 'Clientes',       roles: ['admin','dono','lider','consultor'], icon: <IconPin /> },
   { href: '/dashboard/radar',     label: 'Radar',          roles: ['admin','dono','lider','consultor'], icon: <IconRadar /> },
   { href: '/dashboard/roteirizar',label: 'Roteirizar',     roles: ['admin','dono','lider','consultor'], icon: <IconRoute /> },

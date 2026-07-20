@@ -29,8 +29,8 @@ const t = (nome, fn) => { fn(); n++; console.log('  ok:', nome) }
 const ler = p => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8')
 
 const IMPORT_GERAL = 'app/(dashboard)/dashboard/upload/ImportPlanilhaGeral.tsx'
-const PAGE_CAMPANHAS = 'app/(dashboard)/dashboard/campanhas/page.tsx'
-const CLIENT_CAMPANHAS = 'app/(dashboard)/dashboard/campanhas/CampanhasClient.tsx'
+const PAGE_ACIONAVEIS = 'app/(dashboard)/dashboard/acionaveis/page.tsx'
+const CLIENT_ACIONAVEIS = 'app/(dashboard)/dashboard/acionaveis/AcionaveisClient.tsx'
 
 /** Toda chamada `.from('x')` no arquivo. */
 const tabelasDe = src => [...src.matchAll(/\.from\(\s*['"`]([a-z_]+)['"`]\s*\)/g)].map(m => m[1])
@@ -63,24 +63,24 @@ t('a lista de tabelas do import contém só as do snapshot', () => {
   )
 })
 
-t('a tela de Campanhas apenas LÊ a base de rotas, nunca escreve', () => {
-  const src = ler(PAGE_CAMPANHAS)
+t('a tela de Acionáveis apenas LÊ a base de rotas, nunca escreve', () => {
+  const src = ler(PAGE_ACIONAVEIS)
   assert.ok(tabelasDe(src).includes('clientes'), 'esperado consultar `clientes` para exibir o nome')
 
   // Nenhuma escrita no arquivo inteiro — é uma página de leitura.
   const escritas = src.match(ESCRITA) ?? []
   assert.deepEqual(
     escritas, [],
-    `A página de Campanhas fez escrita (${escritas.join(', ')}). Ela deve só ler: ` +
+    `A página de Acionáveis fez escrita (${escritas.join(', ')}). Ela deve só ler: ` +
     'nome e telefone vêm da base de rotas como consulta, não como fusão.',
   )
 })
 
-t('a tela de Campanhas não grava no cadastro de clientes', () => {
-  const src = ler(CLIENT_CAMPANHAS)
+t('a tela de Acionáveis não grava no cadastro de clientes', () => {
+  const src = ler(CLIENT_ACIONAVEIS)
   assert.equal(
     tabelasDe(src).includes('clientes'), false,
-    'O componente de Campanhas acessou a tabela `clientes` diretamente. ' +
+    'O componente de Acionáveis acessou a tabela `clientes` diretamente. ' +
     'A identificação já chega pronta do servidor, em `fichas`.',
   )
 })

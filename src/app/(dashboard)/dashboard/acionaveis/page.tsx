@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getProfile } from '@/lib/supabase/profile'
 import { buscarTudo } from '@/lib/supabase/buscar-tudo'
 import { redirect } from 'next/navigation'
-import CampanhasClient from './CampanhasClient'
+import AcionaveisClient from './AcionaveisClient'
 
 /** Uma linha da carteira no snapshot do MP. */
 export interface CarteiraMP {
@@ -29,7 +29,7 @@ export interface Ficha {
   local: string
 }
 
-export default async function CampanhasPage() {
+export default async function AcionaveisPage() {
   const profile = await getProfile()
   if (!profile) redirect('/login')
 
@@ -46,7 +46,7 @@ export default async function CampanhasPage() {
 
   const dataReferencia: string | null = ultima?.data_referencia ?? null
   if (!dataReferencia) {
-    return <CampanhasClient dataReferencia={null} carteira={[]} acoes={[]} fichas={{}} podeGerir={false} />
+    return <AcionaveisClient dataReferencia={null} carteira={[]} acoes={[]} fichas={{}} podeGerir={false} />
   }
 
   const [carteira, acoes] = await Promise.all([
@@ -92,7 +92,7 @@ export default async function CampanhasPage() {
   const podeGerir = profile.role === 'admin' || profile.role === 'dono' || profile.role === 'lider'
 
   return (
-    <CampanhasClient
+    <AcionaveisClient
       dataReferencia={dataReferencia}
       carteira={carteira}
       acoes={acoes}

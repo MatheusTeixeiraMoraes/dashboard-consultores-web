@@ -36,7 +36,7 @@ interface Props {
   podeGerir: boolean
 }
 
-export default function CampanhasClient({ dataReferencia, carteira, acoes, fichas, podeGerir }: Props) {
+export default function AcionaveisClient({ dataReferencia, carteira, acoes, fichas, podeGerir }: Props) {
   const router = useRouter()
   const [aberta, setAberta] = useState<string | null>(null)   // campanha aberta
   const [verTodos, setVerTodos] = useState(false)
@@ -144,7 +144,7 @@ export default function CampanhasClient({ dataReferencia, carteira, acoes, ficha
     <div className="pb-20">
       <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
         <div>
-          <h1 className="text-xl font-bold text-ink">Campanhas</h1>
+          <h1 className="text-xl font-bold text-ink">Acionáveis Comerciais</h1>
           <p className="text-sm text-ink-muted mt-0.5">
             Planilha Geral de {dataBR(dataReferencia)} · {nBR(totalClientes)} clientes com acionável
           </p>

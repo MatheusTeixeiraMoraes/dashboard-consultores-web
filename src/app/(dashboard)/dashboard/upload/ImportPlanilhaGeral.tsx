@@ -28,7 +28,7 @@ interface Estado {
 }
 
 /**
- * Import da "Planilha Geral" do MP — a fonte da categoria Campanhas.
+ * Import da "Planilha Geral" do MP — a fonte dos Acionáveis Comerciais.
  *
  * Grava em mp_carteira/mp_acionaveis e NUNCA toca em `clientes`: a base de
  * rotas é cadastro editável e não pode ser sobrescrita por snapshot mensal.
@@ -104,7 +104,7 @@ export default function ImportPlanilhaGeral({ data }: { data: string }) {
         </span>
         <div>
           <p className="text-sm font-semibold text-ink">Planilha Geral</p>
-          <p className="text-[11px] text-ink-muted">Alimenta a categoria Campanhas</p>
+          <p className="text-[11px] text-ink-muted">Alimenta os Acionáveis Comerciais</p>
         </div>
       </div>
 
