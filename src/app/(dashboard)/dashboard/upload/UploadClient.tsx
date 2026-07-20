@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import ImportPlanilhaGeral from './ImportPlanilhaGeral'
 import type { PilarKey } from '@/lib/types'
 import {
   PILARES as PILAR_SPECS, PILAR_KEYS, COL_CARTEIRA, COL_NOME,
@@ -199,6 +200,13 @@ export default function UploadClient({ uploadedBy }: { uploadedBy: string }) {
         </div>
       </div>
 
+      {/* A Planilha Geral nao e um pilar de score: alimenta Campanhas e vive em
+          tabela separada. Fica acima para nao se perder no meio dos 6 pilares. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <ImportPlanilhaGeral data={date} />
+      </div>
+
+      <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider mb-3">Planilhas de pontuação</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {PILARES.map(([key, cfg]) => {
           const state = getState(key)

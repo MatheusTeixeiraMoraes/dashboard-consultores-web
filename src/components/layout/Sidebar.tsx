@@ -78,6 +78,12 @@ const IconRoute = () => (
   </svg>
 )
 
+const IconCampanha = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 11v2a1 1 0 0 0 1 1h2l4 4V6L6 10H4a1 1 0 0 0-1 1z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M18.5 5.5a9 9 0 0 1 0 13" />
+  </svg>
+)
+
 const NAV: NavItem[] = [
   { href: '/dashboard',           label: 'Visão Geral',    roles: ['admin','dono','lider'],        icon: <IconGrid /> },
   { href: '/dashboard/area',      label: 'Por Área',       roles: ['admin','dono','lider'],        icon: <IconBars /> },
@@ -86,6 +92,7 @@ const NAV: NavItem[] = [
   { href: '/dashboard/alertas',   label: 'Alertas',        roles: ['admin','dono','lider'],        icon: <IconAlert /> },
   { href: '/dashboard/meu-score', label: 'Meu Desempenho', roles: ['consultor'],                   icon: <IconActivity /> },
   { href: '/dashboard/comparar',  label: 'Comparar Datas', roles: ['consultor'],                   icon: <IconActivity /> },
+  { href: '/dashboard/campanhas', label: 'Campanhas',      roles: ['admin','dono','lider','consultor'], icon: <IconCampanha /> },
   { href: '/dashboard/clientes',  label: 'Clientes',       roles: ['admin','dono','lider','consultor'], icon: <IconPin /> },
   { href: '/dashboard/radar',     label: 'Radar',          roles: ['admin','dono','lider','consultor'], icon: <IconRadar /> },
   { href: '/dashboard/roteirizar',label: 'Roteirizar',     roles: ['admin','dono','lider','consultor'], icon: <IconRoute /> },
