@@ -26,6 +26,8 @@ export default async function ClientesPage() {
   const supabase = await createClient()
 
   // A RLS já escopa: consultor recebe só os seus (por nome); gestão recebe tudo.
+  // `em_carteira`: só quem está na Planilha Geral atual. Quem saiu da carteira
+  // fica no banco (com o cadastro), mas some do painel — a Planilha Geral manda.
   // Lista as colunas em vez de `select('*')`: a tela não usa created_at,
   // created_by nem updated_at, e cada lote de 1000 linhas vira payload.
   const clientes = await buscarTudo<Cliente>((opcoes, de, ate) =>
@@ -35,6 +37,7 @@ export default async function ClientesPage() {
         'id, consultor_nome, seller_id, seller_nome, seller_telefone, seller_email, doc_tipo, cpf_cnpj, cidade, bairro, endereco_completo, lat, lng, status_atualizacao',
         opcoes,
       )
+      .eq('em_carteira', true)
       .order('seller_nome', { ascending: true })
       .range(de, ate),
   )

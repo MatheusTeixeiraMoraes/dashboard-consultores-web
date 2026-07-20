@@ -16,6 +16,7 @@ export default async function RoteirizarPage() {
     supabase
       .from('clientes')
       .select('seller_id, seller_nome, seller_telefone, consultor_nome, cidade, bairro, endereco_completo, lat, lng', opcoes)
+      .eq('em_carteira', true)
       .not('lat', 'is', null)
       .not('lng', 'is', null)
       .range(de, ate),

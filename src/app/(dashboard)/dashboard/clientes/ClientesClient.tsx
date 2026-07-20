@@ -332,10 +332,19 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
     router.refresh()
   }
 
+  // "Tirar da carteira" = soft-hide, não delete. Se apagasse a linha, a próxima
+  // reconciliação recriaria o cliente como stub em branco (perdendo o cadastro
+  // enriquecido). Marcando em_carteira=false, o dado sobrevive; se o cliente
+  // ainda estiver na Planilha Geral, a reconciliação o traz de volta — correto,
+  // porque a planilha é quem diz de quem é a carteira.
   async function excluir(id: string) {
     const supabase = createClient()
-    const { error } = await supabase.from('clientes').delete().eq('id', id)
+    const { data, error } = await supabase
+      .from('clientes')
+      .update({ em_carteira: false, updated_at: new Date().toISOString() })
+      .eq('id', id).select('id')
     if (error) { setErro(error.message); return }
+    if (!data || data.length === 0) { setErro('Este cliente já não está na sua carteira. Recarregue a página.'); return }
     setConfirmarExcluir(null)
     router.refresh()
   }
@@ -651,7 +660,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                 <div className="mt-3.5 pt-3.5 border-t border-line">
                   {confirmarExcluir === c.id ? (
                     <div className="flex items-center gap-2 text-xs">
-                      <span className="text-bad font-medium">Excluir?</span>
+                      <span className="text-bad font-medium">Tirar da carteira?</span>
                       <button onClick={() => excluir(c.id)} className="ml-auto bg-bad hover:bg-bad-dk text-white px-3 py-1.5 rounded-lg font-semibold">Sim</button>
                       <button onClick={() => setConfirmarExcluir(null)} className="text-ink-muted hover:text-ink px-2 py-1.5">Não</button>
                     </div>
@@ -668,7 +677,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                           <IconWhats />
                         </a>
                       )}
-                      <button onClick={() => setConfirmarExcluir(c.id)} title="Excluir cliente"
+                      <button onClick={() => setConfirmarExcluir(c.id)} title="Tirar da carteira"
                         className="w-9 grid place-items-center border border-line rounded-lg text-ink-muted hover:text-bad hover:bg-card-2 transition-colors">
                         <Icon name="trash" size={14} />
                       </button>

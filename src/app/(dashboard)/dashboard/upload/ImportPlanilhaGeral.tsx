@@ -10,32 +10,47 @@ import {
 const LOTE = 500   // mesmo lote do import da carteira
 
 /**
- * As ÚNICAS tabelas que este import governa.
- *
- * `clientes` nunca entra aqui, e isso é regra de produto, não detalhe: a
- * Planilha Geral e a planilha de rotas são arquivos diferentes com alguns
- * clientes em comum, e não devem se fundir. O cadastro de rotas é editável à
- * mão; deixar um snapshot mensal escrever nele apagaria correção manual.
- * Há um teste guardando isto — ver separacao-planilhas.test.mjs.
+ * Tabelas de SNAPSHOT que o import escreve direto. `clientes` NÃO está aqui: o
+ * import nunca faz insert/update/delete direto em `clientes`. A sincronização
+ * de membership/dono acontece via a função reconciliar_carteira (RPC), que
+ * escreve APENAS colunas estruturais e nunca o contato do cliente.
+ * separacao-planilhas.test.mjs guarda esse invariante.
  */
 const TABELAS = ['mp_acionaveis', 'mp_carteira'] as const
 
+/** O que a reconciliação mudaria (ou mudou) em `clientes`. */
+interface Diff {
+  aplicado: boolean
+  bloqueado: boolean
+  total_snapshot: number
+  total_anterior: number
+  stubs: number
+  reatribuidos: number
+  ocultados: number
+  reativados: number
+  sem_perfil: string[]
+}
+
 interface Estado {
-  status: 'idle' | 'lendo' | 'salvando' | 'ok' | 'erro'
+  status: 'idle' | 'lendo' | 'salvando' | 'previa' | 'aplicando' | 'ok' | 'erro'
   msg?: string
   lido?: Lido
+  diff?: Diff
   progresso?: string
 }
 
 /**
- * Import da "Planilha Geral" do MP — a fonte dos Acionáveis Comerciais.
+ * Import da "Planilha Geral" do MP — a FONTE DA VERDADE da carteira.
  *
- * Grava em mp_carteira/mp_acionaveis e NUNCA toca em `clientes`: a base de
- * rotas é cadastro editável e não pode ser sobrescrita por snapshot mensal.
+ * Grava o snapshot em mp_carteira/mp_acionaveis e depois RECONCILIA `clientes`:
+ * cria stub para quem é novo, transfere o dono de quem mudou de consultor, e
+ * esconde quem saiu da carteira. Isso é feito pela função reconciliar_carteira,
+ * que só toca colunas estruturais — o contato digitado pelo consultor (telefone,
+ * CPF, endereço, GPS) NUNCA é sobrescrito.
  *
- * Antes de gravar, mostra a conferência: quantos clientes, quantas ações e
- * quais consultores vieram. É a única chance de perceber que a planilha mudou
- * de formato antes de o dado entrar.
+ * A reconciliação NÃO é automática: mostra o preview do que vai mudar e espera
+ * confirmação. Se o snapshot encolheu demais (planilha errada/parcial), o piso
+ * de sanidade bloqueia e exige revisão.
  */
 export default function ImportPlanilhaGeral({ data }: { data: string }) {
   const router = useRouter()
@@ -51,7 +66,6 @@ export default function ImportPlanilhaGeral({ data }: { data: string }) {
       const linhas: Record<string, unknown>[] = utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' })
       lido = lerPlanilhaGeral(linhas)
     } catch (err) {
-      // ErroPlanilha já vem com a linha e o seller citados.
       setE({ status: 'erro', msg: err instanceof ErroPlanilha ? err.message : `Não consegui ler o arquivo: ${(err as Error).message}` })
       return
     }
@@ -59,14 +73,9 @@ export default function ImportPlanilhaGeral({ data }: { data: string }) {
     setE({ status: 'salvando', lido, progresso: 'limpando importação anterior…' })
     const supabase = createClient()
 
-    // Substitui o snapshot desta data. Sem o delete, reimportar o mesmo dia
-    // duplicaria a fila inteira.
     for (const tabela of TABELAS) {
       const { error } = await supabase.from(tabela).delete().eq('data_referencia', data)
-      if (error) {
-        setE({ status: 'erro', msg: `Erro ao limpar ${tabela}: ${error.message}` })
-        return
-      }
+      if (error) { setE({ status: 'erro', msg: `Erro ao limpar ${tabela}: ${error.message}`, lido }); return }
     }
 
     const comData = <T,>(xs: T[]) => xs.map(x => ({ ...x, data_referencia: data }))
@@ -86,13 +95,29 @@ export default function ImportPlanilhaGeral({ data }: { data: string }) {
       return
     }
 
-    setE({ status: 'ok', lido })
-    router.refresh()
+    // Dry-run: mede o que a reconciliação MUDARIA, sem aplicar. É o preview que
+    // impede a planilha errada de esconder metade da carteira em silêncio.
+    setE(s => ({ ...s, progresso: 'conferindo o impacto na carteira…' }))
+    const { data: diff, error: erroRec } = await supabase.rpc('reconciliar_carteira', { p_data: data, p_aplicar: false })
+    if (erroRec) { setE({ status: 'erro', msg: `Snapshot salvo, mas não consegui conferir a carteira: ${erroRec.message}`, lido }); return }
+
+    setE({ status: 'previa', lido, diff: diff as Diff })
+    router.refresh()   // Acionáveis/Queda de TPV já refletem o snapshot novo
     if (input.current) input.current.value = ''
   }
 
-  const ocupado = e.status === 'lendo' || e.status === 'salvando'
+  async function aplicarReconciliacao() {
+    setE(s => ({ ...s, status: 'aplicando' }))
+    const supabase = createClient()
+    const { data: diff, error } = await supabase.rpc('reconciliar_carteira', { p_data: data, p_aplicar: true })
+    if (error) { setE(s => ({ ...s, status: 'erro', msg: `Erro ao aplicar: ${error.message}` })); return }
+    setE(s => ({ ...s, status: 'ok', diff: diff as Diff }))
+    router.refresh()
+  }
+
+  const ocupado = e.status === 'lendo' || e.status === 'salvando' || e.status === 'aplicando'
   const desconhecidos = e.lido ? acionaveisDesconhecidos(e.lido.totaisPorAcionavel) : []
+  const diff = e.diff
 
   return (
     <div className="glass rounded-2xl border border-line p-5 border-l-4 border-l-primary">
@@ -104,19 +129,19 @@ export default function ImportPlanilhaGeral({ data }: { data: string }) {
         </span>
         <div>
           <p className="text-sm font-semibold text-ink">Planilha Geral</p>
-          <p className="text-[11px] text-ink-muted">Alimenta os Acionáveis Comerciais</p>
+          <p className="text-[11px] text-ink-muted">A fonte da carteira — Acionáveis, Clientes e rotas</p>
         </div>
       </div>
 
       <p className="text-xs text-ink-muted my-3 leading-relaxed">
-        A lista de acionáveis por cliente. Não altera o cadastro de Clientes nem as rotas —
-        é um retrato do mês, substituído a cada envio.
+        Define quem está na carteira e de quem é cada cliente. Cria os novos, transfere os que
+        mudaram de consultor e esconde quem saiu — sem nunca apagar o contato que o consultor digitou.
       </p>
 
-      {e.status === 'ok' && e.lido && (
+      {e.status === 'ok' && (
         <div className="text-xs bg-good-bg text-good rounded-lg px-3 py-2 mb-3">
-          ✓ {e.lido.clientes.length.toLocaleString('pt-BR')} clientes e{' '}
-          {e.lido.acoes.length.toLocaleString('pt-BR')} acionáveis importados
+          ✓ Carteira reconciliada
+          {diff && <> · {nBR(diff.stubs)} novos, {nBR(diff.reatribuidos)} transferidos, {nBR(diff.ocultados)} escondidos</>}
         </div>
       )}
 
@@ -127,37 +152,60 @@ export default function ImportPlanilhaGeral({ data }: { data: string }) {
       {ocupado && (
         <div className="text-xs text-ink-muted bg-card-2 rounded-lg px-3 py-2 mb-3 flex items-center gap-2">
           <span className="animate-spin inline-block w-3 h-3 border-2 border-primary border-t-transparent rounded-full" />
-          {e.status === 'lendo' ? 'Lendo planilha…' : e.progresso}
+          {e.status === 'lendo' ? 'Lendo planilha…' : e.status === 'aplicando' ? 'Aplicando na carteira…' : e.progresso}
         </div>
       )}
 
-      {/* Conferência: o que entrou, para bater o olho antes de confiar na tela */}
-      {e.lido && (e.status === 'ok' || e.status === 'salvando') && (
-        <div className="text-[11px] text-ink-muted border border-line rounded-lg p-3 mb-3 space-y-2">
-          <div>
-            <p className="font-semibold text-ink-dim mb-1">Acionáveis encontrados</p>
-            {Object.entries(e.lido.totaisPorAcionavel)
-              .sort((a, b) => b[1] - a[1])
-              .map(([a, n]) => (
-                <div key={a} className="flex justify-between gap-3">
-                  <span className="truncate">{a}</span>
-                  <span className="tabular-nums flex-shrink-0">{n.toLocaleString('pt-BR')}</span>
-                </div>
-              ))}
-          </div>
-          <div>
-            <p className="font-semibold text-ink-dim mb-1">Consultores ({e.lido.consultores.length})</p>
-            <p className="leading-relaxed">{e.lido.consultores.join(' · ')}</p>
-            <p className="text-ink-faint mt-1">
-              O consultor só vê a fila dele se o nome da conta bater com o nome acima.
+      {/* PREVIEW da reconciliação: o que vai mudar em `clientes`, antes de aplicar */}
+      {e.status === 'previa' && diff && (
+        <div className={`rounded-lg p-3 mb-3 border ${diff.bloqueado ? 'border-bad/40 bg-bad-bg' : 'border-primary/30 bg-primary/5'}`}>
+          {diff.bloqueado ? (
+            <p className="text-xs text-bad font-medium mb-2">
+              ⚠ Este snapshot tem {nBR(diff.total_snapshot)} clientes contra {nBR(diff.total_anterior)} do anterior,
+              ou esconderia clientes demais de uma vez. Pode ser a planilha errada. Confira antes de aplicar.
             </p>
+          ) : (
+            <p className="text-xs text-ink-dim font-medium mb-2">Ao aplicar, a carteira muda assim:</p>
+          )}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-ink-muted">
+            <Muda n={diff.stubs} rotulo="novos (viram pendentes)" />
+            <Muda n={diff.reatribuidos} rotulo="transferidos de consultor" />
+            <Muda n={diff.ocultados} rotulo="escondidos (saíram)" cor="text-warn" />
+            <Muda n={diff.reativados} rotulo="reexibidos (voltaram)" cor="text-good" />
           </div>
-          {desconhecidos.length > 0 && (
-            <p className="text-warn">
-              Acionável fora dos 12 conhecidos: {desconhecidos.join(', ')} — a planilha pode ter mudado.
+          {diff.sem_perfil.length > 0 && (
+            <p className="text-[11px] text-warn mt-2">
+              Consultor sem login casado: {diff.sem_perfil.join(', ')} — a carteira dele fica só para a gestão até criar o acesso.
             </p>
           )}
+          <div className="flex gap-2 mt-3">
+            <button onClick={aplicarReconciliacao}
+              className={`flex-1 text-white text-xs font-semibold py-2 rounded-lg transition-colors ${diff.bloqueado ? 'bg-bad hover:bg-bad-dk' : 'bg-primary hover:bg-primary-dk'}`}>
+              {diff.bloqueado ? 'Aplicar mesmo assim' : 'Aplicar reconciliação'}
+            </button>
+            <button onClick={() => setE({ status: 'idle' })}
+              className="px-3 py-2 rounded-lg text-xs font-medium text-ink-dim border border-line hover:bg-card-2">
+              Agora não
+            </button>
+          </div>
         </div>
+      )}
+
+      {/* Conferência dos acionáveis — bater o olho antes de confiar na fila */}
+      {e.lido && (e.status === 'previa' || e.status === 'ok') && (
+        <details className="text-[11px] text-ink-muted border border-line rounded-lg p-3 mb-3">
+          <summary className="cursor-pointer font-semibold text-ink-dim">
+            {nBR(e.lido.clientes.length)} clientes · {nBR(e.lido.acoes.length)} acionáveis · {e.lido.consultores.length} consultores
+          </summary>
+          <div className="mt-2 space-y-1">
+            {Object.entries(e.lido.totaisPorAcionavel).sort((a, b) => b[1] - a[1]).map(([a, n]) => (
+              <div key={a} className="flex justify-between gap-3"><span className="truncate">{a}</span><span className="tabular-nums flex-shrink-0">{nBR(n)}</span></div>
+            ))}
+            {desconhecidos.length > 0 && (
+              <p className="text-warn pt-1">Acionável fora dos 12 conhecidos: {desconhecidos.join(', ')} — a planilha pode ter mudado.</p>
+            )}
+          </div>
+        </details>
       )}
 
       <label className={`flex items-center justify-center gap-2 w-full text-sm font-medium rounded-xl py-2.5 transition-colors cursor-pointer ${
@@ -175,5 +223,16 @@ export default function ImportPlanilhaGeral({ data }: { data: string }) {
         />
       </label>
     </div>
+  )
+}
+
+const nBR = (n: number) => n.toLocaleString('pt-BR')
+
+function Muda({ n, rotulo, cor = 'text-ink' }: { n: number; rotulo: string; cor?: string }) {
+  return (
+    <span className="flex items-baseline gap-1.5">
+      <span className={`font-semibold tabular-nums ${n > 0 ? cor : 'text-ink-faint'}`}>{nBR(n)}</span>
+      <span>{rotulo}</span>
+    </span>
   )
 }
