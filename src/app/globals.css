@@ -90,12 +90,34 @@
   --radius: 12px;
 }
 
-/* Painel de vidro. O blur mora aqui e só aqui: afinar o vidro do app
-   inteiro é mexer nesta regra, não nos ~60 cards.
+/* Painel de vidro.
+ *
+ * SEM blur, e isso é deliberado. `backdrop-filter` obriga o Chrome a, por
+ * frame: ler a região do fundo atrás do elemento NA POSIÇÃO ATUAL, rodar um
+ * gaussiano de raio 14 sobre a cópia, recortar e compor. Enquanto o painel
+ * ROLA sobre o gradiente do body (que é `background-attachment: fixed`), a
+ * região amostrada muda a cada frame — o resultado é impossível de cachear e
+ * um scroll que deveria ser um `translate` de textura vira ~15 render passes
+ * por frame. Era a roda do mouse travando.
+ *
+ * E o blur aqui não comprava quase nada: atrás destes painéis só há o
+ * gradiente de 4 radiais, que já é suave. Borrar um borrão é quase a operação
+ * identidade — custo integral, retorno perto de zero.
+ *
+ * Onde há conteúdo de verdade passando por baixo (barra fixa, modal, dropdown,
+ * sticky), use `glass-blur`. */
+@utility glass {
+  background-color: var(--color-card);
+}
+
+/* Vidro COM blur, para superfícies que ficam paradas enquanto conteúdo real
+   se move por baixo. Aqui o blur trabalha: sem ele o texto dos cards
+   atravessa a barra e fica ilegível. São ~7 elementos, quase sempre um por
+   vez na tela, e o backdrop só muda quando algo de fato rola por trás.
    Não escreva o -webkit- na mão: o Lightning CSS deduplica as duas
    declarações e sobra só a com prefixo, matando o blur no Chrome. Ele
    prefixa sozinho a partir do browserslist. */
-@utility glass {
+@utility glass-blur {
   background-color: var(--color-card);
   backdrop-filter: blur(14px);
 }

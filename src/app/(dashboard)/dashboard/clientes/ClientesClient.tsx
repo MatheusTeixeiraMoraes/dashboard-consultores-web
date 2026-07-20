@@ -558,7 +558,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
 
       {/* Barra de seleção WhatsApp */}
       {waSel.size > 0 && (
-        <div className="fixed bottom-0 left-0 md:left-60 right-0 glass border-t border-line px-4 md:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-3 z-30 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
+        <div className="fixed bottom-0 left-0 md:left-60 right-0 glass-blur border-t border-line px-4 md:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-3 z-30 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
           <span className="text-sm font-semibold text-ink">{waSel.size} selecionado{waSel.size !== 1 ? 's' : ''}</span>
           <button onClick={() => setWaSel(new Set())} className="text-sm text-ink-muted hover:underline ml-auto">Limpar</button>
           <button onClick={() => setWaOpen(true)} className="bg-primary hover:bg-primary-dk text-white text-sm font-semibold px-5 py-2 rounded-xl">Enviar WhatsApp</button>
@@ -568,7 +568,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
       {/* Modal cadastro/edição */}
       {modalAberto && (
         <div className="fixed inset-0 bg-black/40 flex items-start justify-center p-4 z-50 overflow-y-auto" onClick={() => setModalAberto(false)}>
-          <div className="glass rounded-2xl w-full max-w-lg my-8 shadow-xl" onClick={e => e.stopPropagation()}>
+          <div className="glass-blur rounded-2xl w-full max-w-lg my-8 shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-line flex items-center justify-between">
               <h2 className="font-bold text-ink">{editando ? 'Editar cliente' : 'Novo cliente'}</h2>
               <button onClick={() => setModalAberto(false)} className="text-ink-faint hover:text-ink-dim text-xl leading-none">×</button>
@@ -628,7 +628,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
       {/* Diálogo WhatsApp em massa */}
       {waOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-start justify-center p-4 z-50 overflow-y-auto" onClick={() => setWaOpen(false)}>
-          <div className="glass rounded-2xl w-full max-w-lg my-8 shadow-xl" onClick={e => e.stopPropagation()}>
+          <div className="glass-blur rounded-2xl w-full max-w-lg my-8 shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-line flex items-center justify-between">
               <h2 className="font-bold text-ink">WhatsApp — {selecionadosWa.length} cliente{selecionadosWa.length !== 1 ? 's' : ''}</h2>
               <button onClick={() => setWaOpen(false)} className="text-ink-faint hover:text-ink-dim text-xl leading-none">×</button>

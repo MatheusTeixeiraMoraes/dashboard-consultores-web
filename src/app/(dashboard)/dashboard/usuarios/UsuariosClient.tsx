@@ -275,7 +275,7 @@ export default function UsuariosClient({ usuarios, myRole, myId }: {
       {/* Modal de criação */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
-          <div className="glass rounded-2xl shadow-xl w-full max-w-md">
+          <div className="glass-blur rounded-2xl shadow-xl w-full max-w-md">
             <div className="px-6 py-5 border-b border-line flex items-center justify-between">
               <h2 className="text-base font-bold text-ink">Novo Usuário</h2>
               <button

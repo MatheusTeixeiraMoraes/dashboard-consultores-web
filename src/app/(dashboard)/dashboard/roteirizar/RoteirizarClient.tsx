@@ -222,7 +222,7 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
       </div>
 
       {/* Barra de ação — acompanha a rolagem porque a seleção acontece embaixo */}
-      <div className="glass border border-line rounded-2xl px-5 py-3.5 mb-3 flex items-center justify-between gap-4 flex-wrap sticky top-2 z-30">
+      <div className="glass-blur border border-line rounded-2xl px-5 py-3.5 mb-3 flex items-center justify-between gap-4 flex-wrap sticky top-2 z-30">
         <div className="flex items-baseline gap-2.5">
           <span className="text-3xl font-bold text-ink leading-none">{stops.length}</span>
           <span className="text-[11px] text-ink-muted uppercase tracking-wide">

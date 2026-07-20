@@ -295,7 +295,7 @@ export default function RadarClient({ clientes, podeVerTodos, meuNome }: Props) 
 
       {/* Barra de seleção */}
       {selecionados.size > 0 && (
-        <div className="fixed bottom-0 left-0 md:left-60 right-0 glass border-t border-line px-4 md:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-3 z-30 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
+        <div className="fixed bottom-0 left-0 md:left-60 right-0 glass-blur border-t border-line px-4 md:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-3 z-30 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
           <span className="text-sm font-semibold text-ink">{selecionados.size} cliente{selecionados.size !== 1 ? 's' : ''} selecionado{selecionados.size !== 1 ? 's' : ''}</span>
           <button onClick={() => setSelecionados(new Set())} className="text-sm text-ink-muted hover:underline ml-auto">Limpar</button>
           <button onClick={criarRota} className="bg-primary hover:bg-primary-dk text-white text-sm font-semibold px-5 py-2 rounded-xl">Criar Rota →</button>

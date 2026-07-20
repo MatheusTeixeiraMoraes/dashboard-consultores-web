@@ -70,7 +70,7 @@ export default function MultiFiltro({ label, opcoes, sel, onChange }: {
           esquerda, sairia pela direita), e o polegar alcança o rodapé melhor
           que o meio da tela. */}
       {aberto && (
-        <div className="glass border border-line shadow-2xl overflow-hidden
+        <div className="glass-blur border border-line shadow-2xl overflow-hidden
           fixed inset-x-3 bottom-3 z-50 rounded-2xl pb-[env(safe-area-inset-bottom)]
           md:absolute md:inset-x-auto md:bottom-auto md:right-0 md:top-full md:mt-1.5 md:w-64 md:z-40 md:rounded-xl md:pb-0">
           {opcoes.length > 8 && (
