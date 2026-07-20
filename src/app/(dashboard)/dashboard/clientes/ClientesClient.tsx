@@ -78,6 +78,15 @@ function corAvatar(chave: string) {
 // CNPJ na frente ("01.467.973 LUCIANO TEIXEIRA"), e o avatar viraria "0".
 const inicial = (c: Cliente) => (c.seller_nome.match(/\p{L}/u)?.[0] ?? '?').toUpperCase()
 
+// Cliente que ainda não foi identificado: veio da Planilha Geral (ou do import
+// antigo) só com o ID. O MP exporta esses como "INOVVA". Quem preenche nome,
+// CPF e telefone é o consultor, olhando o painel do MP. Derivado, sem coluna:
+// sai do estado sozinho quando o nome real é salvo.
+const precisaEnriquecer = (c: Cliente) => {
+  const n = c.seller_nome.trim()
+  return !n || /^inovva$/i.test(n) || n === c.seller_id
+}
+
 // Placeholders que NÃO são endereço — geocodá-los devolveria um pino aleatório.
 const SEM_ENDERECO = /^(endereç?o\s+n[ãa]o\s+informad[oa]|n[ãa]o\s+informad[oa]|sem\s+endereç?o|n\/?a|-+|—+)$/i
 
@@ -153,6 +162,16 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   const [waOpen, setWaOpen] = useState(false)
   const [waMsg, setWaMsg] = useState('Olá {nome}, tudo bem?')
 
+  // Enriquecimento: copiar o ID pra buscar no painel do MP, e filtrar pendentes.
+  const [copiado, setCopiado] = useState<string | null>(null)
+  const [soPendentes, setSoPendentes] = useState(false)
+  function copiarId(id: string) {
+    navigator.clipboard?.writeText(id)
+    setCopiado(id)
+    setTimeout(() => setCopiado(atual => (atual === id ? null : atual)), 1500)
+  }
+  const pendentesCount = useMemo(() => clientes.filter(precisaEnriquecer).length, [clientes])
+
   const temFicha = Object.keys(fichaTecnica).length > 0
   const mccs = useMemo(
     () => ordenar(clientes.map(c => fichaTecnica[c.seller_id]?.mcc ?? '')),
@@ -171,6 +190,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   const filtrados = useMemo(() => {
     const q = busca.trim().toLowerCase()
     return clientes.filter(c =>
+      (!soPendentes || precisaEnriquecer(c)) &&
       (fConsultores.size === 0 || fConsultores.has(c.consultor_nome)) &&
       (fCidades.size === 0 || fCidades.has(c.cidade)) &&
       (fBairros.size === 0 || fBairros.has(c.bairro)) &&
@@ -182,7 +202,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
       (!q || [c.seller_nome, c.seller_id, c.endereco_completo, c.cidade, c.bairro, c.consultor_nome]
         .some(v => (v ?? '').toLowerCase().includes(q)))
     )
-  }, [clientes, busca, fConsultores, fCidades, fBairros, fStatus, fGps, fSituacao, fQuartil, fMcc, fichaTecnica])
+  }, [clientes, busca, soPendentes, fConsultores, fCidades, fBairros, fStatus, fGps, fSituacao, fQuartil, fMcc, fichaTecnica])
 
   // Os KPIs leem o resultado filtrado: eles são o placar do que está na tela,
   // não um total fixo que ignora os filtros.
@@ -208,7 +228,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   const visiveis = filtrados.slice(paginaAtual * POR_PAGINA, (paginaAtual + 1) * POR_PAGINA)
 
   const qtdFiltros = fConsultores.size + fCidades.size + fBairros.size + fStatus.size + fGps.size + fSituacao.size + fQuartil.size + fMcc.size
-  const filtrando = qtdFiltros > 0 || busca.trim() !== ''
+  const filtrando = qtdFiltros > 0 || busca.trim() !== '' || soPendentes
 
   // Trocar de filtro volta pra primeira página: manter a página 7 depois de
   // filtrar para 30 clientes mostraria uma tela vazia.
@@ -219,6 +239,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
     setFConsultores(new Set()); setFCidades(new Set()); setFBairros(new Set())
     setFStatus(new Set()); setFGps(new Set())
     setFSituacao(new Set()); setFQuartil(new Set()); setFMcc(new Set())
+    setSoPendentes(false)
     setPagina(0)
   }
 
@@ -249,9 +270,9 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   async function salvar() {
     setErro('')
     if (!form.seller_id.trim()) return setErro('Seller ID é obrigatório.')
-    if (!form.cidade.trim()) return setErro('Cidade é obrigatória.')
-    if (!form.bairro.trim()) return setErro('Bairro é obrigatório.')
-    if (!form.endereco_completo.trim()) return setErro('Endereço é obrigatório.')
+    // Endereço/cidade/bairro são OPCIONAIS: identificar um cliente (nome, CPF,
+    // telefone) não exige endereço. Sem lat/lng ele já não aparece no Radar, e o
+    // enriquecimento tem que poder salvar só a identidade que o consultor achou.
 
     const nomeConsultor = podeGerir ? form.consultor_nome.trim() : meuNome
     if (!nomeConsultor) return setErro('Informe o consultor responsável.')
@@ -262,7 +283,6 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
     }
 
     const payload = {
-      consultor_nome: nomeConsultor,
       seller_id: form.seller_id.trim(),
       seller_nome: form.seller_nome.trim(),
       seller_telefone: form.seller_telefone.trim() || null,
@@ -270,28 +290,43 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
       doc_tipo: form.doc_tipo || null,
       cpf_cnpj: form.cpf_cnpj.trim() || null,
       // Canoniza a grafia na escrita: sem isso "Centro"/"CENTRO"/"centro" viram
-      // três opções distintas nos filtros.
-      cidade: tituloCaso(form.cidade),
-      bairro: tituloCaso(form.bairro),
+      // três opções distintas nos filtros. Vazio é '' (a coluna é NOT NULL
+      // default ''), não null — um stub sem endereço é válido.
+      cidade: form.cidade.trim() ? tituloCaso(form.cidade) : '',
+      bairro: form.bairro.trim() ? tituloCaso(form.bairro) : '',
       endereco_completo: form.endereco_completo.trim(),
       lat: latNum, lng: lngNum,
     }
 
     setSalvando(true)
     const supabase = createClient()
-    let error
-    if (editando) {
-      ;({ error } = await supabase
-        .from('clientes')
-        .update({ ...payload, status_atualizacao: 'Cliente Atualizado', updated_at: new Date().toISOString() })
-        .eq('id', editando.id))
-    } else {
-      ;({ error } = await supabase.from('clientes').insert(payload))
-    }
-    setSalvando(false)
-    if (error) {
-      setErro(error.code === '23505' ? 'Já existe um cliente com esse Seller ID.' : error.message)
+    try {
+      if (editando) {
+        // consultor_nome só entra quando GESTÃO reatribui. O consultor editando
+        // o próprio cliente NÃO carimba o dono — a carteira é da Planilha Geral,
+        // e reescrever aqui poderia sobrepor uma transferência recente.
+        const update = podeGerir
+          ? { ...payload, consultor_nome: nomeConsultor, status_atualizacao: 'Cliente Atualizado', updated_at: new Date().toISOString() }
+          : { ...payload, status_atualizacao: 'Cliente Atualizado', updated_at: new Date().toISOString() }
+        // .select() é obrigatório: sem ele, um UPDATE que a RLS barra (cliente
+        // transferido para outro consultor no meio da edição) volta com ZERO
+        // linhas e SEM erro — o modal fecharia "salvo" e o trabalho sumiria.
+        const { data, error } = await supabase.from('clientes').update(update).eq('id', editando.id).select('id')
+        if (error) throw error
+        if (!data || data.length === 0) {
+          setErro('Não foi possível salvar: este cliente pode ter saído da sua carteira. Recarregue a página.')
+          return
+        }
+      } else {
+        const { error } = await supabase.from('clientes').insert({ ...payload, consultor_nome: nomeConsultor })
+        if (error) throw error
+      }
+    } catch (e) {
+      const err = e as { code?: string; message: string }
+      setErro(err.code === '23505' ? 'Já existe um cliente com esse Seller ID.' : err.message)
       return
+    } finally {
+      setSalvando(false)
     }
     setModalAberto(false)
     router.refresh()
@@ -313,8 +348,9 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
     setGeoLinha(null)
     if (!p) return setErro(`Não foi possível geocodificar "${c.seller_nome || c.seller_id}".`)
     const supabase = createClient()
-    const { error } = await supabase.from('clientes').update({ lat: p.lat, lng: p.lng, updated_at: new Date().toISOString() }).eq('id', c.id)
+    const { data, error } = await supabase.from('clientes').update({ lat: p.lat, lng: p.lng, updated_at: new Date().toISOString() }).eq('id', c.id).select('id')
     if (error) { setErro(error.message); return }
+    if (!data || data.length === 0) { setErro(`"${c.seller_nome || c.seller_id}" saiu da sua carteira. Recarregue a página.`); return }
     router.refresh()
   }
 
@@ -442,6 +478,15 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
           <MultiFiltro label="Prioridade" opcoes={['P1', 'P2', 'P3', 'P4']} sel={fQuartil} onChange={aoFiltrar(setFQuartil)} />
           <MultiFiltro label="Segmento" opcoes={mccs} sel={fMcc} onChange={aoFiltrar(setFMcc)} />
         </>}
+        {pendentesCount > 0 && (
+          <button onClick={() => { setSoPendentes(v => !v); setPagina(0) }}
+            className={`flex items-center gap-1.5 border rounded-lg px-2.5 py-1.5 text-sm whitespace-nowrap transition-colors ${
+              soPendentes ? 'border-warn/60 bg-warn-bg text-warn' : 'border-field-line bg-field text-ink-muted hover:text-ink'
+            }`}>
+            Só pendentes
+            <span className="bg-warn text-white text-[10px] font-bold rounded-full px-1.5 min-w-[17px] text-center">{nBR(pendentesCount)}</span>
+          </button>
+        )}
         {filtrando && (
           <button onClick={limparFiltros} className="text-xs text-ink-muted hover:text-ink underline underline-offset-2">Limpar filtros</button>
         )}
@@ -469,6 +514,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
             const endereco = end && !SEM_ENDERECO.test(end) ? end : ''
             const marcado = waSel.has(c.id)
             const ficha = fichaTecnica[c.seller_id]
+            const pendente = precisaEnriquecer(c)
             return (
               // min-w-0: item de grid tem min-width:auto e NÃO encolhe abaixo do
               // conteúdo. Sem isto, um e-mail ou endereço longo estica o card e
@@ -482,10 +528,32 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                     {inicial(c)}
                   </span>
                   <div className="min-w-0 flex-1">
-                    {/* Duas linhas: o nome real vem depois do CNPJ, e numa linha
-                        só o corte cai antes da pessoa aparecer. */}
-                    <p className="text-sm font-semibold text-ink leading-snug line-clamp-2" title={c.seller_nome || undefined}>{c.seller_nome || '—'}</p>
-                    <p className="text-[11px] text-ink-faint truncate mt-0.5">#{c.seller_id}</p>
+                    {pendente ? (
+                      // Cliente sem identidade: o ID vira o título e ganha um botão
+                      // de copiar — é o que o consultor leva pro painel do MP.
+                      <>
+                        <button onClick={() => copiarId(c.seller_id)} title="Copiar o ID para buscar no painel do MP"
+                          className="flex items-center gap-1.5 text-sm font-semibold text-ink hover:text-primary transition-colors max-w-full">
+                          <span className="font-mono truncate">#{c.seller_id}</span>
+                          <span className="flex-shrink-0 text-ink-muted">
+                            {copiado === c.seller_id
+                              ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                              : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>}
+                          </span>
+                        </button>
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-warn mt-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-warn" />
+                          {copiado === c.seller_id ? 'ID copiado' : 'Pendente de identificação'}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        {/* Duas linhas: o nome real vem depois do CNPJ, e numa linha
+                            só o corte cai antes da pessoa aparecer. */}
+                        <p className="text-sm font-semibold text-ink leading-snug line-clamp-2" title={c.seller_nome || undefined}>{c.seller_nome || '—'}</p>
+                        <p className="text-[11px] text-ink-faint truncate mt-0.5">#{c.seller_id}</p>
+                      </>
+                    )}
                   </div>
                   <Selo ok={c.status_atualizacao === 'Cliente Atualizado'} />
                 </div>
@@ -589,8 +657,10 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                     </div>
                   ) : (
                     <div className="flex gap-2">
-                      <button onClick={() => abrirEdicao(c)} className="flex-1 bg-primary/15 hover:bg-primary/25 text-primary-lt text-xs font-semibold py-2 rounded-lg transition-colors">
-                        Editar
+                      <button onClick={() => abrirEdicao(c)} className={`flex-1 text-xs font-semibold py-2 rounded-lg transition-colors ${
+                        pendente ? 'bg-warn/20 hover:bg-warn/30 text-warn' : 'bg-primary/15 hover:bg-primary/25 text-primary-lt'
+                      }`}>
+                        {pendente ? 'Identificar cliente' : 'Editar'}
                       </button>
                       {wa && (
                         <a href={wa} target="_blank" rel="noopener noreferrer" title="Abrir WhatsApp"
@@ -651,10 +721,24 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
         <div className="fixed inset-0 bg-black/40 flex items-start justify-center p-4 z-50 overflow-y-auto" onClick={() => setModalAberto(false)}>
           <div className="glass-blur rounded-2xl w-full max-w-lg my-8 shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-line flex items-center justify-between">
-              <h2 className="font-bold text-ink">{editando ? 'Editar cliente' : 'Novo cliente'}</h2>
+              <h2 className="font-bold text-ink">
+                {!editando ? 'Novo cliente' : precisaEnriquecer(editando) ? 'Identificar cliente' : 'Editar cliente'}
+              </h2>
               <button onClick={() => setModalAberto(false)} className="text-ink-faint hover:text-ink-dim text-xl leading-none">×</button>
             </div>
             <div className="p-5 space-y-3">
+              {editando && precisaEnriquecer(editando) && (
+                <div className="text-xs bg-warn-bg text-warn rounded-lg px-3 py-2.5 flex items-start gap-2">
+                  <span className="mt-0.5 flex-shrink-0">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+                  </span>
+                  <span>
+                    Busque o ID <button type="button" onClick={() => copiarId(editando.seller_id)} className="font-mono font-semibold underline underline-offset-2 hover:text-ink">#{editando.seller_id}</button> no
+                    painel do Mercado Pago e preencha nome, CPF/CNPJ e telefone deste cliente.
+                    {copiado === editando.seller_id && <span className="font-semibold"> · copiado</span>}
+                  </span>
+                </div>
+              )}
               {podeGerir && (
                 <Campo label="Consultor responsável">
                   <input list="consultores-list" value={form.consultor_nome} onChange={e => set('consultor_nome')(e.target.value)} className={inputCls} placeholder="Nome do consultor" />
@@ -678,10 +762,10 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                 <Campo label="CPF / CNPJ"><input value={form.cpf_cnpj} onChange={e => set('cpf_cnpj')(e.target.value)} className={inputCls} /></Campo>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Campo label="Cidade *"><input value={form.cidade} onChange={e => set('cidade')(e.target.value)} className={inputCls} /></Campo>
-                <Campo label="Bairro *"><input value={form.bairro} onChange={e => set('bairro')(e.target.value)} className={inputCls} /></Campo>
+                <Campo label="Cidade"><input value={form.cidade} onChange={e => set('cidade')(e.target.value)} className={inputCls} /></Campo>
+                <Campo label="Bairro"><input value={form.bairro} onChange={e => set('bairro')(e.target.value)} className={inputCls} /></Campo>
               </div>
-              <Campo label="Endereço completo *">
+              <Campo label="Endereço completo">
                 <input value={form.endereco_completo} onChange={e => set('endereco_completo')(e.target.value)} className={inputCls} placeholder="Rua, número, cidade" />
               </Campo>
               <div className="flex items-end gap-2">
