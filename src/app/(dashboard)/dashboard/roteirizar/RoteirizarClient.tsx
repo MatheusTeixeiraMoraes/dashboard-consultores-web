@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import MultiFiltro from '@/components/MultiFiltro'
+import { precisaIdentificar } from '@/lib/texto'
 import {
   otimizarRota, receberDoRadar, limparEntregaDoRadar, geocodar, linksGoogleMaps,
   type Ponto, type ClienteSelecionado,
@@ -322,7 +323,7 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
                 {stops.map((s, i) => (
                   <span key={s.seller_id} className="inline-flex items-center gap-1.5 text-[11px] bg-card-2 border border-line rounded-lg pl-1.5 pr-1 py-1 text-ink-dim max-w-full">
                     {resultado && <span className="w-4 h-4 rounded-full bg-primary text-white flex items-center justify-center text-[9px] font-bold flex-shrink-0">{i + 1}</span>}
-                    <span className="truncate">{s.seller_nome || `#${s.seller_id}`}</span>
+                    <span className="truncate">{precisaIdentificar(s.seller_nome, s.seller_id) ? `#${s.seller_id}` : s.seller_nome}</span>
                     <button onClick={() => removeStop(s.seller_id)} className="text-ink-faint hover:text-bad w-4 text-center flex-shrink-0">×</button>
                   </span>
                 ))}
@@ -393,7 +394,9 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
                           <span className="text-[10px] font-mono bg-primary/15 text-primary-lt px-1.5 py-0.5 rounded">{c.seller_id}</span>
                           {wa && <span className="text-good" title="tem WhatsApp"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347" /></svg></span>}
                         </div>
-                        <p className="text-sm font-medium text-ink truncate mt-0.5">{c.seller_nome || '—'}</p>
+                        {precisaIdentificar(c.seller_nome, c.seller_id)
+                          ? <p className="text-sm font-medium text-warn truncate mt-0.5">Pendente de identificação</p>
+                          : <p className="text-sm font-medium text-ink truncate mt-0.5">{c.seller_nome || '—'}</p>}
                         <p className="text-[11px] text-ink-faint truncate">{c.bairro ? `${c.bairro}, ` : ''}{c.cidade}</p>
                       </div>
                     </div>

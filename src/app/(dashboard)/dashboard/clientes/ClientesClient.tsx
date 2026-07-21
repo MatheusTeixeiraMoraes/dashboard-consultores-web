@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import MultiFiltro from '@/components/MultiFiltro'
 import { findCol } from '@/lib/pilares'
 import { geocodar, sleep } from '@/lib/geo'
-import { tituloCaso, tipoDoc } from '@/lib/texto'
+import { tituloCaso, tipoDoc, precisaIdentificar } from '@/lib/texto'
 import type { Cliente, UserRole } from '@/lib/types'
 import type { FichaMP } from './page'
 
@@ -73,14 +73,7 @@ function corAvatar(chave: string) {
 // CNPJ na frente ("01.467.973 LUCIANO TEIXEIRA"), e o avatar viraria "0".
 const inicial = (c: Cliente) => (c.seller_nome.match(/\p{L}/u)?.[0] ?? '?').toUpperCase()
 
-// Cliente que ainda não foi identificado: veio da Planilha Geral (ou do import
-// antigo) só com o ID. O MP exporta esses como "INOVVA". Quem preenche nome,
-// CPF e telefone é o consultor, olhando o painel do MP. Derivado, sem coluna:
-// sai do estado sozinho quando o nome real é salvo.
-const precisaEnriquecer = (c: Cliente) => {
-  const n = c.seller_nome.trim()
-  return !n || /^inovva$/i.test(n) || n === c.seller_id
-}
+const precisaEnriquecer = (c: Cliente) => precisaIdentificar(c.seller_nome, c.seller_id)
 
 // Placeholders que NÃO são endereço — geocodá-los devolveria um pino aleatório.
 const SEM_ENDERECO = /^(endereç?o\s+n[ãa]o\s+informad[oa]|n[ãa]o\s+informad[oa]|sem\s+endereç?o|n\/?a|-+|—+)$/i

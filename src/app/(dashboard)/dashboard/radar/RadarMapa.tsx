@@ -1,5 +1,6 @@
 'use client'
 
+import { precisaIdentificar } from '@/lib/texto'
 import { useEffect, useRef } from 'react'
 import 'leaflet/dist/leaflet.css'
 import 'leaflet.markercluster/dist/MarkerCluster.css'
@@ -115,7 +116,7 @@ export default function RadarMapa({ pos, raio, clientes, onToggle }: Props) {
       el.style.fontSize = '12px'
       el.style.minWidth = '180px'
       el.innerHTML = `
-        <div style="font-weight:600;font-size:13px;color:var(--color-ink)">${esc(c.seller_nome || '#' + c.seller_id)}</div>
+        <div style="font-weight:600;font-size:13px;color:${precisaIdentificar(c.seller_nome, c.seller_id) ? 'var(--color-warn)' : 'var(--color-ink)'}">${precisaIdentificar(c.seller_nome, c.seller_id) ? 'Pendente de identificação' : esc(c.seller_nome)}</div>
         <div style="color:var(--color-ink-muted);margin-top:2px">#${esc(c.seller_id)} · ${c.bairro ? esc(c.bairro) + ', ' : ''}${esc(c.cidade)}</div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
           <span style="background:var(--color-good-bg);color:var(--color-good);font-weight:700;font-size:11px;padding:2px 8px;border-radius:999px">${c.dist.toFixed(1).replace('.', ',')} km</span>

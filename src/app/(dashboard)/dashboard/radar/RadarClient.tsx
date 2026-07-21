@@ -1,5 +1,6 @@
 'use client'
 
+import { precisaIdentificar } from '@/lib/texto'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
@@ -269,7 +270,9 @@ export default function RadarClient({ clientes, podeVerTodos, meuNome }: Props) 
               <div key={c.seller_id} className={`glass rounded-xl border p-3.5 flex items-center gap-3 ${c.selecionado ? 'border-good ring-1 ring-primary/30' : 'border-line'}`}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-medium text-ink truncate">{c.seller_nome || `#${c.seller_id}`}</p>
+                    {precisaIdentificar(c.seller_nome, c.seller_id)
+                      ? <p className="font-medium text-warn truncate">Pendente de identificação</p>
+                      : <p className="font-medium text-ink truncate">{c.seller_nome}</p>}
                     <span className="text-[11px] font-bold text-good bg-good-bg px-2 py-0.5 rounded-full whitespace-nowrap">{fmtDist(c.dist)}</span>
                     {c.selecionado && <span className="text-[11px] font-bold text-white bg-good px-2 py-0.5 rounded-full">Selecionado</span>}
                   </div>

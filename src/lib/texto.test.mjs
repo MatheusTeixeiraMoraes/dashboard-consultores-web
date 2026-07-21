@@ -7,7 +7,7 @@
 // dois bugs de verdade.
 
 import assert from 'node:assert/strict'
-import { tituloCaso, tipoDoc } from './texto.ts'
+import { tituloCaso, tipoDoc, precisaIdentificar } from './texto.ts'
 
 let n = 0
 const t = (nome, fn) => { fn(); n++; console.log('  ok:', nome) }
@@ -69,6 +69,20 @@ t('tipoDoc não chuta tipo em dado sujo', () => {
   assert.equal(tipoDoc('123'), null)                    // curto demais
   assert.equal(tipoDoc('123456789012345'), null)        // longo demais
   assert.equal(tipoDoc(null), null)
+})
+
+t('precisaIdentificar pega INOVVA, vazio e nome=ID', () => {
+  assert.equal(precisaIdentificar('INOVVA', '123'), true)
+  assert.equal(precisaIdentificar('inovva', '123'), true)   // caixa não importa
+  assert.equal(precisaIdentificar('  INOVVA  ', '123'), true) // espaço não importa
+  assert.equal(precisaIdentificar('', '123'), true)         // sem nome
+  assert.equal(precisaIdentificar(null, '123'), true)
+  assert.equal(precisaIdentificar('123', '123'), true)      // nome = próprio ID
+})
+
+t('precisaIdentificar deixa passar quem tem nome de verdade', () => {
+  assert.equal(precisaIdentificar('Bar do Zé', '123'), false)
+  assert.equal(precisaIdentificar('INOVVA COMÉRCIO LTDA', '123'), false) // contém, mas não É
 })
 
 console.log(`\n${n} testes passaram`)

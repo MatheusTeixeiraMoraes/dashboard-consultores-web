@@ -18,6 +18,21 @@ const ROMANO = /^(i{1,3}|iv|v|vi{1,3}|ix|x{1,3})$/
  * não atrapalha o objetivo, que é ter UM valor por localidade.
  */
 /**
+ * Cliente sem identidade: veio só com o ID. O MP exporta esses como "INOVVA",
+ * e a reconciliação cria stubs sem nome. Quem preenche nome/CPF/telefone é o
+ * consultor, olhando o painel do MP.
+ *
+ * Mora aqui porque três telas mostram "Pendente de identificação" no lugar do
+ * nome-placeholder — Clientes, Roteirizar e Radar — e a regra tem que ser a
+ * mesma nas três. Derivado, sem coluna: sai do estado sozinho quando o nome
+ * real é salvo.
+ */
+export function precisaIdentificar(sellerNome: string | null, sellerId: string): boolean {
+  const n = (sellerNome ?? '').trim()
+  return !n || /^inovva$/i.test(n) || n === sellerId
+}
+
+/**
  * Deduz CPF ou CNPJ pela quantidade de dígitos.
  *
  * A planilha traz uma coluna só ("CPF/CNPJ", ex.: "45.950.024/0001-40") e não
