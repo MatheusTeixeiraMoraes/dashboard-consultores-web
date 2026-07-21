@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { otimizarRota, linksGoogleMaps, type Ponto } from '@/lib/geo'
+import { precisaIdentificar } from '@/lib/texto'
 import type { Rota } from './page'
 
 function linksMapsDaRota(r: Rota): string[] {
@@ -163,7 +164,7 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
                 <div className="flex flex-wrap gap-1.5 mt-3">
                   {r.stops.map((s, i) => (
                     <span key={s.seller_id} className="text-[11px] bg-card-2 border border-line rounded-lg px-2 py-1 text-ink-dim">
-                      {i + 1}. {s.seller_nome || `#${s.seller_id}`}
+                      {i + 1}. {precisaIdentificar(s.seller_nome, s.seller_id) ? `Pendente de identificação #${s.seller_id}` : s.seller_nome}
                     </span>
                   ))}
                 </div>

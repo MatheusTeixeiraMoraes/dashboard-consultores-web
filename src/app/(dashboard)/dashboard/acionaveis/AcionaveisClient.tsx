@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import MultiFiltro from '@/components/MultiFiltro'
 import { entregarAoRoteirizar } from '@/lib/geo'
+import { precisaIdentificar } from '@/lib/texto'
 import { useRouter } from 'next/navigation'
 import type { CarteiraMP, Ficha } from './page'
 
@@ -112,9 +113,16 @@ export default function AcionaveisClient({ dataReferencia, carteira, acoes, fich
     setSel(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
   }
 
-  /** Manda a seleção para o Roteirizar — só quem tem GPS na base de rotas. */
+  /** Roteável = tem ficha na base de rotas E já foi identificado (não é INOVVA/sem
+   *  nome). Cliente pendente fica em Clientes até o consultor preencher. */
+  const roteavel = (c: CarteiraMP) => {
+    const f = fichas[c.seller_id]
+    return !!f && !precisaIdentificar(f.nome, c.seller_id)
+  }
+
+  /** Manda a seleção para o Roteirizar — só quem tem GPS na base de rotas e já foi identificado. */
   function mandarProRoteirizar() {
-    const comLocal = selecionados.filter(c => fichas[c.seller_id])
+    const comLocal = selecionados.filter(roteavel)
     entregarAoRoteirizar(comLocal.map(c => ({
       seller_id: c.seller_id,
       seller_nome: fichas[c.seller_id]?.nome ?? c.seller_id,
@@ -225,9 +233,13 @@ export default function AcionaveisClient({ dataReferencia, carteira, acoes, fich
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-semibold text-ink truncate">
-                        {f?.nome || `#${c.seller_id}`}
-                      </span>
+                      {precisaIdentificar(f?.nome ?? '', c.seller_id) ? (
+                        <span className="text-sm font-semibold text-warn truncate">
+                          Pendente de identificação <span className="font-mono text-[11px] text-ink-faint">#{c.seller_id}</span>
+                        </span>
+                      ) : (
+                        <span className="text-sm font-semibold text-ink truncate">{f?.nome}</span>
+                      )}
                       {c.quartil && (
                         <span className="text-[10px] font-bold text-white px-1.5 py-0.5 rounded-md flex-shrink-0" style={{}}>
                           <span className={`${CorQuartil[c.quartil] ?? 'bg-ink-faint'} px-1.5 py-0.5 rounded-md`}>
@@ -287,7 +299,7 @@ export default function AcionaveisClient({ dataReferencia, carteira, acoes, fich
           <span className="text-sm font-semibold text-ink">{sel.size} selecionado{sel.size !== 1 ? 's' : ''}</span>
           <button onClick={() => setSel(new Set())} className="text-sm text-ink-muted hover:underline">Limpar</button>
           <button onClick={mandarProRoteirizar}
-            disabled={!selecionados.some(c => fichas[c.seller_id])}
+            disabled={!selecionados.some(roteavel)}
             className="ml-auto bg-primary hover:bg-primary-dk disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-xl">
             Montar rota
           </button>

@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import MultiFiltro from '@/components/MultiFiltro'
 import { compararRitmo, estagnacao, faixaTPV, ROTULO_FAIXA, type FaixaTPV } from '@/lib/tpv'
+import { precisaIdentificar } from '@/lib/texto'
 import type { LinhaTPV, PontoSerie } from './page'
 
 const POR_PAGINA = 50
@@ -212,7 +213,9 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
               return (
                 <tr key={l.seller_id} className="hover:bg-card-2 transition-colors">
                   <td className="px-4 py-2.5 max-w-[240px]">
-                    <p className="text-ink truncate leading-tight">{f?.nome || `#${l.seller_id}`}</p>
+                    {precisaIdentificar(f?.nome ?? '', l.seller_id)
+                      ? <p className="text-warn truncate leading-tight">Pendente de identificação <span className="font-mono text-[11px] text-ink-faint">#{l.seller_id}</span></p>
+                      : <p className="text-ink truncate leading-tight">{f?.nome}</p>}
                     <p className="text-[11px] text-ink-faint truncate">
                       {podeGerir ? l.consultor_nome : f?.local || `#${l.seller_id}`}
                     </p>
