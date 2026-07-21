@@ -107,7 +107,11 @@ export default function RadarClient({ clientes, podeVerTodos, meuNome }: Props) 
   // Distância de cada cliente até a posição atual (só quando há GPS).
   const comDistancia = useMemo(() => {
     if (!pos) return []
+    // Radar alimenta o Roteirizar. Quem ainda é "Pendente de identificação"
+    // (INOVVA / sem nome / nome = ID) fica em Clientes até o consultor
+    // identificar — não entra no radar nem vira parada de rota.
     return clientes
+      .filter(c => !precisaIdentificar(c.seller_nome, c.seller_id))
       .map(c => ({ ...c, dist: distanciaKm(pos, { lat: c.lat, lng: c.lng }), selecionado: selecionados.has(c.seller_id) }))
       .sort((a, b) => a.dist - b.dist)
   }, [pos, clientes, selecionados])

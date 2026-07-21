@@ -59,9 +59,10 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
   const [fBairros, setFBairros] = useState<Set<string>>(new Set())
   const [fConsultores, setFConsultores] = useState<Set<string>>(new Set())
 
-  // Recebe a seleção vinda do Radar.
+  // Recebe a seleção vinda do Radar — descartando qualquer pendente que tenha
+  // sobrado de uma entrega antiga (o Radar já não manda mais esses).
   useEffect(() => {
-    const doRadar = receberDoRadar()
+    const doRadar = receberDoRadar().filter(c => !precisaIdentificar(c.seller_nome, c.seller_id))
     if (doRadar.length > 0) {
       setStops(doRadar.slice(0, MAX_STOPS))
       setPreSelecionados(doRadar.length)
@@ -71,32 +72,40 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
 
   const idsNaRota = useMemo(() => new Set(stops.map(s => s.seller_id)), [stops])
 
-  const consultores = useMemo(
-    () => [...new Set(clientes.map(c => c.consultor_nome).filter(Boolean))].sort(),
+  // Roteirizar só lista quem já foi identificado. Os "Pendente de identificação"
+  // (INOVVA / sem nome / nome = ID) ficam em Clientes até o consultor preencher —
+  // não se roteia visita a quem ainda não se sabe quem é.
+  const roteaveis = useMemo(
+    () => clientes.filter(c => !precisaIdentificar(c.seller_nome, c.seller_id)),
     [clientes],
   )
+
+  const consultores = useMemo(
+    () => [...new Set(roteaveis.map(c => c.consultor_nome).filter(Boolean))].sort(),
+    [roteaveis],
+  )
   const cidades = useMemo(
-    () => [...new Set(clientes.map(c => c.cidade).filter(Boolean))].sort(),
-    [clientes],
+    () => [...new Set(roteaveis.map(c => c.cidade).filter(Boolean))].sort(),
+    [roteaveis],
   )
   // Bairros seguem as cidades escolhidas — não faz sentido oferecer bairro de
   // cidade que está fora do filtro.
   const bairros = useMemo(
     () => [...new Set(
-      clientes.filter(c => fCidades.size === 0 || fCidades.has(c.cidade)).map(c => c.bairro).filter(Boolean),
+      roteaveis.filter(c => fCidades.size === 0 || fCidades.has(c.cidade)).map(c => c.bairro).filter(Boolean),
     )].sort(),
-    [clientes, fCidades],
+    [roteaveis, fCidades],
   )
 
   const filtrados = useMemo(() => {
     const q = fBusca.trim().toLowerCase()
-    return clientes.filter(c =>
+    return roteaveis.filter(c =>
       (fCidades.size === 0 || fCidades.has(c.cidade)) &&
       (fBairros.size === 0 || fBairros.has(c.bairro)) &&
       (fConsultores.size === 0 || fConsultores.has(c.consultor_nome)) &&
       (!q || c.seller_id.toLowerCase().includes(q) || c.seller_nome.toLowerCase().includes(q))
     )
-  }, [clientes, fBusca, fCidades, fBairros, fConsultores])
+  }, [roteaveis, fBusca, fCidades, fBairros, fConsultores])
 
   const nFiltros = fCidades.size + fBairros.size + fConsultores.size + (fBusca.trim() ? 1 : 0)
   const temFiltro = nFiltros > 0
