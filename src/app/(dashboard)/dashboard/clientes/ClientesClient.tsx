@@ -52,12 +52,7 @@ function paraForm(c: Cliente): FormState {
 
 const temGps = (c: Cliente) => c.lat != null && c.lng != null
 
-// Rótulos curtos dos filtros e do selo. São os dois valores de
-// status_atualizacao, só que sem o "Cliente " na frente.
-const ATUALIZADO = 'Atualizado'
-const STATUS_OPCOES = [ATUALIZADO, 'Não atualizado']
 const GPS_OPCOES = ['Com GPS', 'Sem GPS']
-const rotuloStatus = (c: Cliente) => (c.status_atualizacao === 'Cliente Atualizado' ? ATUALIZADO : 'Não atualizado')
 const rotuloGps = (c: Cliente) => (temGps(c) ? 'Com GPS' : 'Sem GPS')
 
 const ordenar = (s: Iterable<string>) => [...new Set(s)].filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR'))
@@ -144,7 +139,6 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   const [fConsultores, setFConsultores] = useState<Set<string>>(new Set())
   const [fCidades, setFCidades] = useState<Set<string>>(new Set())
   const [fBairros, setFBairros] = useState<Set<string>>(new Set())
-  const [fStatus, setFStatus] = useState<Set<string>>(new Set())
   const [fGps, setFGps] = useState<Set<string>>(new Set())
   // Filtros que vem da Planilha Geral (so aparecem se ela foi importada).
   const [fSituacao, setFSituacao] = useState<Set<string>>(new Set())
@@ -194,7 +188,6 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
       (fConsultores.size === 0 || fConsultores.has(c.consultor_nome)) &&
       (fCidades.size === 0 || fCidades.has(c.cidade)) &&
       (fBairros.size === 0 || fBairros.has(c.bairro)) &&
-      (fStatus.size === 0 || fStatus.has(rotuloStatus(c))) &&
       (fGps.size === 0 || fGps.has(rotuloGps(c))) &&
       (fSituacao.size === 0 || fSituacao.has(fichaTecnica[c.seller_id]?.status ?? '')) &&
       (fQuartil.size === 0 || fQuartil.has(fichaTecnica[c.seller_id]?.quartil ?? '')) &&
@@ -202,7 +195,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
       (!q || [c.seller_nome, c.seller_id, c.endereco_completo, c.cidade, c.bairro, c.consultor_nome]
         .some(v => (v ?? '').toLowerCase().includes(q)))
     )
-  }, [clientes, busca, soPendentes, fConsultores, fCidades, fBairros, fStatus, fGps, fSituacao, fQuartil, fMcc, fichaTecnica])
+  }, [clientes, busca, soPendentes, fConsultores, fCidades, fBairros, fGps, fSituacao, fQuartil, fMcc, fichaTecnica])
 
   // Os KPIs leem o resultado filtrado: eles são o placar do que está na tela,
   // não um total fixo que ignora os filtros.
@@ -213,7 +206,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
       { icon: 'users', label: 'Clientes', valor: filtrados.length },
       { icon: 'pin', label: 'Com GPS', valor: comGps },
       { icon: 'alert', label: 'Sem GPS', valor: semGps.length },
-      { icon: 'check', label: 'Atualizados', valor: filtrados.filter(c => c.status_atualizacao === 'Cliente Atualizado').length },
+      { icon: 'doc', label: 'A identificar', valor: filtrados.filter(precisaEnriquecer).length },
     ]
   }, [filtrados, semGps])
 
@@ -227,7 +220,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   const paginaAtual = Math.min(pagina, totalPaginas - 1)
   const visiveis = filtrados.slice(paginaAtual * POR_PAGINA, (paginaAtual + 1) * POR_PAGINA)
 
-  const qtdFiltros = fConsultores.size + fCidades.size + fBairros.size + fStatus.size + fGps.size + fSituacao.size + fQuartil.size + fMcc.size
+  const qtdFiltros = fConsultores.size + fCidades.size + fBairros.size + fGps.size + fSituacao.size + fQuartil.size + fMcc.size
   const filtrando = qtdFiltros > 0 || busca.trim() !== '' || soPendentes
 
   // Trocar de filtro volta pra primeira página: manter a página 7 depois de
@@ -237,7 +230,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   function limparFiltros() {
     setBusca('')
     setFConsultores(new Set()); setFCidades(new Set()); setFBairros(new Set())
-    setFStatus(new Set()); setFGps(new Set())
+    setFGps(new Set())
     setFSituacao(new Set()); setFQuartil(new Set()); setFMcc(new Set())
     setSoPendentes(false)
     setPagina(0)
@@ -480,7 +473,6 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
         {podeGerir && <MultiFiltro label="Consultores" opcoes={consultores} sel={fConsultores} onChange={aoFiltrar(setFConsultores)} />}
         <MultiFiltro label="Cidades" opcoes={cidades} sel={fCidades} onChange={aoFiltrar(setFCidades)} />
         <MultiFiltro label="Bairros" opcoes={bairros} sel={fBairros} onChange={aoFiltrar(setFBairros)} />
-        <MultiFiltro label="Status" opcoes={STATUS_OPCOES} sel={fStatus} onChange={aoFiltrar(setFStatus)} />
         <MultiFiltro label="GPS" opcoes={GPS_OPCOES} sel={fGps} onChange={aoFiltrar(setFGps)} />
         {temFicha && <>
           <MultiFiltro label="Situação" opcoes={['ATIVO', 'CHURN', 'INATIVO', 'REATIVADO']} sel={fSituacao} onChange={aoFiltrar(setFSituacao)} />
@@ -564,7 +556,6 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                       </>
                     )}
                   </div>
-                  <Selo ok={c.status_atualizacao === 'Cliente Atualizado'} />
                 </div>
 
                 {/* Ficha completa no card. Estes dados só apareciam abrindo o
@@ -914,15 +905,6 @@ function Linha({ icon, iconCls = 'text-ink-faint', children }: { icon: string; i
       <span className={`${iconCls} flex-shrink-0`}><Icon name={icon} size={13} /></span>
       {children}
     </div>
-  )
-}
-
-function Selo({ ok }: { ok: boolean }) {
-  return (
-    <span className={`flex-shrink-0 inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-1 rounded-md ${ok ? 'bg-good-bg text-good' : 'bg-warn-bg text-warn'}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${ok ? 'bg-good' : 'bg-warn'}`} />
-      {ok ? ATUALIZADO : 'Não atualizado'}
-    </span>
   )
 }
 
