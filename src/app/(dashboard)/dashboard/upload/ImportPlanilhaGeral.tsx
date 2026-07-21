@@ -106,10 +106,11 @@ export default function ImportPlanilhaGeral({ data }: { data: string }) {
     if (input.current) input.current.value = ''
   }
 
-  async function aplicarReconciliacao() {
+  async function aplicarReconciliacao(forcar: boolean) {
     setE(s => ({ ...s, status: 'aplicando' }))
     const supabase = createClient()
-    const { data: diff, error } = await supabase.rpc('reconciliar_carteira', { p_data: data, p_aplicar: true })
+    // forcar só quando o piso bloqueou e o humano confirmou olhando o preview.
+    const { data: diff, error } = await supabase.rpc('reconciliar_carteira', { p_data: data, p_aplicar: true, p_forcar: forcar })
     if (error) { setE(s => ({ ...s, status: 'erro', msg: `Erro ao aplicar: ${error.message}` })); return }
     setE(s => ({ ...s, status: 'ok', diff: diff as Diff }))
     router.refresh()
@@ -179,7 +180,7 @@ export default function ImportPlanilhaGeral({ data }: { data: string }) {
             </p>
           )}
           <div className="flex gap-2 mt-3">
-            <button onClick={aplicarReconciliacao}
+            <button onClick={() => aplicarReconciliacao(diff.bloqueado)}
               className={`flex-1 text-white text-xs font-semibold py-2 rounded-lg transition-colors ${diff.bloqueado ? 'bg-bad hover:bg-bad-dk' : 'bg-primary hover:bg-primary-dk'}`}>
               {diff.bloqueado ? 'Aplicar mesmo assim' : 'Aplicar reconciliação'}
             </button>

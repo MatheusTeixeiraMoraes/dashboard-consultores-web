@@ -27,15 +27,24 @@ create index if not exists idx_clientes_em_carteira
   on clientes (em_carteira) where em_carteira;
 
 -- ============================================================
--- reconciliar_carteira(data, aplicar)
+-- reconciliar_carteira(data, aplicar, forcar)
 --
 --   aplicar=false  -> DRY-RUN: só conta o que mudaria (o preview do upload).
 --   aplicar=true   -> aplica, se não estiver bloqueado pelo piso de sanidade.
+--   forcar=true    -> aplica MESMO bloqueado (o "Aplicar mesmo assim" do upload,
+--                     depois do humano ver o preview). Sem isto, o botão seria
+--                     mentira: a função recusaria e nada aconteceria.
 --
 -- security definer: precisa escrever a carteira inteira, então atravessa a RLS.
 -- O gate de papel na primeira linha é o que impede consultor de chamar.
 -- ============================================================
-create or replace function reconciliar_carteira(p_data date, p_aplicar boolean default false)
+
+-- Postgres identifica função por nome + tipos dos args. Adicionar o 3º
+-- parâmetro cria uma função NOVA em vez de substituir a de 2 args — as duas
+-- coexistiriam e o RPC ficaria ambíguo. Dropa a antiga antes.
+drop function if exists reconciliar_carteira(date, boolean);
+
+create or replace function reconciliar_carteira(p_data date, p_aplicar boolean default false, p_forcar boolean default false)
 returns jsonb
 language plpgsql
 security definer
@@ -102,7 +111,7 @@ begin
   v_bloqueado := (v_anterior > 0 and v_total < v_anterior * 0.8)
               or (v_base > 0 and v_ocultar > v_base * 0.15);
 
-  if p_aplicar and not v_bloqueado then
+  if p_aplicar and (not v_bloqueado or p_forcar) then
     -- (a) STUBS: só colunas estruturais. Contato fica em branco para o consultor
     --     preencher — nunca inventado aqui.
     insert into clientes (seller_id, consultor_nome, em_carteira, created_by)
@@ -119,16 +128,21 @@ begin
        and mc.seller_id = c.seller_id
        and c.consultor_nome is distinct from mc.consultor_nome;
 
-    -- (c) MEMBERSHIP bidirecional: esconde quem saiu, reexibe quem voltou.
-    --     Como é `= exists(...)`, o cliente que retorna volta a em_carteira=true
-    --     com telefone/CPF/GPS intactos (nunca foram apagados).
-    update clientes c
-       set em_carteira = exists (
-         select 1 from mp_carteira mc where mc.data_referencia = p_data and mc.seller_id = c.seller_id);
+    -- (c) MEMBERSHIP, em dois updates com WHERE. Um só `set em_carteira =
+    --     exists(...)` sem WHERE tocaria a tabela inteira, e o Postgres recusa
+    --     UPDATE sem WHERE (salvaguarda). Assim também só escreve quem muda.
+    --     Esconde quem saiu da planilha:
+    update clientes c set em_carteira = false
+     where c.em_carteira
+       and not exists (select 1 from mp_carteira mc where mc.data_referencia = p_data and mc.seller_id = c.seller_id);
+    --     Reexibe quem voltou, com o cadastro intacto (nunca foi apagado):
+    update clientes c set em_carteira = true
+     where not c.em_carteira
+       and exists (select 1 from mp_carteira mc where mc.data_referencia = p_data and mc.seller_id = c.seller_id);
   end if;
 
   return jsonb_build_object(
-    'aplicado',        p_aplicar and not v_bloqueado,
+    'aplicado',        p_aplicar and (not v_bloqueado or p_forcar),
     'bloqueado',       v_bloqueado,
     'total_snapshot',  v_total,
     'total_anterior',  v_anterior,
@@ -140,5 +154,5 @@ begin
 end
 $$;
 
-revoke all on function reconciliar_carteira(date, boolean) from anon, authenticated;
-grant execute on function reconciliar_carteira(date, boolean) to authenticated;
+revoke all on function reconciliar_carteira(date, boolean, boolean) from anon, authenticated;
+grant execute on function reconciliar_carteira(date, boolean, boolean) to authenticated;
