@@ -7,7 +7,7 @@
 // dois bugs de verdade.
 
 import assert from 'node:assert/strict'
-import { tituloCaso, tipoDoc, precisaIdentificar } from './texto.ts'
+import { tituloCaso, tipoDoc, precisaIdentificar, enderecoExibivel } from './texto.ts'
 
 let n = 0
 const t = (nome, fn) => { fn(); n++; console.log('  ok:', nome) }
@@ -83,6 +83,26 @@ t('precisaIdentificar pega INOVVA, vazio e nome=ID', () => {
 t('precisaIdentificar deixa passar quem tem nome de verdade', () => {
   assert.equal(precisaIdentificar('Bar do Zé', '123'), false)
   assert.equal(precisaIdentificar('INOVVA COMÉRCIO LTDA', '123'), false) // contém, mas não É
+})
+
+t('enderecoExibivel mostra rua de verdade', () => {
+  assert.equal(enderecoExibivel('Rua 01 157, Floriano, Jaboatão dos Guararapes, Pernambuco'),
+    'Rua 01 157, Floriano, Jaboatão dos Guararapes, Pernambuco')
+  assert.equal(enderecoExibivel('CEP 66613-115, Souza, Belém, Brasil'), 'CEP 66613-115, Souza, Belém, Brasil')
+})
+
+t('enderecoExibivel descarta coordenada crua (o motivo de existir)', () => {
+  assert.equal(enderecoExibivel('-1.3895221468593852, -48.3724784591573'), '')
+  assert.equal(enderecoExibivel('-23.500117, -47.461337'), '')
+  assert.equal(enderecoExibivel(' -1.35, -48.40 '), '')            // com espaço nas bordas
+})
+
+t('enderecoExibivel descarta placeholder e vazio', () => {
+  assert.equal(enderecoExibivel('Endereço não informado'), '')
+  assert.equal(enderecoExibivel('nao informado'), '')
+  assert.equal(enderecoExibivel('—'), '')
+  assert.equal(enderecoExibivel(''), '')
+  assert.equal(enderecoExibivel(null), '')
 })
 
 console.log(`\n${n} testes passaram`)

@@ -46,6 +46,26 @@ export function tipoDoc(s: string): 'CPF' | 'CNPJ' | null {
   return null
 }
 
+// Placeholders da planilha que NÃO são endereço de verdade.
+const SEM_ENDERECO = /^(endereç?o\s+n[ãa]o\s+informad[oa]|n[ãa]o\s+informad[oa]|sem\s+endereç?o|n\/?a|-+|—+)$/i
+// Metade da base traz o campo endereço preenchido só com o par de coordenadas
+// ("-1.3895, -48.3724") — é lat/lng cru, não serve pra ler numa tela.
+const SO_COORDENADAS = /^-?\d{1,3}\.\d+\s*,\s*-?\d{1,3}\.\d+$/
+
+/**
+ * Texto de endereço exibível, ou '' quando não há rua de verdade.
+ *
+ * O campo `endereco_completo` vem sujo: às vezes é a rua ("Rua 01 157, Bairro,
+ * Cidade"), às vezes só o par de coordenadas, às vezes um placeholder
+ * ("Endereço não informado"). Exibir coordenada ou placeholder seria fingir que
+ * o dado existe — nesses casos volta '' e a tela cai no bairro/cidade.
+ */
+export function enderecoExibivel(enderecoCompleto: string | null): string {
+  const end = (enderecoCompleto ?? '').trim()
+  if (!end || SEM_ENDERECO.test(end) || SO_COORDENADAS.test(end)) return ''
+  return end
+}
+
 export function tituloCaso(s: string): string {
   const limpo = (s ?? '').trim().replace(/\s+/g, ' ')
   if (!limpo) return ''

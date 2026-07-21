@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import MultiFiltro from '@/components/MultiFiltro'
-import { precisaIdentificar } from '@/lib/texto'
+import { precisaIdentificar, enderecoExibivel } from '@/lib/texto'
 import {
   otimizarRota, receberDoRadar, limparEntregaDoRadar, geocodar, linksGoogleMaps,
   type Ponto, type ClienteSelecionado,
@@ -391,6 +391,7 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
               {visiveis.map(c => {
                 const sel = idsNaRota.has(c.seller_id)
                 const wa = whatsappUrl(c.seller_telefone)
+                const endereco = enderecoExibivel(c.endereco_completo)
                 return (
                   <button key={c.seller_id} onClick={() => toggleStop(c)}
                     className={`text-left rounded-xl border p-3 transition-colors ${sel ? 'border-primary bg-primary/15' : 'border-line hover:bg-card-2'}`}>
@@ -406,6 +407,7 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
                         {precisaIdentificar(c.seller_nome, c.seller_id)
                           ? <p className="text-sm font-medium text-warn truncate mt-0.5">Pendente de identificação</p>
                           : <p className="text-sm font-medium text-ink truncate mt-0.5">{c.seller_nome || '—'}</p>}
+                        {endereco && <p className="text-[11px] text-ink-dim truncate mt-0.5" title={endereco}>{endereco}</p>}
                         <p className="text-[11px] text-ink-faint truncate">{c.bairro ? `${c.bairro}, ` : ''}{c.cidade}</p>
                       </div>
                     </div>
