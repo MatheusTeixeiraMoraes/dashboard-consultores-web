@@ -1,6 +1,6 @@
 'use client'
 
-import { precisaIdentificar } from '@/lib/texto'
+import { precisaIdentificar, enderecoExibivel } from '@/lib/texto'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
@@ -270,6 +270,7 @@ export default function RadarClient({ clientes, podeVerTodos, meuNome }: Props) 
         <div className="space-y-2">
           {filtrados.map(c => {
             const wa = whatsappUrl(c.seller_telefone)
+            const endereco = enderecoExibivel(c.endereco_completo)
             return (
               <div key={c.seller_id} className={`glass rounded-xl border p-3.5 flex items-center gap-3 ${c.selecionado ? 'border-good ring-1 ring-primary/30' : 'border-line'}`}>
                 <div className="flex-1 min-w-0">
@@ -280,6 +281,7 @@ export default function RadarClient({ clientes, podeVerTodos, meuNome }: Props) 
                     <span className="text-[11px] font-bold text-good bg-good-bg px-2 py-0.5 rounded-full whitespace-nowrap">{fmtDist(c.dist)}</span>
                     {c.selecionado && <span className="text-[11px] font-bold text-white bg-good px-2 py-0.5 rounded-full">Selecionado</span>}
                   </div>
+                  {endereco && <p className="text-[11px] text-ink-dim truncate mt-0.5" title={endereco}>{endereco}</p>}
                   <p className="text-[11px] text-ink-faint mt-0.5">
                     #{c.seller_id} · {c.bairro ? `${c.bairro}, ` : ''}{c.cidade}
                     {podeVerTodos && c.consultor_nome ? ` · ${c.consultor_nome}` : ''}

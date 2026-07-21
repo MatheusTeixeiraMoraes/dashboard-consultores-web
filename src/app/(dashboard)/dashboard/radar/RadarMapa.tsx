@@ -1,6 +1,6 @@
 'use client'
 
-import { precisaIdentificar } from '@/lib/texto'
+import { precisaIdentificar, enderecoExibivel } from '@/lib/texto'
 import { useEffect, useRef } from 'react'
 import 'leaflet/dist/leaflet.css'
 import 'leaflet.markercluster/dist/MarkerCluster.css'
@@ -112,11 +112,13 @@ export default function RadarMapa({ pos, raio, clientes, onToggle }: Props) {
 
       const tel = (c.seller_telefone ?? '').replace(/\D/g, '')
       const wa = tel ? `<a href="https://wa.me/${tel.startsWith('55') ? tel : '55' + tel}" target="_blank" rel="noopener" style="color:var(--color-good)">WhatsApp</a>` : ''
+      const endereco = enderecoExibivel(c.endereco_completo)
       const el = document.createElement('div')
       el.style.fontSize = '12px'
       el.style.minWidth = '180px'
       el.innerHTML = `
         <div style="font-weight:600;font-size:13px;color:${precisaIdentificar(c.seller_nome, c.seller_id) ? 'var(--color-warn)' : 'var(--color-ink)'}">${precisaIdentificar(c.seller_nome, c.seller_id) ? 'Pendente de identificação' : esc(c.seller_nome)}</div>
+        ${endereco ? `<div style="color:var(--color-ink-dim);margin-top:2px">${esc(endereco)}</div>` : ''}
         <div style="color:var(--color-ink-muted);margin-top:2px">#${esc(c.seller_id)} · ${c.bairro ? esc(c.bairro) + ', ' : ''}${esc(c.cidade)}</div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
           <span style="background:var(--color-good-bg);color:var(--color-good);font-weight:700;font-size:11px;padding:2px 8px;border-radius:999px">${c.dist.toFixed(1).replace('.', ',')} km</span>
