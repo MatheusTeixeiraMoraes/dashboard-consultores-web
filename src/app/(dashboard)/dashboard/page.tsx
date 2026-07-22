@@ -1,28 +1,43 @@
 import { createClient } from '@/lib/supabase/server'
 import { getProfile } from '@/lib/supabase/profile'
+import { buscarTudo } from '@/lib/supabase/buscar-tudo'
+import { precisaIdentificar } from '@/lib/texto'
 import { redirect } from 'next/navigation'
 import GeralClient from './GeralClient'
+
+// Os nomes vêm de duas planilhas diferentes (pontuação × Ação Oportunidades),
+// então a junção ignora caixa/acento — mesma regra do cliente_e_meu no banco.
+const norm = (s: string) => (s ?? '').normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase()
+
+/** Números de carteira de um consultor, agregados das duas fontes. */
+export interface CarteiraResumo {
+  clientes: number     // em carteira (tabela clientes)
+  pendentes: number    // ainda "Pendente de identificação"
+  tpv: number          // soma do TPV do mês (Planilha Ação Oportunidades)
+  status: Record<string, number>  // ATIVO / INATIVO / CHURN / REATIVADO
+}
 
 export default async function GeralPage() {
   const profile = await getProfile()
   if (!profile) redirect('/login')
-  if (profile.role === 'consultor') redirect('/dashboard/meu-score')
+  // Consultor também tem home: o RLS devolve só a carteira e o score dele,
+  // então a MESMA busca serve para gestão e consultor.
 
   const supabase = await createClient()
 
-  const { data: uploads } = await supabase
-    .from('score_uploads')
-    .select('data_referencia')
-    .order('data_referencia', { ascending: false })
-    .limit(1)
+  const [{ data: uploads }, { data: ultCarteira }] = await Promise.all([
+    supabase.from('score_uploads').select('data_referencia').order('data_referencia', { ascending: false }).limit(1),
+    supabase.from('mp_carteira').select('data_referencia').order('data_referencia', { ascending: false }).limit(1),
+  ])
 
   const latestDate = uploads?.[0]?.data_referencia ?? null
+  const dataCarteira = ultCarteira?.[0]?.data_referencia ?? null
 
-  if (!latestDate) {
+  if (!latestDate && !dataCarteira) {
     return (
       <div>
         <div className="mb-6">
-          <h1 className="text-xl font-bold text-ink">Ranking Geral</h1>
+          <h1 className="text-xl font-bold text-ink">Visão Geral</h1>
           <p className="text-sm text-ink-muted mt-0.5">Visão consolidada de todos os consultores</p>
         </div>
         <div className="glass rounded-2xl border border-line p-12 text-center">
@@ -39,29 +54,27 @@ export default async function GeralPage() {
     )
   }
 
-  const [{ data: uploadIds }, { data: pilaresConfig }] = await Promise.all([
-    supabase.from('score_uploads').select('id').eq('data_referencia', latestDate),
-    supabase.from('pillar_config').select('pilar_key, meta, unidade'),
-  ])
+  // --- Score (planilhas de pontuação) ---
+  let resultados: { id_carteira: string; consultor_nome: string; pilar_key: string; score_planilha: number }[] = []
+  let metaMap: Record<string, { meta: number; unidade: string }> = {}
+  if (latestDate) {
+    const [{ data: uploadIds }, { data: pilaresConfig }] = await Promise.all([
+      supabase.from('score_uploads').select('id').eq('data_referencia', latestDate),
+      supabase.from('pillar_config').select('pilar_key, meta, unidade'),
+    ])
+    metaMap = Object.fromEntries(
+      (pilaresConfig ?? []).map(p => [p.pilar_key, { meta: p.meta, unidade: p.unidade }])
+    )
+    const uploadIdList = (uploadIds ?? []).map(u => u.id)
+    const { data } = await supabase
+      .from('score_consultor_resultados')
+      .select('id_carteira, consultor_nome, pilar_key, score_planilha')
+      .in('upload_id', uploadIdList.length > 0 ? uploadIdList : ['none'])
+    resultados = data ?? []
+  }
 
-  const metaMap = Object.fromEntries(
-    (pilaresConfig ?? []).map(p => [p.pilar_key, { meta: p.meta, unidade: p.unidade }])
-  )
-
-  const uploadIdList = (uploadIds ?? []).map(u => u.id)
-
-  const { data: resultados } = await supabase
-    .from('score_consultor_resultados')
-    .select('id_carteira, consultor_nome, pilar_key, score_planilha')
-    .in('upload_id', uploadIdList.length > 0 ? uploadIdList : ['none'])
-
-  const consultoresMap = new Map<string, {
-    nome: string
-    scores: Record<string, number>
-    total: number
-  }>()
-
-  for (const r of resultados ?? []) {
+  const consultoresMap = new Map<string, { nome: string; scores: Record<string, number>; total: number }>()
+  for (const r of resultados) {
     if (!consultoresMap.has(r.id_carteira)) {
       consultoresMap.set(r.id_carteira, { nome: r.consultor_nome, scores: {}, total: 0 })
     }
@@ -70,13 +83,75 @@ export default async function GeralPage() {
     c.total += r.score_planilha
   }
 
+  // --- Carteira (clientes em carteira + última Planilha Ação Oportunidades) ---
+  const [clientes, linhasCarteira] = await Promise.all([
+    buscarTudo<{ consultor_nome: string; seller_nome: string; seller_id: string }>((opcoes, de, ate) =>
+      supabase.from('clientes')
+        .select('consultor_nome, seller_nome, seller_id', opcoes)
+        .eq('em_carteira', true)
+        .range(de, ate),
+    ),
+    dataCarteira
+      ? buscarTudo<{ consultor_nome: string; tpv_mes_atual: number | null; status: string | null }>((opcoes, de, ate) =>
+          supabase.from('mp_carteira')
+            .select('consultor_nome, tpv_mes_atual, status', opcoes)
+            .eq('data_referencia', dataCarteira)
+            .range(de, ate),
+        )
+      : Promise.resolve([]),
+  ])
+
+  const carteiras = new Map<string, CarteiraResumo & { nome: string }>()
+  const pega = (nome: string) => {
+    const k = norm(nome)
+    let c = carteiras.get(k)
+    if (!c) { c = { nome, clientes: 0, pendentes: 0, tpv: 0, status: {} }; carteiras.set(k, c) }
+    return c
+  }
+  for (const c of clientes) {
+    if (!c.consultor_nome) continue
+    const e = pega(c.consultor_nome)
+    e.clientes++
+    if (precisaIdentificar(c.seller_nome, c.seller_id)) e.pendentes++
+  }
+  for (const l of linhasCarteira) {
+    if (!l.consultor_nome) continue
+    const e = pega(l.consultor_nome)
+    e.tpv += l.tpv_mes_atual ?? 0
+    const s = (l.status ?? '').trim().toUpperCase() || '—'
+    e.status[s] = (e.status[s] ?? 0) + 1
+  }
+
+  // --- Junta: score + carteira, e quem só existe numa das fontes também entra ---
   const ranking = Array.from(consultoresMap.entries())
-    .map(([id, c]) => ({ id, ...c, total: Math.min(c.total, 10) }))
-    .sort((a, b) => b.total - a.total)
+    .map(([id, c]) => ({
+      id: id as string | null,
+      nome: c.nome,
+      total: Math.min(c.total, 10) as number | null,
+      scores: c.scores,
+      carteira: carteiras.get(norm(c.nome)) ?? null,
+    }))
+  const comScore = new Set(ranking.map(r => norm(r.nome)))
+  for (const [k, v] of carteiras) {
+    if (!comScore.has(k)) {
+      ranking.push({ id: null, nome: v.nome, total: null, scores: {}, carteira: v })
+    }
+  }
+  ranking.sort((a, b) => (b.total ?? -1) - (a.total ?? -1))
 
-  const dateDisplay = new Date(latestDate + 'T12:00:00').toLocaleDateString('pt-BR', {
-    day: '2-digit', month: 'long', year: 'numeric',
-  })
+  const dateDisplay = latestDate
+    ? new Date(latestDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+    : null
+  const dataCarteiraBR = dataCarteira ? dataCarteira.slice(0, 10).split('-').reverse().join('/') : null
 
-  return <GeralClient ranking={ranking} dateDisplay={dateDisplay} metaMap={metaMap} />
+  return (
+    <GeralClient
+      ranking={ranking}
+      dateDisplay={dateDisplay}
+      dataCarteiraBR={dataCarteiraBR}
+      metaMap={metaMap}
+      modoConsultor={profile.role === 'consultor'}
+      meuNome={profile.nome || profile.email}
+    />
+  )
 }

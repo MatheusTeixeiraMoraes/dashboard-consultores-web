@@ -97,7 +97,7 @@ const IconCarteira = () => (
 )
 
 const NAV: NavItem[] = [
-  { href: '/dashboard',           label: 'Visão Geral',    roles: ['admin','dono','lider'],        icon: <IconGrid /> },
+  { href: '/dashboard',           label: 'Visão Geral',    roles: ['admin','dono','lider','consultor'], icon: <IconGrid /> },
   { href: '/dashboard/area',      label: 'Por Área',       roles: ['admin','dono','lider'],        icon: <IconBars /> },
   { href: '/dashboard/consultor', label: 'Consultor',      roles: ['admin','dono','lider'],        icon: <IconUser /> },
   { href: '/dashboard/comparar',  label: 'Comparar Datas', roles: ['admin','dono','lider'],        icon: <IconActivity /> },
