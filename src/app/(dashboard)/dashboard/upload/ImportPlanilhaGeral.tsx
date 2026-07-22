@@ -129,7 +129,7 @@ export default function ImportPlanilhaGeral({ data }: { data: string }) {
           </svg>
         </span>
         <div>
-          <p className="text-sm font-semibold text-ink">Planilha Geral</p>
+          <p className="text-sm font-semibold text-ink">Planilha Ação Oportunidades</p>
           <p className="text-[11px] text-ink-muted">A fonte da carteira — Acionáveis, Clientes e rotas</p>
         </div>
       </div>

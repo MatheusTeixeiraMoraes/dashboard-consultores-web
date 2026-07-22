@@ -33,9 +33,9 @@ export default function CarteiraClient({ carteiraAtual, relatorio }: Props) {
   if (!relatorio.dataAtual) {
     return (
       <div className="glass rounded-2xl border border-line p-12 text-center">
-        <p className="font-semibold text-ink">Nenhuma Planilha Geral importada</p>
+        <p className="font-semibold text-ink">Nenhuma Planilha Ação Oportunidades importada</p>
         <p className="text-sm text-ink-muted mt-1 max-w-md mx-auto">
-          Suba a Planilha Geral em <span className="text-primary">Upar Planilha</span> para ver aqui a
+          Suba a Planilha Ação Oportunidades em <span className="text-primary">Upar Planilha</span> para ver aqui a
           carteira de cada consultor e as movimentações entre eles.
         </p>
       </div>

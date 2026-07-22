@@ -116,9 +116,9 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
   if (!dataReferencia) {
     return (
       <div className="glass rounded-2xl border border-line p-12 text-center">
-        <p className="font-semibold text-ink">Nenhuma Planilha Geral importada</p>
+        <p className="font-semibold text-ink">Nenhuma Planilha Ação Oportunidades importada</p>
         <p className="text-sm text-ink-muted mt-1 max-w-md mx-auto">
-          Suba a Planilha Geral em <span className="text-primary">Upar Planilha</span> para
+          Suba a Planilha Ação Oportunidades em <span className="text-primary">Upar Planilha</span> para
           acompanhar aqui a evolução do faturamento dos seus clientes.
         </p>
       </div>

@@ -137,9 +137,9 @@ export default function AcionaveisClient({ dataReferencia, carteira, acoes, fich
   if (!dataReferencia) {
     return (
       <div className="glass rounded-2xl border border-line p-12 text-center">
-        <p className="font-semibold text-ink">Nenhuma Planilha Geral importada</p>
+        <p className="font-semibold text-ink">Nenhuma Planilha Ação Oportunidades importada</p>
         <p className="text-sm text-ink-muted mt-1 max-w-md mx-auto">
-          Suba a Planilha Geral em <span className="text-primary">Upar Planilha</span> para ver
+          Suba a Planilha Ação Oportunidades em <span className="text-primary">Upar Planilha</span> para ver
           aqui os acionáveis que o Mercado Pago mandou para cada cliente.
         </p>
       </div>
@@ -154,7 +154,7 @@ export default function AcionaveisClient({ dataReferencia, carteira, acoes, fich
         <div>
           <h1 className="text-xl font-bold text-ink">Acionáveis Comerciais</h1>
           <p className="text-sm text-ink-muted mt-0.5">
-            Planilha Geral de {dataBR(dataReferencia)} · {nBR(totalClientes)} clientes com acionável
+            Planilha Ação Oportunidades de {dataBR(dataReferencia)} · {nBR(totalClientes)} clientes com acionável
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
