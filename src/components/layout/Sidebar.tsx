@@ -5,10 +5,17 @@ import { usePathname } from 'next/navigation'
 import type { UserRole } from '@/lib/types'
 import { canUpload } from '@/lib/types'
 
+// Seções do menu, na ordem de exibição. Cada uma agrupa um domínio do produto:
+// Desempenho = planilhas de pontuação; Carteira = Planilha Ação Oportunidades;
+// Campo = trabalho de rua (mapa, rotas, agenda).
+const SECOES = ['Desempenho', 'Carteira', 'Campo', 'Administração'] as const
+type Secao = (typeof SECOES)[number]
+
 interface NavItem {
   href: string
   label: string
   roles: UserRole[]
+  secao: Secao
   icon: React.ReactNode
 }
 
@@ -97,24 +104,27 @@ const IconCarteira = () => (
 )
 
 const NAV: NavItem[] = [
-  { href: '/dashboard',           label: 'Visão Geral',    roles: ['admin','dono','lider','consultor'], icon: <IconGrid /> },
-  { href: '/dashboard/area',      label: 'Por Área',       roles: ['admin','dono','lider'],        icon: <IconBars /> },
-  { href: '/dashboard/consultor', label: 'Consultor',      roles: ['admin','dono','lider'],        icon: <IconUser /> },
-  { href: '/dashboard/comparar',  label: 'Comparar Datas', roles: ['admin','dono','lider'],        icon: <IconActivity /> },
-  { href: '/dashboard/alertas',   label: 'Alertas',        roles: ['admin','dono','lider'],        icon: <IconAlert /> },
-  { href: '/dashboard/meu-score', label: 'Meu Desempenho', roles: ['consultor'],                   icon: <IconActivity /> },
-  { href: '/dashboard/comparar',  label: 'Comparar Datas', roles: ['consultor'],                   icon: <IconActivity /> },
-  { href: '/dashboard/acionaveis', label: 'Acionáveis',      roles: ['admin','dono','lider','consultor'], icon: <IconCampanha /> },
-  { href: '/dashboard/queda-tpv', label: 'Queda de TPV',   roles: ['admin','dono','lider','consultor'], icon: <IconQueda /> },
-  { href: '/dashboard/clientes',  label: 'Clientes',       roles: ['admin','dono','lider','consultor'], icon: <IconPin /> },
-  { href: '/dashboard/radar',     label: 'Radar',          roles: ['admin','dono','lider','consultor'], icon: <IconRadar /> },
-  { href: '/dashboard/roteirizar',label: 'Roteirizar',     roles: ['admin','dono','lider','consultor'], icon: <IconRoute /> },
-  { href: '/dashboard/agenda',    label: 'Agenda',         roles: ['admin','dono','lider','consultor'], icon: <IconClock /> },
-  { href: '/dashboard/upload',    label: 'Upar Planilha',    roles: ['admin','dono'],              icon: <IconUpload /> },
-  { href: '/dashboard/historico', label: 'Histórico',        roles: ['admin','dono'],              icon: <IconClock /> },
-  { href: '/dashboard/metas',     label: 'Configurar Metas', roles: ['admin','dono'],              icon: <IconSettings /> },
-  { href: '/dashboard/carteira',  label: 'Carteira',          roles: ['admin','dono','lider'],       icon: <IconCarteira /> },
-  { href: '/dashboard/usuarios',  label: 'Usuários',         roles: ['admin','dono'],              icon: <IconUsers /> },
+  // Desempenho — score das planilhas de pontuação
+  { href: '/dashboard',           label: 'Visão Geral',    roles: ['admin','dono','lider','consultor'], secao: 'Desempenho', icon: <IconGrid /> },
+  { href: '/dashboard/meu-score', label: 'Meu Desempenho', roles: ['consultor'],                   secao: 'Desempenho', icon: <IconActivity /> },
+  { href: '/dashboard/area',      label: 'Por Área',       roles: ['admin','dono','lider'],        secao: 'Desempenho', icon: <IconBars /> },
+  { href: '/dashboard/consultor', label: 'Consultor',      roles: ['admin','dono','lider'],        secao: 'Desempenho', icon: <IconUser /> },
+  { href: '/dashboard/comparar',  label: 'Comparar Datas', roles: ['admin','dono','lider','consultor'], secao: 'Desempenho', icon: <IconActivity /> },
+  { href: '/dashboard/alertas',   label: 'Alertas',        roles: ['admin','dono','lider'],        secao: 'Desempenho', icon: <IconAlert /> },
+  // Carteira — clientes da Planilha Ação Oportunidades
+  { href: '/dashboard/clientes',  label: 'Clientes',       roles: ['admin','dono','lider','consultor'], secao: 'Carteira', icon: <IconPin /> },
+  { href: '/dashboard/acionaveis', label: 'Acionáveis',      roles: ['admin','dono','lider','consultor'], secao: 'Carteira', icon: <IconCampanha /> },
+  { href: '/dashboard/queda-tpv', label: 'Queda de TPV',   roles: ['admin','dono','lider','consultor'], secao: 'Carteira', icon: <IconQueda /> },
+  { href: '/dashboard/carteira',  label: 'Carteira',          roles: ['admin','dono','lider'],       secao: 'Carteira', icon: <IconCarteira /> },
+  // Campo — trabalho de rua
+  { href: '/dashboard/radar',     label: 'Radar',          roles: ['admin','dono','lider','consultor'], secao: 'Campo', icon: <IconRadar /> },
+  { href: '/dashboard/roteirizar',label: 'Roteirizar',     roles: ['admin','dono','lider','consultor'], secao: 'Campo', icon: <IconRoute /> },
+  { href: '/dashboard/agenda',    label: 'Agenda',         roles: ['admin','dono','lider','consultor'], secao: 'Campo', icon: <IconClock /> },
+  // Administração
+  { href: '/dashboard/upload',    label: 'Upar Planilha',    roles: ['admin','dono'],              secao: 'Administração', icon: <IconUpload /> },
+  { href: '/dashboard/historico', label: 'Histórico',        roles: ['admin','dono'],              secao: 'Administração', icon: <IconClock /> },
+  { href: '/dashboard/metas',     label: 'Configurar Metas', roles: ['admin','dono'],              secao: 'Administração', icon: <IconSettings /> },
+  { href: '/dashboard/usuarios',  label: 'Usuários',         roles: ['admin','dono'],              secao: 'Administração', icon: <IconUsers /> },
 ]
 
 const ROLE_LABEL: Record<UserRole, string> = {
@@ -143,9 +153,6 @@ export default function Sidebar({ role, aberto = false, fechar }: {
   const pathname = usePathname()
   const visible = NAV.filter(item => item.roles.includes(role))
 
-  const adminItems = visible.filter(i => i.href === '/dashboard/upload' || i.href === '/dashboard/historico' || i.href === '/dashboard/metas' || i.href === '/dashboard/usuarios')
-  const mainItems = visible.filter(i => !adminItems.includes(i))
-
   return (
     <aside
       className={`fixed left-0 top-0 h-full w-60 bg-shell backdrop-blur-xl flex flex-col z-40 border-r border-line
@@ -167,51 +174,32 @@ export default function Sidebar({ role, aberto = false, fechar }: {
         </div>
       </div>
 
-      {/* Nav */}
+      {/* Nav — uma bloco por seção, na ordem de SECOES */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-4">
-        {mainItems.length > 0 && (
-          <div className="space-y-0.5">
-            <p className="text-[10px] font-semibold text-ink-faint uppercase tracking-wider px-3 mb-2">
-              {role === 'consultor' ? 'Minha Performance' : 'Painel'}
-            </p>
-            {mainItems.map(({ href, label, icon }) => {
-              const active = pathname === href
-              return (
-                <Link key={href} href={href} onClick={fechar}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                    active
-                      ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                      : 'text-ink-muted hover:bg-card-2 hover:text-ink'
-                  }`}
-                >
-                  <span className={active ? 'text-white' : 'text-ink-faint'}>{icon}</span>
-                  {label}
-                </Link>
-              )
-            })}
-          </div>
-        )}
-
-        {adminItems.length > 0 && (
-          <div className="space-y-0.5">
-            <p className="text-[10px] font-semibold text-ink-faint uppercase tracking-wider px-3 mb-2">Administração</p>
-            {adminItems.map(({ href, label, icon }) => {
-              const active = pathname === href
-              return (
-                <Link key={href} href={href} onClick={fechar}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                    active
-                      ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                      : 'text-ink-muted hover:bg-card-2 hover:text-ink'
-                  }`}
-                >
-                  <span className={active ? 'text-white' : 'text-ink-faint'}>{icon}</span>
-                  {label}
-                </Link>
-              )
-            })}
-          </div>
-        )}
+        {SECOES.map(secao => {
+          const itens = visible.filter(i => i.secao === secao)
+          if (itens.length === 0) return null
+          return (
+            <div key={secao} className="space-y-0.5">
+              <p className="text-[10px] font-semibold text-ink-faint uppercase tracking-wider px-3 mb-2">{secao}</p>
+              {itens.map(({ href, label, icon }) => {
+                const active = pathname === href
+                return (
+                  <Link key={href} href={href} onClick={fechar}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                      active
+                        ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                        : 'text-ink-muted hover:bg-card-2 hover:text-ink'
+                    }`}
+                  >
+                    <span className={active ? 'text-white' : 'text-ink-faint'}>{icon}</span>
+                    {label}
+                  </Link>
+                )
+              })}
+            </div>
+          )
+        })}
       </nav>
 
       {/* Role badge */}
