@@ -74,22 +74,32 @@ function SummaryCard({ label, value, sub, color }: { label: string; value: strin
 }
 
 /** Barrinha de situação da carteira (mesma linguagem visual dos quartis em Acionáveis). */
-function BarraSituacao({ status }: { status: Record<string, number> }) {
+function BarraSituacao({ status, largura = 'min-w-[72px]' }: { status: Record<string, number>; largura?: string }) {
   const total = Object.values(status).reduce((s, n) => s + n, 0)
   if (total === 0) return <span className="text-ink-faint">—</span>
   const titulo = STATUS_ORDEM.filter(s => status[s]).map(s => `${s}: ${nBR(status[s])}`).join(' · ')
   return (
     <div title={titulo}>
-      <div className="flex h-1.5 rounded-full overflow-hidden bg-card-2 min-w-[72px]">
+      <div className={`flex h-2 rounded-full overflow-hidden bg-card-2 ${largura}`}>
         {STATUS_ORDEM.map(s => {
           const n = status[s] ?? 0
           return n ? <div key={s} style={{ width: `${(n / total) * 100}%`, background: STATUS_COR[s] }} /> : null
         })}
       </div>
-      <p className="text-[10px] text-ink-faint mt-1 whitespace-nowrap">
-        <span className="text-good">{nBR(status.ATIVO ?? 0)} atv</span>
-        {(status.CHURN ?? 0) > 0 && <> · <span className="text-bad">{nBR(status.CHURN)} churn</span></>}
+      <p className="text-[11px] text-ink-faint mt-1 whitespace-nowrap">
+        <span className="text-good font-medium">{nBR(status.ATIVO ?? 0)} ativos</span>
+        {(status.CHURN ?? 0) > 0 && <> · <span className="text-bad font-medium">{nBR(status.CHURN)} churn</span></>}
       </p>
+    </div>
+  )
+}
+
+/** Bloco de número com rótulo — o vocabulário dos cards do ranking. */
+function Stat({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
+  return (
+    <div className="min-w-[120px]">
+      <p className="text-[10px] uppercase tracking-wider font-semibold text-ink-faint mb-1">{rotulo}</p>
+      {children}
     </div>
   )
 }
@@ -213,93 +223,94 @@ export default function GeralClient({ ranking, dateDisplay, dataCarteiraBR, meta
         </div>
       )}
 
-      {/* Tabela de ranking */}
+      {/* Ranking em cards — números com respiro, sem cara de planilha */}
       {ranking.length === 0 ? (
         <div className="glass rounded-2xl border border-line p-12 text-center">
           <p className="text-ink-muted">Nenhum resultado na data mais recente.</p>
         </div>
       ) : (
-        // overflow-x-auto + min-w: no celular a tabela rola dentro do card em
-        // vez de ser cortada, e as colunas não se espremem até virar sopa.
-        <div className="glass rounded-2xl border border-line overflow-x-auto">
-          <table className="w-full min-w-[1020px] text-sm">
-            <thead>
-              <tr className="border-b border-line bg-card-2">
-                <th className="text-left px-4 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider w-8">#</th>
-                <th className="text-left px-4 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider">Consultor</th>
-                <th className="text-center px-3 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider">Score</th>
-                <th className="text-right px-3 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider">Clientes</th>
-                <th className="text-right px-3 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider">TPV carteira</th>
-                <th className="text-left px-3 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider">Situação</th>
-                {PILARES.map(p => {
-                  const mc = metaMap[p]
-                  return (
-                    <th key={p} className="text-center px-2 py-3 font-semibold text-xs uppercase tracking-wider" style={{ color: PILAR_COLOR[p] }}>
-                      {PILAR_LABEL[p]}
-                      {mc && (
-                        <div className="text-[10px] font-normal text-ink-faint normal-case tracking-normal mt-0.5">
-                          meta {fmtMeta(mc.meta, mc.unidade)}
-                        </div>
-                      )}
-                    </th>
-                  )
-                })}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {ranking.map((c, i) => {
-                const st = c.total !== null ? statusStyle(c.total) : null
-                return (
-                  <tr key={c.id ?? `carteira-${c.nome}`} className="hover:bg-card-2 transition-colors">
-                    <td className="px-4 py-3 text-ink-muted font-medium text-xs">{c.total !== null ? i + 1 : '—'}</td>
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-ink text-sm leading-tight">{c.nome}</p>
-                      <p className="text-[11px] text-ink-muted">{c.id ? `Cart. ${c.id}` : 'sem planilha de score'}</p>
-                    </td>
-                    <td className="px-3 py-3 text-center">
-                      {c.total !== null && st ? (
-                        <span className="inline-block px-2.5 py-1 rounded-xl text-sm font-bold" style={{ background: st.bg, color: st.text }}>
-                          {c.total.toFixed(1)}
+        <div className="space-y-3">
+          {ranking.map((c, i) => {
+            const st = c.total !== null ? statusStyle(c.total) : null
+            const pos = c.total !== null ? i + 1 : null
+            return (
+              <div key={c.id ?? `carteira-${c.nome}`} className="glass rounded-2xl border border-line p-5 hover:border-primary/40 transition-colors">
+                <div className="flex items-center gap-x-6 gap-y-4 flex-wrap">
+                  {/* posição — só o topo do pódio ganha destaque */}
+                  <span className={`w-9 h-9 rounded-full grid place-items-center text-sm font-bold flex-shrink-0 ${
+                    pos === 1 ? 'bg-primary text-white shadow-[0_2px_10px_rgba(79,95,224,0.4)]'
+                    : pos !== null && pos <= 3 ? 'bg-primary/15 text-primary-lt border border-primary/30'
+                    : 'bg-card-2 text-ink-muted border border-line'
+                  }`}>
+                    {pos ?? '—'}
+                  </span>
+
+                  {/* nome */}
+                  <div className="min-w-[180px] flex-1">
+                    <p className="font-semibold text-ink leading-tight">{c.nome}</p>
+                    <p className="text-[11px] text-ink-muted mt-0.5">{c.id ? `Carteira ${c.id}` : 'sem planilha de score'}</p>
+                  </div>
+
+                  {/* números da carteira */}
+                  <Stat rotulo="Clientes">
+                    {c.carteira ? (
+                      <>
+                        <p className="text-xl font-bold text-ink tabular-nums leading-none">{nBR(c.carteira.clientes)}</p>
+                        {c.carteira.pendentes > 0
+                          ? <p className="text-[11px] text-warn mt-1 whitespace-nowrap">{nBR(c.carteira.pendentes)} a identificar</p>
+                          : <p className="text-[11px] text-ink-faint mt-1">todos identificados</p>}
+                      </>
+                    ) : <p className="text-ink-faint">—</p>}
+                  </Stat>
+
+                  <Stat rotulo="TPV do mês">
+                    {c.carteira && c.carteira.tpv > 0 ? (
+                      <p className="text-xl font-bold text-good tabular-nums leading-none" title={brl(c.carteira.tpv)}>
+                        {brlCompacto(c.carteira.tpv)}
+                      </p>
+                    ) : <p className="text-ink-faint">—</p>}
+                  </Stat>
+
+                  <Stat rotulo="Situação">
+                    {c.carteira ? <BarraSituacao status={c.carteira.status} largura="w-36" /> : <p className="text-ink-faint">—</p>}
+                  </Stat>
+
+                  {/* score — o veredito do card, grande e colorido */}
+                  <div className="text-center pl-2 ml-auto">
+                    {c.total !== null && st ? (
+                      <>
+                        <span className="inline-block px-3.5 py-2 rounded-2xl text-2xl font-bold leading-none" style={{ background: st.bg, color: st.text }}>
+                          {c.total.toFixed(1).replace('.', ',')}
                         </span>
-                      ) : (
-                        <span className="text-ink-faint">—</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      {c.carteira ? (
-                        <>
-                          <p className="font-semibold text-ink tabular-nums">{nBR(c.carteira.clientes)}</p>
-                          {c.carteira.pendentes > 0 && (
-                            <p className="text-[10px] text-warn whitespace-nowrap">{nBR(c.carteira.pendentes)} a identificar</p>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-ink-faint">—</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-3 text-right tabular-nums text-ink">
-                      {c.carteira && c.carteira.tpv > 0 ? brl(c.carteira.tpv) : <span className="text-ink-faint">—</span>}
-                    </td>
-                    <td className="px-3 py-3">
-                      {c.carteira ? <BarraSituacao status={c.carteira.status} /> : <span className="text-ink-faint">—</span>}
-                    </td>
+                        <p className="text-[10px] text-ink-faint mt-1">de 10 pts</p>
+                      </>
+                    ) : (
+                      <span className="text-ink-faint text-xl">—</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* pilares como chips — meta no tooltip */}
+                {c.total !== null && (
+                  <div className="flex items-center gap-2 flex-wrap mt-4 pt-3.5 border-t border-line">
                     {PILARES.map(p => {
                       const score = c.scores[p]
+                      const mc = metaMap[p]
                       return (
-                        <td key={p} className="px-2 py-3 text-center">
-                          {score !== undefined ? (
-                            <p className="text-sm font-semibold text-ink">{score.toFixed(1).replace('.', ',')}</p>
-                          ) : (
-                            <span className="text-ink-faint">—</span>
-                          )}
-                        </td>
+                        <span key={p}
+                          title={mc ? `${PILAR_LABEL[p]} · meta ${fmtMeta(mc.meta, mc.unidade)}` : PILAR_LABEL[p]}
+                          className="inline-flex items-center gap-1.5 text-xs bg-card-2 border border-line rounded-lg px-2.5 py-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: PILAR_COLOR[p] }} />
+                          <span className="text-ink-muted">{PILAR_LABEL[p]}</span>
+                          <b className="text-ink">{score !== undefined ? score.toFixed(1).replace('.', ',') : '—'}</b>
+                        </span>
                       )
                     })}
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
