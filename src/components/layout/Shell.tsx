@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
-import { definirDemoNoNavegador } from '@/lib/demo/flag-navegador'
+import SincronizarDemo from './SincronizarDemo'
 import type { Profile } from '@/lib/types'
 
 /**
@@ -32,13 +32,6 @@ export default function Shell({
   const [menuAberto, setMenuAberto] = useState(false)
   const fechar = useCallback(() => setMenuAberto(false), [])
 
-  // Repassa ao navegador o veredito do servidor sobre o modo demo, para o
-  // `createClient()` do lado do cliente saber a quem perguntar. É feito no
-  // corpo do render (e não num efeito) porque este é o ancestral de todas as
-  // telas: quando o efeito de qualquer uma delas rodar, o valor já está lá.
-  // Idempotente — reexecutar não muda nada.
-  definirDemoNoNavegador(demoAtivo)
-
   // Esc fecha, como todo menu modal.
   useEffect(() => {
     if (!menuAberto) return
@@ -49,6 +42,10 @@ export default function Shell({
 
   return (
     <div className="flex h-full">
+      {/* Não desenha nada: só mantém esta aba honesta se o modo demo mudar
+          noutra. */}
+      <SincronizarDemo renderizadoComDemo={demoAtivo} habilitado={demoDisponivel} />
+
       <Sidebar
         role={profile.role}
         aberto={menuAberto}

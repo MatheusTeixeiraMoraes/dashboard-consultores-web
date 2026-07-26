@@ -1,6 +1,7 @@
 'use client'
 
 import { createClient } from '@/lib/supabase/client'
+import { limparCookieDemo } from '@/lib/demo/cookie'
 import { useRouter } from 'next/navigation'
 import type { Profile } from '@/lib/types'
 
@@ -19,6 +20,9 @@ export default function Topbar({ profile, abrirMenu, demoAtivo = false }: {
   const router = useRouter()
 
   async function handleLogout() {
+    // A demonstração não pode sobreviver à troca de usuário: o cookie vale para
+    // o navegador, não para a conta.
+    limparCookieDemo()
     const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/login')

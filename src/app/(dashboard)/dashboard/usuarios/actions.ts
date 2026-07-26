@@ -75,14 +75,15 @@ export async function excluirUsuario(
     if (!me || (me.role !== 'admin' && me.role !== 'dono')) {
       return { ok: false, error: 'Sem permissão' }
     }
+    // ANTES da checagem de "não exclua a si mesmo": no modo demo o `me.id` é o
+    // da persona fictícia, então aquela comparação nunca casaria com o id real
+    // e a proteção sumiria. A barreira é sempre a primeira coisa depois do
+    // papel — mesma ordem das rotas em /api/usuarios.
+    if (await escritaBloqueadaPeloDemo()) return { ok: false, error: MSG_BLOQUEIO_DEMO }
+
     if (userId === me.id) {
       return { ok: false, error: 'Não é possível excluir a própria conta' }
     }
-
-    // Exclusão de usuário é irreversível e atravessa a RLS — nunca durante uma
-    // demonstração. (Também protege a checagem acima, que no modo demo
-    // compararia contra o id da persona fictícia, não o do admin real.)
-    if (await escritaBloqueadaPeloDemo()) return { ok: false, error: MSG_BLOQUEIO_DEMO }
 
     const admin = createAdminClient()
 

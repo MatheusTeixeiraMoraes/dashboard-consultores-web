@@ -7,11 +7,10 @@ import { alternarModoDemo } from '@/lib/demo/acoes'
  * Liga/desliga os dados de demonstração. Só aparece para admin.
  *
  * Recarrega a página inteira depois de alternar, em vez de `router.refresh()`.
- * O motivo é concreto: o aviso de "estou em demo" que o `createClient()` do
- * navegador consulta mora numa variável de módulo, preenchida pelo layout. Um
- * refresh de rota atualiza a árvore React mas não garante a ordem em que os
- * módulos já carregados enxergam o novo valor, e uma tela meio-demo/meio-real
- * durante a gravação seria pior do que esperar meio segundo.
+ * Layout não re-renderiza em navegação client-side, e é o layout que desenha o
+ * selo e este próprio botão — um refresh de rota trocaria os dados da tela e
+ * deixaria a casca dizendo o contrário. Meio segundo de recarga compra a
+ * garantia de que tudo na tela conta a mesma história.
  */
 export default function BotaoDemo({ ativo }: { ativo: boolean }) {
   const [pendente, iniciarTransicao] = useTransition()

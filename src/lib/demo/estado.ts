@@ -13,9 +13,10 @@
 import { cache } from 'react'
 import { cookies } from 'next/headers'
 import { createClientReal } from '@/lib/supabase/server-real'
+import { COOKIE_DEMO } from './cookie'
 import type { Profile } from '@/lib/types'
 
-export const COOKIE_DEMO = 'modo_demo'
+export { COOKIE_DEMO }
 
 /**
  * Perfil real do usuário logado — o do banco, nunca a persona de demonstração.

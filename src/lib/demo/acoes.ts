@@ -50,8 +50,10 @@ export async function chamarRpcDemo(
 /**
  * Liga/desliga o modo demo para este navegador.
  *
- * Cookie `httpOnly`: quem decide o que a tela vê é o servidor, e a tela não
- * precisa (nem deve) conseguir mexer nisso por JavaScript.
+ * O cookie NÃO é httpOnly, e isso é deliberado — o motivo está em
+ * `./cookie.ts`. Ele nunca foi a autorização: quem autoriza é `podeUsarDemo()`,
+ * conferindo o papel no banco. Deixá-lo legível é o que permite o navegador
+ * rotear cada chamada pelo estado ATUAL, em vez de por um valor que envelhece.
  */
 export async function alternarModoDemo(ligar: boolean): Promise<{ ok: boolean; erro?: string }> {
   if (!(await podeUsarDemo())) {
@@ -62,13 +64,19 @@ export async function alternarModoDemo(ligar: boolean): Promise<{ ok: boolean; e
 
   if (ligar) {
     cookieStore.set(COOKIE_DEMO, '1', {
-      httpOnly: true,
+      httpOnly: false,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
       path: '/',
-      // Uma gravação cabe em 8 horas com folga. Expirar sozinho evita o pior
-      // cenário: esquecer ligado e voltar ao sistema achando que é produção.
-      maxAge: 60 * 60 * 8,
+      // Cookie de sessão (sem maxAge): morre ao fechar o navegador.
+      //
+      // Já teve prazo de 8 horas aqui, e o efeito era o oposto do pretendido:
+      // ao expirar com a aba aberta, o servidor voltava a mandar dado REAL
+      // enquanto o selo "DADOS DEMO" continuava na tela, porque o selo vem do
+      // layout e layout não re-renderiza em navegação. Dado de cliente de
+      // verdade sob um selo dizendo "fictício" é pior do que o esquecimento que
+      // o prazo tentava evitar. Fechar o navegador desliga; o aviso na barra
+      // lateral cobre o resto.
     })
   } else {
     // Path explícito, igual ao do `set`. Um delete que não case o path deixa o
