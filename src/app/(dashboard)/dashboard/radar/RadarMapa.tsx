@@ -46,12 +46,23 @@ export default function RadarMapa({ pos, raio, clientes, onToggle }: Props) {
       LRef.current = L
       const map = L.map(div, { zoomControl: false }).setView([pos.lat, pos.lng], 13)
       L.control.zoom({ position: 'bottomright' }).addTo(map)
-      // Tiles claros (CARTO, sem chave) para o mapa acompanhar a identidade
-      // "mapa de dia". Mesma fonte e mesma atribuição da variante escura —
-      // trocar de tema é trocar light_all/dark_all aqui.
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+
+      // Duas bases, alternáveis pelo seletor no canto:
+      // - Mapa: tiles claros do CARTO (a identidade "mapa de dia").
+      // - Satélite: imagem aérea do Esri (sem chave) + ruas e rótulos por cima,
+      //   o mesmo "híbrido" do Google Maps. Padrão = satélite (mais realista).
+      const esri = (servico: string, opts: object = {}) =>
+        L.tileLayer(`https://server.arcgisonline.com/ArcGIS/rest/services/${servico}/MapServer/tile/{z}/{y}/{x}`, { maxZoom: 19, ...opts })
+      const claro = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '© OpenStreetMap © CARTO', maxZoom: 19,
-      }).addTo(map)
+      })
+      const satelite = L.layerGroup([
+        esri('World_Imagery', { attribution: 'Imagery © Esri, Maxar, Earthstar Geographics' }),
+        esri('Reference/World_Transportation'),
+        esri('Reference/World_Boundaries_and_Places'),
+      ])
+      satelite.addTo(map)
+      L.control.layers({ 'Satélite': satelite, 'Mapa': claro }, undefined, { position: 'topright' }).addTo(map)
       const cluster = L.markerClusterGroup({
         maxClusterRadius: 60,
         disableClusteringAtZoom: 17,
