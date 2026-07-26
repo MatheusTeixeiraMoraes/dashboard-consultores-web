@@ -210,65 +210,79 @@ export default function RadarClient({ clientes, podeVerTodos, meuNome }: Props) 
   }
 
   return (
-    <RadarShell
-      contador={`${filtrados.length} cliente${filtrados.length !== 1 ? 's' : ''} em ${raio} km`}
-      onAtualizarGps={() => lerGps(true)}
-      atualizando={geoStatus === 'loading'}
-    >
-      {/* Controles */}
-      <div className="glass rounded-2xl border border-line p-4 mb-4 space-y-3">
-        <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Raio</span>
-          <input type="range" min={1} max={50} value={raio} onChange={e => setRaio(Number(e.target.value))} className="flex-1 min-w-[160px] accent-primary" />
-          <div className="flex items-center gap-1 bg-field border border-field-line rounded-lg pr-2.5">
-            <input type="number" min={1} max={50} value={raio} onChange={e => setRaio(Math.min(50, Math.max(1, Number(e.target.value) || 1)))} className="w-12 bg-transparent px-2.5 py-1.5 text-sm font-semibold text-ink focus:outline-none" />
-            <span className="text-xs text-ink-faint">km</span>
-          </div>
-          <div className="flex gap-0.5 bg-field border border-field-line rounded-xl p-0.5 ml-auto">
-            {(['mapa', 'lista'] as const).map(m => (
-              <button key={m} onClick={() => setViewMode(m)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium capitalize rounded-lg transition-colors ${viewMode === m ? 'bg-primary text-white shadow-[0_2px_8px_rgba(79,95,224,0.4)]' : 'text-ink-muted hover:text-ink-dim'}`}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  {m === 'mapa'
-                    ? <><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z" /><path d="M8 2v16M16 6v16" /></>
-                    : <><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></>}
-                </svg>
-                {m}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <select value={fCidade} onChange={e => { setFCidade(e.target.value); setFBairro('') }} className={selCls}>
-            <option value="">Todas as cidades</option>
-            {cidades.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select value={fBairro} onChange={e => setFBairro(e.target.value)} className={selCls}>
-            <option value="">Todos os bairros</option>
-            {bairros.map(b => <option key={b} value={b}>{b}</option>)}
-          </select>
-          {podeVerTodos && (
-            <select value={fConsultor} onChange={e => setFConsultor(e.target.value)} className={selCls}>
-              <option value="">Todos os consultores</option>
-              {consultores.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          )}
-          <input value={buscaSeller} onChange={e => setBuscaSeller(e.target.value)} placeholder="Buscar seller / nome" className={`${selCls} flex-1 min-w-[160px]`} />
-        </div>
+    <RadarShell onAtualizarGps={() => lerGps(true)} atualizando={geoStatus === 'loading'}>
+      {/* KPIs da área */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <KpiRadar rotulo="Clientes na área" valor={nBRi(dentroDoRaio.length)} sub={`em ${raio} km`}
+          icon={<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></>} />
+        {podeVerTodos && (
+          <KpiRadar rotulo="Consultores na região" valor={nBRi(consultores.length)} sub="com cliente aqui"
+            icon={<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>} />
+        )}
+        <KpiRadar rotulo="Cidades na área" valor={nBRi(cidades.length)} sub="no raio atual"
+          icon={<><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></>} />
+        <KpiRadar rotulo="Selecionados" valor={nBRi(selecionados.size)} sub="para a rota" accent
+          icon={<><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></>} />
       </div>
 
-      {/* Conteúdo */}
-      {viewMode === 'mapa' ? (
-        <RadarMapa pos={pos!} raio={raio} clientes={filtrados} onToggle={toggle} />
-      ) : filtrados.length === 0 ? (
-        <div className="glass rounded-2xl border border-line p-12 text-center">
-          <p className="font-semibold text-ink">Nenhum cliente no raio de {raio} km</p>
-          <p className="text-sm text-ink-muted mt-1">Aumente o raio ou ajuste os filtros.</p>
+      <div className="grid lg:grid-cols-[280px_minmax(0,1fr)] gap-4 items-start">
+        {/* Filtros */}
+        <div className="glass rounded-2xl border border-line p-4 space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-ink">Filtros</p>
+            <div className="flex gap-0.5 bg-field border border-field-line rounded-lg p-0.5">
+              {(['mapa', 'lista'] as const).map(m => (
+                <button key={m} onClick={() => setViewMode(m)} title={m === 'mapa' ? 'Ver no mapa' : 'Ver em lista'}
+                  className={`grid place-items-center w-8 h-7 rounded-md transition-colors ${viewMode === m ? 'bg-primary text-white shadow-[0_2px_8px_rgba(79,95,224,0.4)]' : 'text-ink-muted hover:text-ink-dim'}`}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    {m === 'mapa'
+                      ? <><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z" /><path d="M8 2v16M16 6v16" /></>
+                      : <><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></>}
+                  </svg>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Raio de atuação</span>
+              <span className="text-xs font-semibold text-ink tabular-nums">{raio} km</span>
+            </div>
+            <input type="range" min={1} max={50} value={raio} onChange={e => setRaio(Number(e.target.value))} className="w-full accent-primary" />
+          </div>
+
+          <div className="space-y-2">
+            <select value={fCidade} onChange={e => { setFCidade(e.target.value); setFBairro('') }} className={`${selCls} w-full`}>
+              <option value="">Todas as cidades</option>
+              {cidades.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <select value={fBairro} onChange={e => setFBairro(e.target.value)} className={`${selCls} w-full`}>
+              <option value="">Todos os bairros</option>
+              {bairros.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+            {podeVerTodos && (
+              <select value={fConsultor} onChange={e => setFConsultor(e.target.value)} className={`${selCls} w-full`}>
+                <option value="">Todos os consultores</option>
+                {consultores.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            )}
+            <input value={buscaSeller} onChange={e => setBuscaSeller(e.target.value)} placeholder="Buscar seller / nome" className={`${selCls} w-full`} />
+          </div>
         </div>
-      ) : (
-        <div className="space-y-2">
-          {filtrados.map(c => {
+
+        {/* Conteúdo: mapa ou lista */}
+        <div className="min-w-0">
+          {viewMode === 'mapa' ? (
+            <RadarMapa pos={pos!} raio={raio} clientes={filtrados} onToggle={toggle} />
+          ) : filtrados.length === 0 ? (
+            <div className="glass rounded-2xl border border-line p-12 text-center">
+              <p className="font-semibold text-ink">Nenhum cliente no raio de {raio} km</p>
+              <p className="text-sm text-ink-muted mt-1">Aumente o raio ou ajuste os filtros.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filtrados.map(c => {
             const wa = whatsappUrl(c.seller_telefone)
             const endereco = enderecoExibivel(c.endereco_completo)
             return (
@@ -299,8 +313,10 @@ export default function RadarClient({ clientes, podeVerTodos, meuNome }: Props) 
               </div>
             )
           })}
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Barra de seleção */}
       {selecionados.size > 0 && (
@@ -316,18 +332,36 @@ export default function RadarClient({ clientes, podeVerTodos, meuNome }: Props) 
 
 const selCls = 'border border-field-line rounded-lg px-2.5 py-1.5 text-sm text-ink-dim bg-field focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary hover:border-primary/60 transition-colors'
 
-function RadarShell({ children, contador, onAtualizarGps, atualizando }: {
-  children: React.ReactNode; contador?: string; onAtualizarGps?: () => void; atualizando?: boolean
+const nBRi = (n: number) => n.toLocaleString('pt-BR')
+
+/** Card de KPI do topo do Radar — número grande + rótulo + ícone. */
+function KpiRadar({ rotulo, valor, sub, icon, accent }: {
+  rotulo: string; valor: string; sub?: string; icon: React.ReactNode; accent?: boolean
+}) {
+  return (
+    <div className="glass rounded-2xl border border-line p-4 flex items-start justify-between gap-2"
+      style={accent ? { borderLeft: '3px solid var(--color-primary)' } : undefined}>
+      <div className="min-w-0">
+        <p className="text-[11px] uppercase tracking-wider font-semibold text-ink-muted mb-1 truncate">{rotulo}</p>
+        <p className="text-2xl font-bold text-ink leading-none">{valor}</p>
+        {sub && <p className="text-[11px] text-ink-faint mt-1">{sub}</p>}
+      </div>
+      <span className="w-9 h-9 rounded-xl bg-primary/10 grid place-items-center flex-shrink-0" style={{ color: 'var(--color-primary)' }}>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{icon}</svg>
+      </span>
+    </div>
+  )
+}
+
+function RadarShell({ children, onAtualizarGps, atualizando }: {
+  children: React.ReactNode; onAtualizarGps?: () => void; atualizando?: boolean
 }) {
   return (
     <div className="pb-16">
       <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
         <div>
           <h1 className="text-xl font-bold text-ink tracking-tight">Radar de Clientes</h1>
-          <p className="text-sm text-ink-muted mt-0.5 flex items-center gap-1.5">
-            {contador && <span className="w-1.5 h-1.5 rounded-full bg-good shadow-[0_0_6px_var(--color-good)]" />}
-            {contador ?? 'Clientes próximos de você agora'}
-          </p>
+          <p className="text-sm text-ink-muted mt-0.5">Visualize seus clientes no mapa e explore sua região.</p>
         </div>
         {onAtualizarGps && (
           <button onClick={onAtualizarGps} disabled={atualizando}
