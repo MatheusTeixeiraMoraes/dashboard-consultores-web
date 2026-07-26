@@ -109,15 +109,17 @@ export default function RadarMapa({ pos, raio, clientes, onToggle }: Props) {
 
     cluster.clearLayers()
     for (const c of clientes) {
+      // Pin em gota, borda branca e sombra própria (drop-shadow segue o contorno):
+      // salta tanto no mapa claro quanto no satélite. Selecionado = verde com ✓;
+      // não selecionado = vermelho com miolo branco.
       const cor = c.selecionado ? 'var(--color-good)' : 'var(--color-bad)'
-      // O halo é token próprio, não `${cor}33`: aquilo era hex-alpha e só
-      // funcionava enquanto a cor fosse hex literal — com var() vira CSS
-      // inválido e o halo some sem avisar.
-      const halo = c.selecionado ? 'var(--color-good-bg)' : 'var(--color-bad-bg)'
+      const miolo = c.selecionado
+        ? '<path d="M9.2 12.4 12 15.2 16.2 10.6" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>'
+        : '<circle cx="13" cy="12.6" r="4.4" fill="#fff"/>'
       const icon = L.divIcon({
         className: '',
-        html: `<div style="width:12px;height:12px;border-radius:50%;background:${cor};border:1.5px solid rgba(255,255,255,.9);box-shadow:0 0 0 4px ${halo},0 2px 5px rgba(28,42,90,.35)"></div>`,
-        iconSize: [12, 12], iconAnchor: [6, 6],
+        html: `<svg width="30" height="39" viewBox="0 0 26 34" style="filter:drop-shadow(0 3px 3px rgba(0,0,0,.55))"><path d="M13 .6C6.4.6 1 5.9 1 12.4c0 8 10 19.4 11.4 20.9a.9.9 0 0 0 1.3 0C15 31.8 25 20.4 25 12.4 25 5.9 19.6.6 13 .6Z" fill="${cor}" stroke="#fff" stroke-width="2"/>${miolo}</svg>`,
+        iconSize: [30, 39], iconAnchor: [15, 38], popupAnchor: [0, -34],
       })
       const marker = L.marker([c.lat, c.lng], { icon })
 
