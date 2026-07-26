@@ -1,5 +1,6 @@
 import { getProfile } from '@/lib/supabase/profile'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { escritaBloqueadaPeloDemo, MSG_BLOQUEIO_DEMO } from '@/lib/demo/guarda'
 import { canManageUsers } from '@/lib/types'
 import type { UserRole } from '@/lib/types'
 import { NextResponse } from 'next/server'
@@ -9,6 +10,12 @@ export async function POST(request: Request) {
     const me = await getProfile()
     if (!me || (me.role !== 'admin' && me.role !== 'dono')) {
       return NextResponse.json({ ok: false, error: 'Sem permissão' }, { status: 403 })
+    }
+
+    // Antes de qualquer coisa: este caminho usa service_role e cria usuário em
+    // auth.users — nada disso é coberto pela troca de fonte do modo demo.
+    if (await escritaBloqueadaPeloDemo()) {
+      return NextResponse.json({ ok: false, error: MSG_BLOQUEIO_DEMO }, { status: 403 })
     }
 
     const body = await request.json()

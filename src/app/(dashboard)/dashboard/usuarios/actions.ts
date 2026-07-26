@@ -2,6 +2,7 @@
 
 import { getProfile } from '@/lib/supabase/profile'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { escritaBloqueadaPeloDemo, MSG_BLOQUEIO_DEMO } from '@/lib/demo/guarda'
 import { canManageUsers } from '@/lib/types'
 import type { Profile, UserRole } from '@/lib/types'
 
@@ -21,6 +22,10 @@ export async function criarUsuario(data: {
   if (!me || !canManageUsers(me.role, data.role)) {
     return { ok: false, error: 'Sem permissão para criar esse tipo de usuário' }
   }
+
+  // service_role + auth.users não passam pela troca de fonte do modo demo:
+  // sem esta barreira, demonstrar a criação de usuário criaria um de verdade.
+  if (await escritaBloqueadaPeloDemo()) return { ok: false, error: MSG_BLOQUEIO_DEMO }
 
   const admin = createAdminClient()
 
@@ -73,6 +78,11 @@ export async function excluirUsuario(
     if (userId === me.id) {
       return { ok: false, error: 'Não é possível excluir a própria conta' }
     }
+
+    // Exclusão de usuário é irreversível e atravessa a RLS — nunca durante uma
+    // demonstração. (Também protege a checagem acima, que no modo demo
+    // compararia contra o id da persona fictícia, não o do admin real.)
+    if (await escritaBloqueadaPeloDemo()) return { ok: false, error: MSG_BLOQUEIO_DEMO }
 
     const admin = createAdminClient()
 

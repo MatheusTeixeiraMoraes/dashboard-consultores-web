@@ -11,7 +11,11 @@ const ROLE_LABEL: Record<string, string> = {
   consultor: 'Consultor',
 }
 
-export default function Topbar({ profile, abrirMenu }: { profile: Profile; abrirMenu?: () => void }) {
+export default function Topbar({ profile, abrirMenu, demoAtivo = false }: {
+  profile: Profile
+  abrirMenu?: () => void
+  demoAtivo?: boolean
+}) {
   const router = useRouter()
 
   async function handleLogout() {
@@ -38,7 +42,18 @@ export default function Topbar({ profile, abrirMenu }: { profile: Profile; abrir
           <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
         </svg>
       </button>
-      <div className="hidden md:block" />
+      {/* Selo de demonstração. Discreto de propósito: precisa aparecer no vídeo
+          para ninguém confundir com a operação real, sem roubar a cena. */}
+      {demoAtivo ? (
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-warn-bg border border-warn/30">
+          <span className="w-1.5 h-1.5 rounded-full bg-warn-fill" />
+          <span className="text-[10px] font-bold uppercase tracking-wider text-warn">
+            Dados demo
+          </span>
+        </div>
+      ) : (
+        <div className="hidden md:block" />
+      )}
       <div className="flex items-center gap-3">
         <div className="text-right hidden sm:block">
           <p className="text-sm font-medium text-ink leading-tight">{displayName}</p>

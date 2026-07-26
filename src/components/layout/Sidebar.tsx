@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import BotaoDemo from './BotaoDemo'
 import type { UserRole } from '@/lib/types'
 import { canUpload } from '@/lib/types'
 
@@ -145,10 +146,20 @@ const ROLE_COLOR: Record<UserRole, string> = {
  * `aberto`/`fechar` só valem abaixo de `md`, onde a sidebar é gaveta. Do `md`
  * pra cima ela é fixa e ignora os dois (o `md:translate-x-0` sempre vence).
  */
-export default function Sidebar({ role, aberto = false, fechar }: {
+export default function Sidebar({
+  role,
+  aberto = false,
+  fechar,
+  demoAtivo = false,
+  demoDisponivel = false,
+}: {
   role: UserRole
   aberto?: boolean
   fechar?: () => void
+  /** Dados de demonstração no ar. */
+  demoAtivo?: boolean
+  /** Se este usuário pode alternar — só admin, decidido no servidor. */
+  demoDisponivel?: boolean
 }) {
   const pathname = usePathname()
   const visible = NAV.filter(item => item.roles.includes(role))
@@ -202,8 +213,9 @@ export default function Sidebar({ role, aberto = false, fechar }: {
         })}
       </nav>
 
-      {/* Role badge */}
-      <div className="px-4 py-4 border-t border-line">
+      {/* Rodapé: alternador de demonstração (só admin) + papel do usuário */}
+      <div className="px-4 py-4 border-t border-line space-y-3">
+        {demoDisponivel && <BotaoDemo ativo={demoAtivo} />}
         <div className="flex items-center gap-2">
           <span className={`w-2 h-2 rounded-full ${ROLE_COLOR[role]}`} />
           <p className="text-[11px] text-ink-muted">{ROLE_LABEL[role]}</p>

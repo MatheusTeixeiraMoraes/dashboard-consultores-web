@@ -1,27 +1,20 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { modoDemoAtivo } from '@/lib/demo/estado'
+import { criarClienteDemoServidor } from '@/lib/demo/cliente-servidor'
+import { createClientReal } from './server-real'
 
+export { createClientReal }
+
+/**
+ * Cliente Supabase das telas.
+ *
+ * Com o modo demo ligado (só admin — ver `src/lib/demo/estado.ts`), devolve um
+ * cliente que lê do dataset de demonstração em vez do banco. As telas não
+ * mudam: continuam chamando `.from(...).select(...)` do mesmo jeito.
+ *
+ * Quem precisa do banco REAL mesmo durante uma demonstração — autenticação,
+ * perfil de verdade, barreiras de escrita — deve usar `createClientReal()`.
+ */
 export async function createClient() {
-  const cookieStore = await cookies()
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
-          } catch {
-            // Called from Server Component — cookies set via middleware
-          }
-        },
-      },
-    }
-  )
+  if (await modoDemoAtivo()) return criarClienteDemoServidor()
+  return createClientReal()
 }

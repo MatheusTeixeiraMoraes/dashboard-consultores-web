@@ -1,5 +1,6 @@
 import { cache } from 'react'
-import { createClient } from './server'
+import { modoDemoAtivo, perfilReal } from '@/lib/demo/estado'
+import { ADMIN_DEMO } from '@/lib/demo/dataset'
 import type { Profile } from '@/lib/types'
 
 /**
@@ -13,17 +14,18 @@ import type { Profile } from '@/lib/types'
  * O `cache()` dedupa por request: a segunda chamada devolve o mesmo resultado
  * sem tocar a rede. Não é cache entre usuários nem entre requests — cada
  * request tem o seu, então não vaza perfil de um usuário para outro.
+ *
+ * MODO DEMO: devolve a persona fictícia, para o nome e o e-mail reais do admin
+ * não aparecerem na gravação. O papel continua `admin`, e isso não afrouxa
+ * nada — o modo demo só liga para quem já é admin de verdade. Ainda assim,
+ * decisão de permissão deve usar `perfilReal()`, não isto: é o perfil do banco,
+ * imune ao modo demo.
  */
 export const getProfile = cache(async (): Promise<Profile | null> => {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  const real = await perfilReal()
+  if (!real) return null
 
-  const { data } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+  if (await modoDemoAtivo()) return { ...ADMIN_DEMO }
 
-  return data ?? null
+  return real
 })
