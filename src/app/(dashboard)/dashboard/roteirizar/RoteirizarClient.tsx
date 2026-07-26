@@ -12,7 +12,21 @@ import {
 import type { ClienteRadar } from '../radar/page'
 
 const MAX_STOPS = 100      // OSRM /trip público aguenta ~100 pontos rápido
-const MAX_CARDS = 120      // teto de cards renderizados por vez
+const POR_PAGINA = 24      // cards por página na grade de seleção
+
+// Janela de páginas com reticências: [0 … 4 5 6 … 14] (índices 0-based).
+function janelaPaginas(atual: number, total: number): (number | '…')[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i)
+  const nums = [...new Set([0, total - 1, atual, atual - 1, atual + 1])]
+    .filter(n => n >= 0 && n < total).sort((a, b) => a - b)
+  const out: (number | '…')[] = []
+  let prev = -1
+  for (const n of nums) {
+    if (n - prev > 1) out.push('…')
+    out.push(n); prev = n
+  }
+  return out
+}
 
 function whatsappUrl(t: string | null) {
   const n = (t ?? '').replace(/\D/g, '')
@@ -58,6 +72,7 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
   const [fCidades, setFCidades] = useState<Set<string>>(new Set())
   const [fBairros, setFBairros] = useState<Set<string>>(new Set())
   const [fConsultores, setFConsultores] = useState<Set<string>>(new Set())
+  const [pagina, setPagina] = useState(0)
 
   // Recebe a seleção vinda do Radar — descartando qualquer pendente que tenha
   // sobrado de uma entrega antiga (o Radar já não manda mais esses).
@@ -69,6 +84,9 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
       limparEntregaDoRadar()
     }
   }, [])
+
+  // Volta à primeira página quando o filtro muda (senão pararia numa página vazia).
+  useEffect(() => { setPagina(0) }, [fBusca, fCidades, fBairros, fConsultores])
 
   const idsNaRota = useMemo(() => new Set(stops.map(s => s.seller_id)), [stops])
 
@@ -209,7 +227,9 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
     router.push('/dashboard/agenda')
   }
 
-  const visiveis = filtrados.slice(0, MAX_CARDS)
+  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA))
+  const paginaAtual = Math.min(pagina, totalPaginas - 1)
+  const visiveis = filtrados.slice(paginaAtual * POR_PAGINA, (paginaAtual + 1) * POR_PAGINA)
 
   // Links do Google Maps: partida (se houver) → paradas na ordem → chegada (se houver).
   const linksMaps = useMemo(() => {
@@ -225,30 +245,10 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
   }, [partLat, partLng, chegLat, chegLng, stops])
 
   return (
-    <div className="max-w-6xl pb-4">
+    <div className="pb-4">
       <div className="mb-4">
         <h1 className="text-xl font-bold text-ink">Roteirizar</h1>
-        <p className="text-sm text-ink-muted mt-0.5">Filtre os clientes, selecione e monte a melhor sequência de visitas.</p>
-      </div>
-
-      {/* Barra de ação — acompanha a rolagem porque a seleção acontece embaixo */}
-      <div className="glass-blur border border-line rounded-2xl px-5 py-3.5 mb-3 flex items-center justify-between gap-4 flex-wrap sticky top-2 z-30">
-        <div className="flex items-baseline gap-2.5">
-          <span className="text-3xl font-bold text-ink leading-none">{stops.length}</span>
-          <span className="text-[11px] text-ink-muted uppercase tracking-wide">
-            {stops.length === 1 ? 'cliente na rota' : 'clientes na rota'}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          {stops.length > 0 && (
-            <button onClick={() => { setStops([]); setResultado(null) }} className="text-sm text-ink-muted hover:text-ink px-2">Limpar</button>
-          )}
-          <button onClick={gerar} disabled={gerando || stops.length === 0}
-            className="bg-primary hover:bg-primary-dk disabled:opacity-40 text-white text-sm font-semibold px-5 py-2.5 rounded-xl flex items-center gap-2">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
-            {gerando ? 'Gerando…' : 'Gerar rota'}
-          </button>
-        </div>
+        <p className="text-sm text-ink-muted mt-0.5">Selecione clientes, defina os pontos de referência e gere a melhor rota.</p>
       </div>
 
       {preSelecionados > 0 && (
@@ -256,17 +256,11 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
           {preSelecionados} cliente{preSelecionados !== 1 ? 's' : ''} vieram do Radar.
         </div>
       )}
-      {resultado && (
-        <div className="mb-3 text-sm bg-good-bg text-good rounded-xl px-4 py-2.5">
-          Rota otimizada: <b>{resultado.km.toFixed(1).replace('.', ',')} km</b> · <b>{Math.round(resultado.min)} min</b>
-        </div>
-      )}
       {erro && <p className="text-xs text-bad bg-bad-bg rounded-lg px-3 py-2 mb-3">{erro}</p>}
 
-      {/* Duas colunas: à esquerda a rota que se monta, à direita de onde se escolhe */}
       <div className="grid lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] gap-3 items-start">
 
-        {/* ---- Coluna esquerda ---- */}
+        {/* ---- Coluna esquerda: pontos + salvar ---- */}
         <div className="flex flex-col gap-3">
           {/* Pontos */}
           <div className="glass rounded-2xl border border-line p-4">
@@ -301,45 +295,6 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
             <p className="text-[11px] text-ink-faint mt-1">Sem chegada, termina no último cliente.</p>
           </div>
 
-          {/* Rota montada */}
-          {stops.length > 0 && (
-            <div className="glass rounded-2xl border border-line p-4">
-              <p className="text-sm font-semibold text-ink mb-2">
-                {resultado ? 'Ordem da rota' : `Selecionados (${stops.length})`}
-              </p>
-
-              {linksMaps.length > 0 && (
-                <div className="flex items-center gap-1.5 flex-wrap mb-3">
-                  {linksMaps.length === 1 ? (
-                    <a href={linksMaps[0]} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 bg-gmaps hover:bg-gmaps-dk text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
-                      Abrir no Google Maps
-                    </a>
-                  ) : (
-                    <>
-                      <span className="text-[11px] text-ink-muted w-full">Google Maps · {linksMaps.length} trechos:</span>
-                      {linksMaps.map((l, i) => (
-                        <a key={i} href={l} target="_blank" rel="noopener noreferrer"
-                          className="bg-gmaps hover:bg-gmaps-dk text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg">{i + 1}</a>
-                      ))}
-                    </>
-                  )}
-                </div>
-              )}
-
-              <div className="flex flex-wrap gap-1.5 max-h-52 overflow-y-auto">
-                {stops.map((s, i) => (
-                  <span key={s.seller_id} className="inline-flex items-center gap-1.5 text-[11px] bg-card-2 border border-line rounded-lg pl-1.5 pr-1 py-1 text-ink-dim max-w-full">
-                    {resultado && <span className="w-4 h-4 rounded-full bg-primary text-white flex items-center justify-center text-[9px] font-bold flex-shrink-0">{i + 1}</span>}
-                    <span className="truncate">{precisaIdentificar(s.seller_nome, s.seller_id) ? `#${s.seller_id}` : s.seller_nome}</span>
-                    <button onClick={() => removeStop(s.seller_id)} className="text-ink-faint hover:text-bad w-4 text-center flex-shrink-0">×</button>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Salvar */}
           <div className="glass rounded-2xl border border-line p-4">
             <span className="text-sm font-semibold text-ink mb-2.5 block">Salvar na agenda</span>
@@ -354,68 +309,149 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
           </div>
         </div>
 
-        {/* ---- Coluna direita: escolher clientes ---- */}
-        <div className="glass rounded-2xl border border-line p-4">
-          {/* Toolbar de filtros */}
-          <div className="flex items-center gap-2 flex-wrap mb-3">
-            <input value={fBusca} onChange={e => setFBusca(e.target.value)}
-              placeholder="Buscar por ID do cliente ou nome…"
-              className={`${inp} flex-1 min-w-[220px]`} />
-            {consultores.length > 1 && (
-              <MultiFiltro label="Consultores" opcoes={consultores} sel={fConsultores} onChange={setFConsultores} />
-            )}
-            <MultiFiltro label="Cidades" opcoes={cidades} sel={fCidades} onChange={setFCidades} />
-            <MultiFiltro label="Bairros" opcoes={bairros} sel={fBairros} onChange={setFBairros} />
-            {temFiltro && (
-              <button onClick={limparFiltros} className="text-xs text-ink-muted hover:text-ink px-1.5">Limpar filtros</button>
-            )}
-          </div>
-
-          {/* Resumo + ação em massa */}
-          <div className="flex items-center justify-between gap-3 flex-wrap mb-3 pb-3 border-b border-line">
-            <p className="text-xs text-ink-muted">
-              <b className="text-ink">{filtrados.length.toLocaleString('pt-BR')}</b>
-              {temFiltro ? ' no filtro' : ' clientes'}
-              {filtrados.length > MAX_CARDS && ` · mostrando ${MAX_CARDS}`}
-            </p>
-            <button onClick={selecionarTodos} disabled={filtrados.length === 0}
-              className="bg-card-2 hover:bg-primary/20 border border-field-line disabled:opacity-40 text-ink text-xs font-semibold px-3.5 py-2 rounded-xl whitespace-nowrap">
-              + Selecionar todos ({filtrados.length.toLocaleString('pt-BR')})
-            </button>
-          </div>
-
-          {filtrados.length === 0 ? (
-            <p className="text-sm text-ink-faint text-center py-10">Nenhum cliente com esses filtros.</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 max-h-[600px] overflow-y-auto pr-1">
-              {visiveis.map(c => {
-                const sel = idsNaRota.has(c.seller_id)
-                const wa = whatsappUrl(c.seller_telefone)
-                const endereco = enderecoExibivel(c.endereco_completo)
-                return (
-                  <button key={c.seller_id} onClick={() => toggleStop(c)}
-                    className={`text-left rounded-xl border p-3 transition-colors ${sel ? 'border-primary bg-primary/15' : 'border-line hover:bg-card-2'}`}>
-                    <div className="flex items-start gap-2">
-                      <span className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${sel ? 'bg-primary border-primary' : 'border-ink-faint'}`}>
-                        {sel && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-mono bg-primary/15 text-primary-lt px-1.5 py-0.5 rounded">{c.seller_id}</span>
-                          {wa && <span className="text-good" title="tem WhatsApp"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347" /></svg></span>}
-                        </div>
-                        {precisaIdentificar(c.seller_nome, c.seller_id)
-                          ? <p className="text-sm font-medium text-warn truncate mt-0.5">Pendente de identificação</p>
-                          : <p className="text-sm font-medium text-ink truncate mt-0.5">{c.seller_nome || '—'}</p>}
-                        {endereco && <p className="text-[11px] text-ink-dim truncate mt-0.5" title={endereco}>{endereco}</p>}
-                        <p className="text-[11px] text-ink-faint truncate">{c.bairro ? `${c.bairro}, ` : ''}{c.cidade}</p>
-                      </div>
-                    </div>
-                  </button>
-                )
-              })}
+        {/* ---- Coluna direita: selecionados no topo, grade embaixo ---- */}
+        <div className="flex flex-col gap-3 min-w-0">
+          {/* Clientes selecionados */}
+          <div className="glass rounded-2xl border border-line p-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-ink">Clientes selecionados</span>
+                <span className="text-xs font-bold text-primary-lt bg-primary/15 px-2 py-0.5 rounded-full">{stops.length}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {stops.length > 0 && (
+                  <button onClick={() => { setStops([]); setResultado(null) }} className="text-sm text-ink-muted hover:text-ink">Limpar tudo</button>
+                )}
+                <button onClick={gerar} disabled={gerando || stops.length === 0}
+                  className="bg-primary hover:bg-primary-dk disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-xl flex items-center gap-2">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
+                  {gerando ? 'Gerando…' : 'Gerar rota'}
+                </button>
+              </div>
             </div>
-          )}
+
+            {stops.length === 0 ? (
+              <p className="text-sm text-ink-faint mt-3">Marque clientes na lista abaixo para montar a rota.</p>
+            ) : (
+              <>
+                {resultado && (
+                  <div className="mt-3 text-sm bg-good-bg text-good rounded-xl px-4 py-2.5">
+                    Rota otimizada: <b>{resultado.km.toFixed(1).replace('.', ',')} km</b> · <b>{Math.round(resultado.min)} min</b>
+                  </div>
+                )}
+                {linksMaps.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap mt-3">
+                    {linksMaps.length === 1 ? (
+                      <a href={linksMaps[0]} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 bg-gmaps hover:bg-gmaps-dk text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
+                        Abrir no Google Maps
+                      </a>
+                    ) : (
+                      <>
+                        <span className="text-[11px] text-ink-muted w-full">Google Maps · {linksMaps.length} trechos:</span>
+                        {linksMaps.map((l, i) => (
+                          <a key={i} href={l} target="_blank" rel="noopener noreferrer"
+                            className="bg-gmaps hover:bg-gmaps-dk text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg">{i + 1}</a>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-1.5 mt-3 max-h-40 overflow-y-auto">
+                  {stops.map((s, i) => (
+                    <span key={s.seller_id} className="inline-flex items-center gap-1.5 text-[11px] bg-card-2 border border-line rounded-lg pl-1.5 pr-1 py-1 text-ink-dim max-w-full">
+                      {resultado && <span className="w-4 h-4 rounded-full bg-primary text-white flex items-center justify-center text-[9px] font-bold flex-shrink-0">{i + 1}</span>}
+                      <span className="truncate">{precisaIdentificar(s.seller_nome, s.seller_id) ? `#${s.seller_id}` : s.seller_nome}</span>
+                      <button onClick={() => removeStop(s.seller_id)} className="text-ink-faint hover:text-bad w-4 text-center flex-shrink-0">×</button>
+                    </span>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Selecionar clientes */}
+          <div className="glass rounded-2xl border border-line p-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+              <span className="text-sm font-semibold text-ink">Selecionar clientes</span>
+              <p className="text-xs text-ink-muted">
+                <b className="text-ink">{filtrados.length.toLocaleString('pt-BR')}</b>{temFiltro ? ' encontrados' : ' clientes'}
+              </p>
+            </div>
+
+            {/* Toolbar de filtros */}
+            <div className="flex items-center gap-2 flex-wrap mb-3">
+              <input value={fBusca} onChange={e => setFBusca(e.target.value)}
+                placeholder="Buscar por ID do cliente ou nome…"
+                className={`${inp} flex-1 min-w-[220px]`} />
+              {consultores.length > 1 && (
+                <MultiFiltro label="Consultores" opcoes={consultores} sel={fConsultores} onChange={setFConsultores} />
+              )}
+              <MultiFiltro label="Cidades" opcoes={cidades} sel={fCidades} onChange={setFCidades} />
+              <MultiFiltro label="Bairros" opcoes={bairros} sel={fBairros} onChange={setFBairros} />
+              {temFiltro && (
+                <button onClick={limparFiltros} className="text-xs text-ink-muted hover:text-ink px-1.5">Limpar filtros</button>
+              )}
+              <button onClick={selecionarTodos} disabled={filtrados.length === 0}
+                className="ml-auto bg-card-2 hover:bg-primary/20 border border-field-line disabled:opacity-40 text-ink text-xs font-semibold px-3.5 py-2 rounded-xl whitespace-nowrap">
+                + Selecionar todos ({filtrados.length.toLocaleString('pt-BR')})
+              </button>
+            </div>
+
+            {filtrados.length === 0 ? (
+              <p className="text-sm text-ink-faint text-center py-10">Nenhum cliente com esses filtros.</p>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                  {visiveis.map(c => {
+                    const sel = idsNaRota.has(c.seller_id)
+                    const wa = whatsappUrl(c.seller_telefone)
+                    const endereco = enderecoExibivel(c.endereco_completo)
+                    return (
+                      <button key={c.seller_id} onClick={() => toggleStop(c)}
+                        className={`text-left rounded-xl border p-3 transition-colors ${sel ? 'border-primary bg-primary/15' : 'border-line hover:bg-card-2'}`}>
+                        <div className="flex items-start gap-2">
+                          <span className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${sel ? 'bg-primary border-primary' : 'border-ink-faint'}`}>
+                            {sel && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-mono bg-primary/15 text-primary-lt px-1.5 py-0.5 rounded">{c.seller_id}</span>
+                              {wa && <span className="text-good" title="tem WhatsApp"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347" /></svg></span>}
+                            </div>
+                            {precisaIdentificar(c.seller_nome, c.seller_id)
+                              ? <p className="text-sm font-medium text-warn truncate mt-0.5">Pendente de identificação</p>
+                              : <p className="text-sm font-medium text-ink truncate mt-0.5">{c.seller_nome || '—'}</p>}
+                            {endereco && <p className="text-[11px] text-ink-dim truncate mt-0.5" title={endereco}>{endereco}</p>}
+                            <p className="text-[11px] text-ink-faint truncate">{c.bairro ? `${c.bairro}, ` : ''}{c.cidade}</p>
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Paginação */}
+                {totalPaginas > 1 && (
+                  <div className="flex items-center justify-center gap-1 mt-4">
+                    <button onClick={() => setPagina(p => Math.max(0, p - 1))} disabled={paginaAtual === 0}
+                      className="w-8 h-8 grid place-items-center rounded-lg border border-field-line text-ink-muted hover:bg-card-2 disabled:opacity-40">‹</button>
+                    {janelaPaginas(paginaAtual, totalPaginas).map((p, i) =>
+                      p === '…'
+                        ? <span key={`e${i}`} className="w-8 h-8 grid place-items-center text-ink-faint">…</span>
+                        : <button key={p} onClick={() => setPagina(p)}
+                            className={`w-8 h-8 grid place-items-center rounded-lg text-sm font-medium ${p === paginaAtual ? 'bg-primary text-white' : 'border border-field-line text-ink-muted hover:bg-card-2'}`}>
+                            {p + 1}
+                          </button>
+                    )}
+                    <button onClick={() => setPagina(p => Math.min(totalPaginas - 1, p + 1))} disabled={paginaAtual === totalPaginas - 1}
+                      className="w-8 h-8 grid place-items-center rounded-lg border border-field-line text-ink-muted hover:bg-card-2 disabled:opacity-40">›</button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
