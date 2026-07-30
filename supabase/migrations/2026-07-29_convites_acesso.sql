@@ -15,7 +15,19 @@
 -- tabela depois (dump, backup, log de query) não consegue remontar link nenhum.
 -- Por isso não existe índice/consulta por token puro — a busca é pelo hash.
 --
--- Idempotente: pode rodar mais de uma vez.
+-- ATENÇÃO — NÃO RE-EXECUTE ESTE ARQUIVO. Ele não é idempotente (o cabeçalho
+-- dizia que era; estava errado) e re-rodá-lo é perigoso:
+--
+--   1. `create policy` não aceita `if not exists` no Postgres, então a segunda
+--      execução morre em "policy ... already exists".
+--   2. Pior: as policies de INSERT/UPDATE abaixo foram REMOVIDAS de propósito
+--      por `2026-07-30_fecha_convites_e_profiles.sql`, porque permitiam a um
+--      dono forjar convite com role=admin escrevendo direto no PostgREST.
+--      Rodar este arquivo de novo reabriria esse furo.
+--
+-- Correções posteriores que valem sobre este estado, e que SÃO idempotentes:
+--   - 2026-07-30_convites_fk_on_delete.sql        (FK travando exclusão de usuário)
+--   - 2026-07-30_fecha_convites_e_profiles.sql    (tira a escrita do navegador)
 -- ============================================================
 
 create table if not exists convites_acesso (
@@ -75,18 +87,8 @@ create policy "convites: admin e dono criam" on convites_acesso
 create policy "convites: admin e dono revogam" on convites_acesso
   for update using (get_my_role() in ('admin', 'dono'));
 
--- ============================================================
--- Conserto para quem já criou a tabela antes desta correção.
---
--- `create table if not exists` não altera tabela existente, então o
--- `on delete set null` acima não chega em quem rodou a versão anterior — e lá
--- excluir um consultor que usou convite falha com erro de foreign key. Este
--- bloco recria as duas constraints com a regra certa e é seguro rodar sempre.
--- ============================================================
-alter table convites_acesso drop constraint if exists convites_acesso_criado_por_fkey;
-alter table convites_acesso add constraint convites_acesso_criado_por_fkey
-  foreign key (criado_por) references profiles(id) on delete set null;
-
-alter table convites_acesso drop constraint if exists convites_acesso_usado_por_fkey;
-alter table convites_acesso add constraint convites_acesso_usado_por_fkey
-  foreign key (usado_por) references profiles(id) on delete set null;
+-- O conserto das foreign keys (`on delete set null`) saiu daqui e virou
+-- `2026-07-30_convites_fk_on_delete.sql`. Motivo: ele ficava no fim deste
+-- arquivo, que não pode ser re-executado (ver o aviso no topo) — então o
+-- conserto nunca alcançava um banco onde a tabela já existia, que era
+-- exatamente o caso que ele existia para resolver.
