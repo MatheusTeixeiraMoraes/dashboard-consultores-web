@@ -194,7 +194,11 @@ $$;
 --    dizer "seu acesso foi desativado" em vez de jogar a pessoa num laço mudo
 --    de login. Escrever nessa linha já está travado pelo trigger.
 -- ────────────────────────────────────────────────────────────
+-- Os DOIS drops: o do nome antigo (que estamos substituindo) e o do nome NOVO.
+-- Sem o segundo, a re-execução morre em 42710 — `create policy` não aceita
+-- `if not exists`.
 drop policy if exists "pillar_config: todos leem" on pillar_config;
+drop policy if exists "pillar_config: usuário ativo lê" on pillar_config;
 
 create policy "pillar_config: usuário ativo lê" on pillar_config
   for select using (get_my_role() is not null);

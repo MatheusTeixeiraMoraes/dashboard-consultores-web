@@ -1,6 +1,6 @@
 'use server'
 
-import { getProfile } from '@/lib/supabase/profile'
+import { perfilAutorizado } from '@/lib/demo/estado'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { escritaBloqueadaPeloDemo, MSG_BLOQUEIO_DEMO } from '@/lib/demo/guarda'
 import { canManageUsers } from '@/lib/types'
@@ -18,7 +18,7 @@ export async function criarUsuario(data: {
   if (!keyPresente) return { ok: false, error: 'SERVICE_ROLE_KEY ausente no servidor' }
 
   try {
-  const me = await getProfile()
+  const me = await perfilAutorizado()
   if (!me || !canManageUsers(me.role, data.role)) {
     return { ok: false, error: 'Sem permissão para criar esse tipo de usuário' }
   }
@@ -71,7 +71,7 @@ export async function excluirUsuario(
   userId: string
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    const me = await getProfile()
+    const me = await perfilAutorizado()
     if (!me || (me.role !== 'admin' && me.role !== 'dono')) {
       return { ok: false, error: 'Sem permissão' }
     }

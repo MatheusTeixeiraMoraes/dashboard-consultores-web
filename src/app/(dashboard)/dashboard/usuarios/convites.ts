@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { getProfile } from '@/lib/supabase/profile'
+import { perfilAutorizado } from '@/lib/demo/estado'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { escritaBloqueadaPeloDemo, MSG_BLOQUEIO_DEMO } from '@/lib/demo/guarda'
 import { canManageUsers } from '@/lib/types'
@@ -35,7 +35,7 @@ export async function listarConsultoresDaPlanilha(): Promise<{
   ok: boolean; error?: string; consultores?: ConsultorPlanilha[]
 }> {
   try {
-    const me = await getProfile()
+    const me = await perfilAutorizado()
     if (!me || (me.role !== 'admin' && me.role !== 'dono')) {
       return { ok: false, error: 'Sem permissão' }
     }
@@ -108,7 +108,7 @@ export async function gerarLinkAcesso(dados: {
   dias?: number
 }): Promise<{ ok: boolean; error?: string; token?: string; expira_em?: string }> {
   try {
-    const me = await getProfile()
+    const me = await perfilAutorizado()
     if (!me || !canManageUsers(me.role, dados.role)) {
       return { ok: false, error: 'Sem permissão para dar acesso a esse cargo' }
     }
@@ -151,7 +151,7 @@ export async function gerarLinkAcesso(dados: {
 /** Corta um link que ainda não foi usado (ou que foi para a pessoa errada). */
 export async function revogarLink(id: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    const me = await getProfile()
+    const me = await perfilAutorizado()
     if (!me || (me.role !== 'admin' && me.role !== 'dono')) {
       return { ok: false, error: 'Sem permissão' }
     }

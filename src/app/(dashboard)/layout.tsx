@@ -1,9 +1,13 @@
+import { cookies } from 'next/headers'
 import { createClientReal } from '@/lib/supabase/server'
 import { getProfile } from '@/lib/supabase/profile'
 import { modoDemoAtivo, podeUsarDemo } from '@/lib/demo/estado'
 import { redirect } from 'next/navigation'
 import Shell from '@/components/layout/Shell'
+import BarraDelegacao from '@/components/layout/BarraDelegacao'
 import AcessoDesativado from './AcessoDesativado'
+import { COOKIE_DELEGACAO } from '@/lib/delegacao'
+import type { DelegacaoOrigem } from '@/lib/delegacao'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   // Autenticação sempre no cliente REAL: mesmo numa demonstração, a sessão é
@@ -34,11 +38,36 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // getProfile acima já fez — não custam ida de rede nova.
   const [demoAtivo, demoDisponivel] = await Promise.all([modoDemoAtivo(), podeUsarDemo()])
 
+  /* Delegação em curso ("entrar na conta de").
+   *
+   * A sessão desta requisição já é a do ALVO — é assim que a RLS entrega os
+   * dados dele. Quem está delegando só é conhecido pelo cookie, que guarda o
+   * nome de quem entrou e a sessão para voltar.
+   *
+   * É seguro passar por prop (ao contrário do cookie do modo demo, que precisa
+   * ser lido no navegador): entrar e voltar sempre terminam em `redirect`, e
+   * redirect re-renderiza o layout. Não existe navegação client-side que mude
+   * este estado sem passar por aqui. */
+  let delegacao: DelegacaoOrigem | null = null
+  const bruto = (await cookies()).get(COOKIE_DELEGACAO)?.value
+  if (bruto) {
+    try { delegacao = JSON.parse(bruto) as DelegacaoOrigem } catch { delegacao = null }
+  }
+
   // A casca é client (a gaveta do mobile tem estado); a autenticação fica aqui,
   // no servidor.
   return (
-    <Shell profile={profile} demoAtivo={demoAtivo} demoDisponivel={demoDisponivel}>
-      {children}
-    </Shell>
+    <>
+      {delegacao && (
+        <BarraDelegacao
+          adminNome={delegacao.admin_nome}
+          alvoNome={profile.nome || profile.email}
+          registroId={delegacao.registro_id}
+        />
+      )}
+      <Shell profile={profile} demoAtivo={demoAtivo} demoDisponivel={demoDisponivel}>
+        {children}
+      </Shell>
+    </>
   )
 }

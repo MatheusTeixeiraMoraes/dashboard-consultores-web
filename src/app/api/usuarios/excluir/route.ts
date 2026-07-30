@@ -1,4 +1,4 @@
-import { getProfile } from '@/lib/supabase/profile'
+import { perfilAutorizado } from '@/lib/demo/estado'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { escritaBloqueadaPeloDemo, MSG_BLOQUEIO_DEMO } from '@/lib/demo/guarda'
 import { canManageUsers } from '@/lib/types'
@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
   try {
-    const me = await getProfile()
+    const me = await perfilAutorizado()
     if (!me || (me.role !== 'admin' && me.role !== 'dono')) {
       return NextResponse.json({ ok: false, error: 'Sem permissão' }, { status: 403 })
     }

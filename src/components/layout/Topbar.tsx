@@ -1,9 +1,8 @@
 'use client'
 
 import Image from 'next/image'
-import { createClient } from '@/lib/supabase/client'
 import { limparCookieDemo } from '@/lib/demo/cookie'
-import { useRouter } from 'next/navigation'
+import { sairEncerrandoDelegacao } from '@/app/(dashboard)/dashboard/usuarios/delegacao'
 import type { Profile } from '@/lib/types'
 
 const ROLE_LABEL: Record<string, string> = {
@@ -18,16 +17,25 @@ export default function Topbar({ profile, abrirMenu, demoAtivo = false }: {
   abrirMenu?: () => void
   demoAtivo?: boolean
 }) {
-  const router = useRouter()
-
   async function handleLogout() {
     // A demonstração não pode sobreviver à troca de usuário: o cookie vale para
     // o navegador, não para a conta.
     limparCookieDemo()
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
+
+    /* A SAÍDA INTEIRA ACONTECE NO SERVIDOR, e a ordem aqui não é estilo.
+     *
+     * Havia um `supabase.auth.signOut()` do navegador ANTES desta chamada. Isso
+     * quebrava as duas coisas que a action precisa fazer: sem os cookies `sb-*`
+     * ela não descobre quem está saindo, então (a) não fechava a linha de
+     * `acessos_delegados` — ficava "em curso" para sempre — e (b) não apagava o
+     * cookie httpOnly da delegação, que JS nenhum alcança. O resultado media era
+     * o pior desta feature: o refresh token de um admin sobrevivendo ao logout,
+     * e o próximo a usar aquele navegador encontrando "voltar para minha conta".
+     *
+     * Também não existe `.catch()` aqui: `redirect()` de dentro de uma Server
+     * Action se propaga como exceção, e capturá-la engolia justamente a
+     * navegação para /login. */
+    await sairEncerrandoDelegacao()
   }
 
   const displayName = profile.nome || profile.email

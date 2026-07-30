@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { Profile, UserRole } from '@/lib/types'
 import { canManageUsers } from '@/lib/types'
 import { gerarLinkAcesso, revogarLink, listarConsultoresDaPlanilha } from './convites'
+import { entrarNaConta } from './delegacao'
 import type { ConsultorPlanilha } from './convites'
 import type { ConviteLinha } from './page'
 
@@ -174,6 +175,21 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
    * nada; virou gate de verdade em `get_my_role()`, então este botão passou a
    * revogar de fato — o desativado perde toda a RLS e cai na tela de aviso.
    */
+  /**
+   * Abre o painel como outra pessoa.
+   *
+   * Em caso de sucesso a action termina em `redirect`, então nada aqui embaixo
+   * roda — só tratamos a recusa (sem alçada sobre aquele papel, conta
+   * desativada, sessão expirada).
+   */
+  async function entrar(u: Profile) {
+    setSaving(u.id)
+    setEditErr(null)
+    const r = await entrarNaConta(u.id)
+    if (r && !r.ok) setEditErr(r.error ?? 'Não foi possível entrar nesta conta')
+    setSaving(null)
+  }
+
   async function alternarAtivo(u: Profile) {
     setSaving(u.id)
     setEditErr(null)
@@ -404,6 +420,19 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
                             >
                               {saving === u.id ? '...' : u.ativo ? 'Desativar' : 'Reativar'}
                             </button>
+                            {/* Só faz sentido em conta ativa: desativado tem
+                                get_my_role() nulo e o painel viria todo vazio,
+                                dando a impressão de que algo quebrou. */}
+                            {u.ativo && (
+                              <button
+                                onClick={() => entrar(u)}
+                                disabled={saving === u.id}
+                                className="text-xs font-medium text-ink-dim hover:text-ink transition-colors disabled:opacity-60"
+                                title={`Abrir o painel exatamente como ${u.nome || u.email} o vê`}
+                              >
+                                {saving === u.id ? '...' : 'Entrar na conta'}
+                              </button>
+                            )}
                             <button
                               onClick={() => { setConfirmDel(u.id); setDelErr(null) }}
                               className="text-xs font-medium text-bad hover:text-bad-dk transition-colors"

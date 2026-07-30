@@ -50,7 +50,11 @@ revoke insert, update, delete on convites_acesso from anon, authenticated;
 -- DROP e obrigatorio: policies permissivas se SOMAM com OR, entao criar uma
 -- restritiva ao lado da antiga nao muda nada.
 -- ────────────────────────────────────────────────────────────
+-- Os DOIS drops: o do nome antigo e o do nome NOVO. Sem o segundo, re-executar
+-- este arquivo morre em 42710 (`create policy` não aceita `if not exists`) e
+-- aborta o que vier depois.
 drop policy if exists "profiles: leitura autenticada" on profiles;
+drop policy if exists "profiles: cada um le o seu; gestao le todos" on profiles;
 
 create policy "profiles: cada um le o seu; gestao le todos" on profiles
   for select using (

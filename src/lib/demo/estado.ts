@@ -39,9 +39,31 @@ export const perfilReal = cache(async (): Promise<Profile | null> => {
   return data ?? null
 })
 
+/**
+ * Perfil que pode AUTORIZAR uma ação — `perfilReal` filtrado por `ativo`.
+ *
+ * Existem os dois porque eles respondem perguntas diferentes:
+ *   - `perfilReal()`  = "quem é este usuário?"  → o layout precisa disso mesmo
+ *     de alguém desativado, senão não teria como exibir a tela explicando que o
+ *     acesso foi cortado (cairia num laço de login);
+ *   - `perfilAutorizado()` = "este usuário pode agir?" → é o que toda server
+ *     action privilegiada deve usar.
+ *
+ * Sem esta separação, `ativo` protegia só o que passa pela RLS: `get_my_role()`
+ * filtra por ativo, mas as actions que rodam com `service_role` (criar usuário,
+ * excluir usuário, gerar convite, entrar na conta) liam o papel direto de
+ * `profiles` e ignoravam a revogação. Um admin desligado continuava criando e
+ * apagando contas com a sessão que já tinha no navegador — o Supabase Auth não
+ * conhece `ativo` e não derruba ninguém.
+ */
+export const perfilAutorizado = cache(async (): Promise<Profile | null> => {
+  const perfil = await perfilReal()
+  return perfil && perfil.ativo ? perfil : null
+})
+
 /** Só admin. Não inclui `dono`: o pedido foi explícito quanto a isso. */
 export async function podeUsarDemo(): Promise<boolean> {
-  const perfil = await perfilReal()
+  const perfil = await perfilAutorizado()
   return perfil?.role === 'admin'
 }
 
