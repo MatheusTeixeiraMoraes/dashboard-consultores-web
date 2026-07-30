@@ -32,7 +32,13 @@ create table if not exists convites_acesso (
 
   role           user_role not null default 'consultor',
 
-  criado_por     uuid references profiles(id),
+  -- `on delete set null` nas duas referências a profiles, e isto NÃO é detalhe:
+  -- sem ele o Postgres passa a RECUSAR a exclusão de qualquer usuário que tenha
+  -- gerado ou aceitado um convite ("violates foreign key constraint"). Ou seja,
+  -- todo consultor que entrasse por link ficaria impossível de excluir pelo
+  -- painel. A referência aqui é histórica: se a pessoa sai do sistema, o
+  -- convite continua registrado, só perde o ponteiro.
+  criado_por     uuid references profiles(id) on delete set null,
   criado_em      timestamptz not null default now(),
   expira_em      timestamptz not null,
 
@@ -40,7 +46,7 @@ create table if not exists convites_acesso (
   -- usado_em is null), que é o que impede duas pessoas de aceitarem o mesmo
   -- link ao mesmo tempo.
   usado_em       timestamptz,
-  usado_por      uuid references profiles(id),
+  usado_por      uuid references profiles(id) on delete set null,
 
   revogado_em    timestamptz
 );
@@ -68,3 +74,19 @@ create policy "convites: admin e dono criam" on convites_acesso
 
 create policy "convites: admin e dono revogam" on convites_acesso
   for update using (get_my_role() in ('admin', 'dono'));
+
+-- ============================================================
+-- Conserto para quem já criou a tabela antes desta correção.
+--
+-- `create table if not exists` não altera tabela existente, então o
+-- `on delete set null` acima não chega em quem rodou a versão anterior — e lá
+-- excluir um consultor que usou convite falha com erro de foreign key. Este
+-- bloco recria as duas constraints com a regra certa e é seguro rodar sempre.
+-- ============================================================
+alter table convites_acesso drop constraint if exists convites_acesso_criado_por_fkey;
+alter table convites_acesso add constraint convites_acesso_criado_por_fkey
+  foreign key (criado_por) references profiles(id) on delete set null;
+
+alter table convites_acesso drop constraint if exists convites_acesso_usado_por_fkey;
+alter table convites_acesso add constraint convites_acesso_usado_por_fkey
+  foreign key (usado_por) references profiles(id) on delete set null;

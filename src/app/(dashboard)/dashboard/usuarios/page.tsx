@@ -14,6 +14,16 @@ export interface ConsultorPlanilha {
   temUsuario: boolean
   /** Outra grafia divide o mesmo id_carteira — provável duplicata na planilha. */
   carteiraRepetida: boolean
+  /**
+   * Quantos clientes a RLS entregaria para este nome exato.
+   *
+   * Está aqui porque grafia dividida é real nesta base: há nome que aparece em
+   * `clientes` mas não na planilha de pontuação (fica sem id_carteira) e
+   * vice-versa. Quem gera o link precisa ver quanta carteira cada grafia
+   * carrega para escolher a certa — sem isso a escolha é no escuro, e a errada
+   * dá acesso pela metade (vê clientes e não vê desempenho, ou o contrário).
+   */
+  qtdClientes: number
 }
 
 export interface ConviteLinha {
@@ -82,12 +92,19 @@ export default async function UsuariosPage() {
 
   const nomesComUsuario = new Set(usuarios.map(u => normalizarNome(u.nome)).filter(Boolean))
 
+  const clientesPorNome = new Map<string, number>()
+  for (const c of dosClientes) {
+    const chave = normalizarNome(c.consultor_nome)
+    if (chave) clientesPorNome.set(chave, (clientesPorNome.get(chave) ?? 0) + 1)
+  }
+
   const consultores: ConsultorPlanilha[] = [...porChave.entries()]
     .map(([chave, v]) => ({
       nome: v.nome,
       id_carteira: v.id_carteira,
       temUsuario: nomesComUsuario.has(chave),
       carteiraRepetida: !!v.id_carteira && (contagemCarteira.get(v.id_carteira) ?? 0) > 1,
+      qtdClientes: clientesPorNome.get(chave) ?? 0,
     }))
     .sort((a, b) =>
       // Quem ainda não tem acesso primeiro: é o motivo de a tela existir.

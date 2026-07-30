@@ -481,12 +481,31 @@ export default function UsuariosClient({ usuarios, myRole, myId, consultores, co
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-ink truncate">{c.nome}</p>
                         <p className="text-[11px] text-ink-muted">
-                          {c.id_carteira ? `Carteira ${c.id_carteira}` : 'sem carteira na planilha de pontuação'}
+                          {c.qtdClientes > 0
+                            ? `${c.qtdClientes} cliente${c.qtdClientes !== 1 ? 's' : ''}`
+                            : 'nenhum cliente nesta grafia'}
+                          {' · '}
+                          {c.id_carteira ? `carteira ${c.id_carteira}` : 'sem carteira de pontuação'}
                           {c.temUsuario && ' · já tem acesso'}
                         </p>
+                        {/* Os dois avisos existem porque a mesma pessoa aparece
+                            escrita de dois jeitos nas planilhas, e a escolha
+                            errada dá acesso pela metade. */}
                         {c.carteiraRepetida && (
                           <p className="text-[11px] text-warn mt-0.5">
                             Outra grafia usa esta mesma carteira — confira qual é a correta.
+                          </p>
+                        )}
+                        {!c.id_carteira && c.qtdClientes > 0 && (
+                          <p className="text-[11px] text-warn mt-0.5">
+                            Vê os clientes, mas não verá o próprio desempenho: este nome não
+                            aparece na planilha de pontuação.
+                          </p>
+                        )}
+                        {c.id_carteira && c.qtdClientes === 0 && (
+                          <p className="text-[11px] text-warn mt-0.5">
+                            Vê o desempenho, mas a carteira virá vazia: nenhum cliente está
+                            gravado com esta grafia.
                           </p>
                         )}
                       </div>
