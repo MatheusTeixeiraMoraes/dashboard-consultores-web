@@ -1,11 +1,30 @@
 -- ============================================================
--- SCHEMA COMPLETO — dashboard de consultores
+-- SCHEMA PARCIAL — dashboard de consultores
 --
--- Este arquivo recria o banco DO ZERO. Os `drop table` abaixo APAGAM TODOS OS
--- DADOS. Não rode isto num banco em uso: para alterar um banco que já existe,
--- escreva uma migration em supabase/migrations/.
+-- ⚠ ESTE ARQUIVO NÃO É MAIS A FONTE DA VERDADE. A fonte é
+--   supabase/migrations/, na ordem cronológica do nome.
 --
--- Última sincronização com produção: 13/07/2026
+-- Ele parou de ser sincronizado em 15/07/2026 e NÃO contém, entre outras
+-- coisas: as tabelas `mp_carteira`, `mp_acionaveis` e `convites_acesso`, a
+-- coluna `clientes.em_carteira`, as funções `reconciliar_carteira`,
+-- `nome_normalizado` e `profiles_impede_autopromocao`, nem o trigger que
+-- impede autopromoção.
+--
+-- POR QUE NÃO FOI SIMPLESMENTE ATUALIZADO: reconstruir aqui, de memória, três
+-- tabelas que só existem no banco é como o arquivo passa a MENTIR com cara de
+-- verdade. Um schema parcial e declarado é menos perigoso que um schema
+-- completo e errado. Se um dia isto voltar a ser um retrato fiel, gere com
+-- `pg_dump --schema-only` a partir do banco — não à mão.
+--
+-- As policies de `profiles` abaixo JÁ FORAM CORRIGIDAS aqui, porque deixá-las
+-- na versão antiga era o único trecho com risco ativo: recriar um ambiente a
+-- partir deste arquivo ressuscitaria duas escaladas de privilégio confirmadas
+-- em produção em 30/07/2026 (qualquer consultor virava admin; qualquer conta
+-- logada lia o diretório inteiro da empresa).
+--
+-- Os `drop table` abaixo APAGAM TODOS OS DADOS. Não rode isto num banco em uso.
+--
+-- Última sincronização real com produção: 15/07/2026
 -- ============================================================
 
 drop table if exists score_consultor_resultados cascade;
@@ -131,10 +150,17 @@ create index on score_consultor_resultados(data_referencia);
 
 -- ============================================================
 -- 6. FUNÇÃO HELPER — role do usuário logado
+--
+-- `and ativo` é o gate de revogação: desativar um perfil faz esta função
+-- devolver null, e como quase toda policy do banco deriva daqui, o acesso cai
+-- inteiro de uma vez. Ver 2026-07-30_revogacao_e_chave_de_nome.sql — inclusive
+-- a armadilha de `NULL not in (...)` que isso cria em guards de função.
+-- `set search_path` porque é security definer.
 -- ============================================================
 create or replace function get_my_role()
-returns user_role language sql security definer stable as $$
-  select role from profiles where id = auth.uid();
+returns user_role language sql security definer stable
+set search_path = public as $$
+  select role from profiles where id = auth.uid() and ativo;
 $$;
 
 -- ============================================================
@@ -144,8 +170,17 @@ $$;
 -- PROFILES
 alter table profiles enable row level security;
 
-create policy "profiles: leitura autenticada" on profiles
-  for select using (auth.uid() is not null);
+-- CORRIGIDA em 30/07/2026. Era `using (auth.uid() is not null)`, o que
+-- entregava nome, e-mail, papel e carteira de TODO MUNDO para qualquer conta
+-- logada — e o cadastro público do Supabase estava ligado, então bastava um
+-- estranho se cadastrar para ler o diretório da empresa.
+-- O ramo `id = auth.uid()` é necessário: é ele que permite ao app ler a própria
+-- linha e avisar "seu acesso foi desativado" em vez de um laço mudo de login.
+create policy "profiles: cada um le o seu; gestao le todos" on profiles
+  for select using (
+    id = auth.uid()
+    or get_my_role() in ('admin', 'dono', 'lider')
+  );
 
 create policy "profiles: admin gerencia todos" on profiles
   for all using (get_my_role() = 'admin');
@@ -156,14 +191,22 @@ create policy "profiles: dono gerencia lider e consultor" on profiles
     and role in ('lider', 'consultor')
   );
 
+-- ATENÇÃO: esta policy diz QUAL LINHA, nunca QUAIS COLUNAS. Sozinha, ela deixa
+-- o dono da linha reescrever o próprio `role` e virar admin — confirmado em
+-- produção. Quem fecha isso é o trigger `profiles_impede_autopromocao`, que NÃO
+-- está neste arquivo: veja 2026-07-30_profiles_trava_autopromocao.sql. Recriar o
+-- banco só com este schema deixa o furo aberto.
 create policy "profiles: usuário atualiza o próprio" on profiles
   for update using (id = auth.uid());
 
 -- PILLAR_CONFIG
 alter table pillar_config enable row level security;
 
-create policy "pillar_config: todos leem" on pillar_config
-  for select using (auth.uid() is not null);
+-- `get_my_role() is not null` e não `auth.uid() is not null`: era a única policy
+-- que não passava por get_my_role(), então um usuário DESATIVADO continuaria
+-- lendo as metas da empresa mesmo com o acesso revogado.
+create policy "pillar_config: usuário ativo lê" on pillar_config
+  for select using (get_my_role() is not null);
 
 create policy "pillar_config: admin e dono editam" on pillar_config
   for all using (get_my_role() in ('admin', 'dono'));
@@ -240,10 +283,21 @@ create index on clientes(bairro);
 create index on clientes(lat, lng);
 
 -- Casa o nome do cliente com o nome do consultor logado.
+-- A normalização vive em `nome_normalizado()` (2026-07-30_revogacao_e_chave_de_nome.sql)
+-- para que o índice único de nome e esta comparação de autorização não possam
+-- divergir. `set search_path` porque é security definer — e sem ele o
+-- `unaccent` resolveria o dicionário por um caminho que o chamador controla.
+create or replace function nome_normalizado(txt text)
+returns text language sql immutable
+set search_path = public, extensions as $$
+  select lower(unaccent(trim(coalesce(txt, ''))))
+$$;
+
 create or replace function cliente_e_meu(consultor_nome text)
-returns boolean language sql security definer stable as $$
-  select lower(unaccent(trim(consultor_nome)))
-       = lower(unaccent(trim(coalesce((select nome from profiles where id = auth.uid()), ''))))
+returns boolean language sql security definer stable
+set search_path = public, extensions as $$
+  select nome_normalizado(consultor_nome)
+       = nome_normalizado((select nome from profiles where id = auth.uid()))
 $$;
 
 alter table clientes enable row level security;

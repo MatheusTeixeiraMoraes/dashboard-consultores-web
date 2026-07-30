@@ -18,10 +18,27 @@ export default function CarteiraClient({ carteiraAtual, relatorio }: Props) {
   const total = carteiraAtual.reduce((s, c) => s + c.total, 0)
   const maior = carteiraAtual[0]?.total ?? 1
 
+  /**
+   * Uma célula de CSV, pronta para o Excel.
+   *
+   * As aspas resolvem o RFC 4180 (separador e aspas dentro do texto) e NÃO
+   * resolvem injeção de fórmula: Excel, LibreOffice e Sheets tiram as aspas no
+   * parse e avaliam `=`, `+`, `-`, `@` como fórmula. `consultor_nome` vem da
+   * planilha que alguém sobe, então é texto de terceiro caindo na máquina de
+   * quem abre o relatório — daí o apóstrofo, que força a célula a texto sem
+   * sujar o valor visível.
+   */
+  function celulaCsv(valor: string) {
+    const bruto = String(valor ?? '')
+    const perigoso = /^[=+\-@\t\r]/.test(bruto)
+    return `"${(perigoso ? `'${bruto}` : bruto).replace(/"/g, '""')}"`
+  }
+
   function exportarCsv() {
     const linhas = [['Consultor', 'Clientes na carteira', 'Tem login'],
       ...carteiraAtual.map(c => [c.consultor_nome, String(c.total), c.temLogin ? 'sim' : 'não'])]
-    const csv = linhas.map(l => l.map(x => `"${x.replace(/"/g, '""')}"`).join(',')).join('\n')
+    // \r\n é o que o RFC 4180 pede; o \n sozinho confunde Excel antigo.
+    const csv = linhas.map(l => l.map(celulaCsv).join(',')).join('\r\n')
     const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }))
     const a = document.createElement('a')
     a.href = url

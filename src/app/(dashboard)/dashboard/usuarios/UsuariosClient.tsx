@@ -110,6 +110,7 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
   const [editing, setEditing]   = useState<string | null>(null)
   const [saving, setSaving]     = useState<string | null>(null)
   const [editForm, setEditForm] = useState<Partial<Profile>>({})
+  const [editErr, setEditErr]   = useState<string | null>(null)
 
   // exclusão com confirmação inline
   const [confirmDel, setConfirmDel] = useState<string | null>(null)
@@ -134,16 +135,58 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
 
   async function saveEdit(u: Profile) {
     setSaving(u.id)
+    setEditErr(null)
     const supabase = createClient()
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
-      .update({ nome: editForm.nome, role: editForm.role, id_carteira: editForm.id_carteira || null })
+      // trim: `nome` é a chave que casa com a planilha, e um espaço sobrando
+      // muda o que o índice único enxerga.
+      .update({
+        nome: (editForm.nome ?? '').trim(),
+        role: editForm.role,
+        id_carteira: editForm.id_carteira?.trim() || null,
+      })
       .eq('id', u.id)
       .select()
       .single()
+
+    // O `error` era ignorado aqui. Com o índice único de nome isso viraria a
+    // pior falha possível: a edição fecha, nada é salvo e ninguém é avisado.
+    if (error) {
+      setEditErr(
+        error.code === '23505'
+          ? 'Já existe um consultor com este nome. Use o nome exato da planilha.'
+          : error.message,
+      )
+      setSaving(null)
+      return
+    }
     if (data) setLista(prev => prev.map(p => p.id === u.id ? data as Profile : p))
     setSaving(null)
     setEditing(null)
+  }
+
+  /**
+   * Liga/desliga o acesso sem apagar a conta.
+   *
+   * Até agora a única forma de cortar alguém era Excluir, que apaga o usuário
+   * em auth.users e não tem volta. `ativo` já existia na tabela e não fazia
+   * nada; virou gate de verdade em `get_my_role()`, então este botão passou a
+   * revogar de fato — o desativado perde toda a RLS e cai na tela de aviso.
+   */
+  async function alternarAtivo(u: Profile) {
+    setSaving(u.id)
+    setEditErr(null)
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ ativo: !u.ativo })
+      .eq('id', u.id)
+      .select()
+      .single()
+    if (error) setEditErr(error.message)
+    else if (data) setLista(prev => prev.map(p => p.id === u.id ? data as Profile : p))
+    setSaving(null)
   }
 
   // ── exclusão ────────────────────────────────────────────────
@@ -261,6 +304,11 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
                         <div>
                           <p className="font-medium text-ink">
                             {u.nome || '—'} {isMe && <span className="text-xs text-ink-muted">(você)</span>}
+                            {!u.ativo && (
+                              <span className="ml-2 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-warn-bg text-warn align-middle">
+                                Desativado
+                              </span>
+                            )}
                           </p>
                           <p className="text-xs text-ink-muted">{u.email}</p>
                         </div>
@@ -311,11 +359,12 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
                               {saving === u.id ? 'Salvando...' : 'Salvar'}
                             </button>
                             <button
-                              onClick={() => setEditing(null)}
+                              onClick={() => { setEditing(null); setEditErr(null) }}
                               className="text-xs font-medium text-ink-muted hover:text-ink px-3 py-1.5 rounded-lg border border-line transition-colors"
                             >
                               Cancelar
                             </button>
+                            {editErr && <span className="text-[11px] text-bad">{editErr}</span>}
                           </div>
                         ) : isConfirm ? (
                           <div className="flex items-center gap-2 flex-wrap">
@@ -336,12 +385,24 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
                             {delErr && <span className="text-xs text-bad">{delErr}</span>}
                           </div>
                         ) : (
-                          <div className="flex gap-3">
+                          <div className="flex gap-3 items-center flex-wrap">
                             <button
                               onClick={() => startEdit(u)}
                               className="text-xs font-medium text-primary hover:text-primary-dk transition-colors"
                             >
                               Editar
+                            </button>
+                            {/* Corta o acesso sem destruir a conta — antes disto
+                                a única saída era Excluir, que apaga o usuário em
+                                auth.users e não tem volta. */}
+                            <button
+                              onClick={() => alternarAtivo(u)}
+                              disabled={saving === u.id}
+                              className={`text-xs font-medium transition-colors disabled:opacity-60 ${
+                                u.ativo ? 'text-warn hover:text-ink' : 'text-good hover:text-ink'
+                              }`}
+                            >
+                              {saving === u.id ? '...' : u.ativo ? 'Desativar' : 'Reativar'}
                             </button>
                             <button
                               onClick={() => { setConfirmDel(u.id); setDelErr(null) }}
@@ -349,6 +410,9 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
                             >
                               Excluir
                             </button>
+                            {editErr && saving !== u.id && (
+                              <span className="text-[11px] text-bad">{editErr}</span>
+                            )}
                           </div>
                         )
                       )}

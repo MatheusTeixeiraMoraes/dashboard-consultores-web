@@ -136,13 +136,19 @@ export async function aceitarConvite(dados: {
 
     // O par nome+carteira do CONVITE é o que faz a RLS casar as linhas do
     // consultor. É a razão de existir desta feature — não venha do formulário.
+    //
+    // `ativo` só vai no cadastro NOVO. Numa conta que já existe, mandar
+    // `ativo: true` aqui seria uma porta de reativação silenciosa: quem teve o
+    // acesso cortado voltaria a entrar assim que alguém gerasse um link para o
+    // mesmo nome, sem ninguém decidir isso. Reativar é ato explícito, na tela
+    // de Usuários.
     const { error: profErr } = await admin.from('profiles').upsert({
       id: userId,
       nome: convite.consultor_nome,
       email,
       role: convite.role,
       id_carteira: convite.id_carteira,
-      ativo: true,
+      ...(existente ? {} : { ativo: true }),
     })
 
     if (profErr) {
@@ -151,7 +157,14 @@ export async function aceitarConvite(dados: {
       // destruir o que já funcionava.
       if (!existente) await admin.auth.admin.deleteUser(userId)
       await devolverReserva()
-      return { ok: false, error: profErr.message }
+      // 23505 = o índice único de nome de consultor. O erro cru do Postgres não
+      // pode vazar nesta tela, que é pública.
+      return {
+        ok: false,
+        error: profErr.code === '23505'
+          ? 'Já existe um consultor com este nome no painel. Avise quem enviou o link.'
+          : profErr.message,
+      }
     }
 
     await admin.from('convites_acesso').update({ usado_por: userId }).eq('id', convite.id)
