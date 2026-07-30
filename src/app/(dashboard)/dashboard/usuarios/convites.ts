@@ -5,8 +5,94 @@ import { getProfile } from '@/lib/supabase/profile'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { escritaBloqueadaPeloDemo, MSG_BLOQUEIO_DEMO } from '@/lib/demo/guarda'
 import { canManageUsers } from '@/lib/types'
-import { gerarToken, hashToken, expiraEm, DIAS_VALIDADE_PADRAO } from '@/lib/convites'
-import type { UserRole } from '@/lib/types'
+import { createClient } from '@/lib/supabase/server'
+import { buscarTudo } from '@/lib/supabase/buscar-tudo'
+import { gerarToken, hashToken, expiraEm, normalizarNome, DIAS_VALIDADE_PADRAO } from '@/lib/convites'
+import type { Profile, UserRole } from '@/lib/types'
+
+/** Um consultor como as PLANILHAS o conhecem — a lista de onde sai o convite. */
+export interface ConsultorPlanilha {
+  nome: string
+  id_carteira: string | null
+  temUsuario: boolean
+  carteiraRepetida: boolean
+  qtdClientes: number
+}
+
+/**
+ * Monta a lista de consultores das planilhas, SOB DEMANDA.
+ *
+ * Isto varre a tabela de clientes inteira (~3,9 mil linhas) e a de scores, e
+ * por isso NÃO mora mais no carregamento da página: quando morava, a tela de
+ * Usuários pagava ~3s e chegou a estourar `statement timeout` do Postgres sob
+ * concorrência. Só quem clica em "Gerar link de acesso" precisa da lista, e aí
+ * a espera tem contexto.
+ *
+ * (A alternativa seria agregar no banco, mas a agregação do PostgREST está
+ * desligada neste projeto — `select=consultor_nome,count()` responde 400.)
+ */
+export async function listarConsultoresDaPlanilha(): Promise<{
+  ok: boolean; error?: string; consultores?: ConsultorPlanilha[]
+}> {
+  try {
+    const me = await getProfile()
+    if (!me || (me.role !== 'admin' && me.role !== 'dono')) {
+      return { ok: false, error: 'Sem permissão' }
+    }
+
+    const supabase = await createClient()
+
+    // O score é a fonte boa: única que traz nome E id_carteira na mesma linha.
+    // `clientes` entra por cima para quem tem carteira de campo mas ainda não
+    // pontuou — esse fica sem id_carteira, e a tela avisa.
+    const doScore = await buscarTudo<{ consultor_nome: string; id_carteira: string }>(
+      (opcoes, de, ate) =>
+        supabase.from('score_consultor_resultados').select('consultor_nome, id_carteira', opcoes).range(de, ate),
+    )
+    const dosClientes = await buscarTudo<{ consultor_nome: string }>((opcoes, de, ate) =>
+      supabase.from('clientes').select('consultor_nome', opcoes).range(de, ate),
+    )
+    const { data: perfis } = await supabase.from('profiles').select('nome')
+
+    const porChave = new Map<string, { nome: string; id_carteira: string | null }>()
+    for (const s of doScore) {
+      const chave = normalizarNome(s.consultor_nome)
+      if (chave && !porChave.has(chave)) porChave.set(chave, { nome: s.consultor_nome, id_carteira: s.id_carteira ?? null })
+    }
+    const clientesPorNome = new Map<string, number>()
+    for (const c of dosClientes) {
+      const chave = normalizarNome(c.consultor_nome)
+      if (!chave) continue
+      clientesPorNome.set(chave, (clientesPorNome.get(chave) ?? 0) + 1)
+      if (!porChave.has(chave)) porChave.set(chave, { nome: c.consultor_nome, id_carteira: null })
+    }
+
+    // Duas grafias com a MESMA carteira são a mesma pessoa escrita de dois
+    // jeitos (existe caso real na base). Não dá para adivinhar a boa: as duas
+    // aparecem marcadas e quem gera o link decide.
+    const contagemCarteira = new Map<string, number>()
+    for (const { id_carteira } of porChave.values()) {
+      if (id_carteira) contagemCarteira.set(id_carteira, (contagemCarteira.get(id_carteira) ?? 0) + 1)
+    }
+
+    const comUsuario = new Set((perfis ?? []).map((p: Pick<Profile, 'nome'>) => normalizarNome(p.nome)).filter(Boolean))
+
+    const consultores = [...porChave.entries()]
+      .map(([chave, v]) => ({
+        nome: v.nome,
+        id_carteira: v.id_carteira,
+        temUsuario: comUsuario.has(chave),
+        carteiraRepetida: !!v.id_carteira && (contagemCarteira.get(v.id_carteira) ?? 0) > 1,
+        qtdClientes: clientesPorNome.get(chave) ?? 0,
+      }))
+      // Quem ainda não tem acesso primeiro: é o motivo de a tela existir.
+      .sort((a, b) => Number(a.temUsuario) - Number(b.temUsuario) || a.nome.localeCompare(b.nome))
+
+    return { ok: true, consultores }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Erro inesperado' }
+  }
+}
 
 /**
  * Gera o link de acesso de um consultor.

@@ -4,8 +4,9 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile, UserRole } from '@/lib/types'
 import { canManageUsers } from '@/lib/types'
-import { gerarLinkAcesso, revogarLink } from './convites'
-import type { ConsultorPlanilha, ConviteLinha } from './page'
+import { gerarLinkAcesso, revogarLink, listarConsultoresDaPlanilha } from './convites'
+import type { ConsultorPlanilha } from './convites'
+import type { ConviteLinha } from './page'
 
 const ROLE_LABEL: Record<UserRole, string> = {
   admin: 'Administrador', dono: 'Dono', lider: 'Líder', consultor: 'Consultor',
@@ -19,16 +20,17 @@ const ROLE_COLOR: Record<UserRole, string> = {
 
 const EMPTY_FORM = { email: '', nome: '', role: 'consultor' as UserRole, id_carteira: '', senha: '' }
 
-export default function UsuariosClient({ usuarios, myRole, myId, consultores, convites }: {
+export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
   usuarios: Profile[]
   myRole: UserRole
   myId: string
-  consultores: ConsultorPlanilha[]
   convites: ConviteLinha[]
 }) {
   const [lista, setLista] = useState(usuarios)
 
   // link de acesso
+  const [consultores, setConsultores] = useState<ConsultorPlanilha[] | null>(null)
+  const [carregandoCons, setCarregandoCons] = useState(false)
   const [showLink, setShowLink] = useState(false)
   const [buscaCons, setBuscaCons] = useState('')
   const [gerando, setGerando] = useState<string | null>(null)
@@ -86,9 +88,23 @@ export default function UsuariosClient({ usuarios, myRole, myId, consultores, co
     }
   }
 
-  const consultoresFiltrados = consultores.filter(c =>
+  /**
+   * Busca a lista só quando o modal abre. Ela varre a base de clientes inteira,
+   * e carregá-la junto com a tela custava ~3s todas as vezes — inclusive para
+   * quem só veio conferir um usuário.
+   */
+  async function abrirModalLink() {
+    setShowLink(true); setLinkErr(null); setLinkPronto(null); setBuscaCons('')
+    if (consultores) return          // já carregada nesta sessão de tela
+    setCarregandoCons(true)
+    const r = await listarConsultoresDaPlanilha()
+    if (r.ok && r.consultores) setConsultores(r.consultores)
+    else setLinkErr(r.error ?? 'Não consegui carregar a lista de consultores')
+    setCarregandoCons(false)
+  }
+
+  const consultoresFiltrados = (consultores ?? []).filter(c =>
     c.nome.toLowerCase().includes(buscaCons.toLowerCase().trim()))
-  const semAcesso = consultores.filter(c => !c.temUsuario).length
 
   // edição inline
   const [editing, setEditing]   = useState<string | null>(null)
@@ -191,7 +207,7 @@ export default function UsuariosClient({ usuarios, myRole, myId, consultores, co
                 vínculo nasce certo. O "Novo Usuário" ao lado continua para os
                 casos que não vêm de planilha (outro admin, um líder). */}
             <button
-              onClick={() => { setShowLink(true); setLinkErr(null); setLinkPronto(null); setBuscaCons('') }}
+              onClick={abrirModalLink}
               className="flex items-center gap-2 bg-primary hover:bg-primary-dk text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -199,9 +215,6 @@ export default function UsuariosClient({ usuarios, myRole, myId, consultores, co
                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
               </svg>
               Gerar link de acesso
-              {semAcesso > 0 && (
-                <span className="text-[10px] font-bold bg-white/25 rounded-full px-1.5 py-0.5">{semAcesso}</span>
-              )}
             </button>
             <button
               onClick={() => { setShowModal(true); setCreateErr(null); setCreateForm(EMPTY_FORM) }}
@@ -476,6 +489,11 @@ export default function UsuariosClient({ usuarios, myRole, myId, consultores, co
                   {linkErr && <p className="text-xs text-bad mt-2">{linkErr}</p>}
                 </div>
                 <div className="overflow-y-auto px-3 pb-4">
+                  {carregandoCons && (
+                    <p className="px-3 py-8 text-center text-sm text-ink-muted">
+                      Lendo as planilhas...
+                    </p>
+                  )}
                   {consultoresFiltrados.map(c => (
                     <div key={c.nome} className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl hover:bg-card-2">
                       <div className="min-w-0">
@@ -522,7 +540,7 @@ export default function UsuariosClient({ usuarios, myRole, myId, consultores, co
                       </button>
                     </div>
                   ))}
-                  {consultoresFiltrados.length === 0 && (
+                  {!carregandoCons && consultores && consultoresFiltrados.length === 0 && (
                     <p className="px-3 py-8 text-center text-sm text-ink-muted">
                       Nenhum consultor com esse nome nas planilhas.
                     </p>
