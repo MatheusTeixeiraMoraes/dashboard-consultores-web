@@ -169,6 +169,59 @@ body {
 /* Widgets nativos (setinha do select, caret) seguem o tema claro. */
 :root {
   color-scheme: light;
+
+}
+
+/* ============================================================
+ * Barra de rolagem. A nativa do Windows é uma calha cinza de ~17px com fundo
+ * próprio — atravessa o vidro dos painéis e é a única peça da tela que não
+ * pertence ao tema. Vira um traço fino na cor da marca, calha transparente
+ * para o gradiente do body continuar passando por baixo.
+ *
+ * OS DOIS BLOCOS PRECISAM ESTAR DENTRO DE @supports, e o de baixo não é só
+ * cortesia com navegador velho:
+ *
+ * 1. O Lightning CSS (que o Turbopack roda) APAGA declaração que os targets do
+ *    browserslist não suportam. Sem browserslist no package.json, o Next mira
+ *    Chrome 64/Safari 12 — nenhum dos dois conhece `scrollbar-width`, então as
+ *    duas declarações sumiam do CSS servido, caladas. Dentro de @supports elas
+ *    são conteúdo de uma condição que ele não resolve em build, e sobrevivem.
+ *    (Verificado: fora do @supports, nem `scrollbar-color` nem
+ *    `scrollbar-width` chegavam ao bundle.)
+ * 2. Assim que o navegador entende `scrollbar-width`, ele IGNORA os
+ *    ::-webkit-scrollbar. As duas aparências nunca valem ao mesmo tempo.
+ *
+ * `scrollbar-color` é herdada e cobre sozinha os 27 contêineres com overflow
+ * espalhados por 18 arquivos. `scrollbar-width` NÃO é herdada (medido: com a
+ * regra só no :root, um filho reporta `auto`), daí o seletor universal — sem
+ * ele só a barra da página ficaria fina e as de dentro (nav da sidebar, main,
+ * tabelas) seguiriam grossas, apenas coloridas.
+ * ============================================================ */
+@supports (scrollbar-width: thin) {
+  :root {
+    scrollbar-color: color-mix(in oklab, var(--color-primary) 34%, transparent) transparent;
+  }
+  * {
+    scrollbar-width: thin;
+  }
+}
+
+@supports not (scrollbar-width: thin) {
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: color-mix(in oklab, var(--color-primary) 34%, transparent);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklab, var(--color-primary) 55%, transparent);
+  }
 }
 
 /* ============================================================
