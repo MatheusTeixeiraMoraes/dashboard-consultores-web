@@ -1,6 +1,8 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { canManageUsers } from '@/lib/types'
+import type { UserRole } from '@/lib/types'
 import {
   hashToken, estadoDoConvite, MOTIVO, emailValido, normalizarNome, SENHA_MIN,
 } from '@/lib/convites'
@@ -15,10 +17,15 @@ import {
  *     como admin.
  *  2. O convite é reservado com UPDATE condicional antes de mexer em usuário —
  *     é o que impede dois aceites simultâneos do mesmo link.
- *  3. E-mail já cadastrado só passa se a conta for DA MESMA PESSOA do convite.
- *     Sem isso, quem recebesse um convite qualquer poderia digitar o e-mail do
- *     admin e trocar a senha dele — escalada de privilégio com um link de
- *     consultor.
+ *  3. E-mail já cadastrado só passa se a conta for DA MESMA PESSOA do convite
+ *     (nome normalizado igual). Sem isso, qualquer um com um link digitaria o
+ *     e-mail do admin e trocaria a senha dele.
+ *  4. E — porque a regra 3 sozinha não segura — quem EMITIU o convite precisa
+ *     ter alçada sobre o papel da conta alvo. O `consultor_nome` é escolhido na
+ *     emissão, então a regra 3 é contornável por quem emite: bastava escrever
+ *     ali o nome exato do admin. Confirmado em produção: um dono tomava a conta
+ *     de um admin (senha trocada + rebaixado a consultor) com um convite de
+ *     consultor legítimo. Nome não é identidade; alçada é.
  */
 export async function aceitarConvite(dados: {
   token: string
@@ -55,10 +62,37 @@ export async function aceitarConvite(dados: {
       .eq('email', email)
       .maybeSingle()
 
-    if (existente && normalizarNome(existente.nome) !== normalizarNome(convite.consultor_nome)) {
-      return {
-        ok: false,
-        error: 'Este e-mail já pertence a outra conta. Use um e-mail seu ou peça ajuda a quem cuida do painel.',
+    if (existente) {
+      // PRIMEIRA trava: o nome tem que bater. Sozinha ela NÃO basta, e por um
+      // motivo que custou caro descobrir: `consultor_nome` é texto livre na
+      // emissão do convite. Quem emite escolhe o nome, então escrever ali o
+      // nome exato de um admin fazia esta comparação passar — e o aceite
+      // trocava a senha do admin e o rebaixava. Um dono tomava a conta do admin
+      // com um convite de consultor perfeitamente legítimo.
+      if (normalizarNome(existente.nome) !== normalizarNome(convite.consultor_nome)) {
+        return {
+          ok: false,
+          error: 'Este e-mail já pertence a outra conta. Use um e-mail seu ou peça ajuda a quem cuida do painel.',
+        }
+      }
+
+      // SEGUNDA trava, a que fecha de verdade: quem emitiu o convite precisa
+      // ter alçada sobre o PAPEL DA CONTA ALVO — não sobre o papel escrito no
+      // convite. É a mesma checagem que `excluirUsuario` já fazia; aqui ela
+      // faltava, embora o papel do alvo estivesse na mão desde a consulta acima.
+      //
+      // Convite órfão (quem emitiu saiu do sistema, `criado_por` virou null)
+      // é recusado de propósito: sem saber a alçada de origem, o seguro é não
+      // deixar mexer numa conta que já existe.
+      const { data: emissor } = convite.criado_por
+        ? await admin.from('profiles').select('role').eq('id', convite.criado_por).maybeSingle()
+        : { data: null }
+
+      if (!emissor || !canManageUsers(emissor.role as UserRole, existente.role as UserRole)) {
+        return {
+          ok: false,
+          error: 'Este link não pode redefinir o acesso desta conta. Peça a um administrador.',
+        }
       }
     }
 
