@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
 /* ============================================================
- * Design tokens — identidade "Fastboard" (mapa de dia).
+ * Design tokens — identidade Inovva Group (mapa de dia).
  *
- * Direção: mapa de dia. O produto vive em cima de mapa (Radar,
- * Roteirizar, Agenda), então a base não é branco neutro: é o
- * azul-claro de um tile de mapa diurno, com brilhos de território
- * ao fundo. Os painéis são vidro sobre esse terreno — o mesmo conceito
- * do tema noturno anterior, na luz.
+ * Direção: mapa de dia, na paleta da marca. O produto vive em cima de
+ * mapa (Radar, Roteirizar, Agenda), então a base não é branco neutro:
+ * é o azul-teal claro de um tile diurno, com brilhos de território ao
+ * fundo tirados do gradiente da logo. Os painéis são vidro sobre esse
+ * terreno.
  *
  * Os tokens abaixo viram utilitário do Tailwind automaticamente
  * (--color-card => bg-card / text-card / border-card). Trocar a paleta
@@ -19,32 +19,54 @@
 
 @theme {
   /* estrutura */
-  --color-bg:     #E4EBFA;
+  --color-bg:     #E3EFF3;
   --color-shell:  rgba(255, 255, 255, 0.58);
   --color-card:   rgba(255, 255, 255, 0.55);
-  --color-card-2: rgba(226, 233, 250, 0.75);
-  --color-line:   rgba(54, 76, 150, 0.2);
+  --color-card-2: rgba(220, 236, 241, 0.75);
+  --color-line:   rgba(6, 84, 110, 0.2);
   /* Superfície OPACA. Card e shell são vidro de propósito, mas tooltip e popup
      precisam tampar o que está atrás — translúcido em cima de gráfico ou de
      tile de mapa não se lê. */
   --color-surface: #FFFFFF;
 
-  /* texto */
-  --color-ink:       #151D36;
-  --color-ink-dim:   #3B456A;
-  --color-ink-muted: #666F93;
-  --color-ink-faint: #8F98B8;
+  /* texto — matiz puxada para o teal da marca, contraste conferido contra
+     --color-bg E contra o card (branco 55% sobre o fundo): o mais fraco,
+     ink-faint, dá 4.10:1 no fundo, acima do mínimo AA de 3:1 para rótulo. */
+  --color-ink:       #10242D;
+  --color-ink-dim:   #2C4652;
+  --color-ink-muted: #546C77;
+  --color-ink-faint: #5C7681;
 
-  /* marca / ação */
-  --color-primary:    #4E5EE4;
-  --color-primary-dk: #3E4CCB;
+  /* AÇÃO — botão, item ativo do menu, anel de foco.
+     É o azul da ponta do chevron, escurecido até 5.88:1 com branco em cima
+     (AA folgado). O azul cru da logo (#059DC8) dá só 3.15:1 e não segura
+     texto branco — ele vive em --color-marca-4, sem letra em cima.
+     Escurecer também RESOLVE uma colisão: no tom original este azul e o
+     --color-good tinham a mesma luminância (1.05:1 entre si), então botão
+     primário e badge "positivo" viravam a mesma mancha em escala de cinza.
+     Agora são 1.34:1. */
+  --color-primary:    #036C93;
+  --color-primary-dk: #02526F;
   /* No claro, "lt" é texto sobre primary/15 — tem que ser MAIS escuro que a
      marca, não mais claro. O nome ficou do tema noturno; o papel é o mesmo. */
-  --color-primary-lt: #3E4CCB;
+  --color-primary-lt: #02526F;
+
+  /* MARCA — os três pontos do gradiente do chevron, amostrados do arquivo da
+     logo: verde-lima na ponta que se dissolve, teal no meio, azul na quina.
+     São os stops de `bg-linear-to-r from-marca-1 via-marca-2 to-marca-3`, que
+     é a faixa de assinatura da sidebar e do login. O verde puro (#30C93F) não
+     vira token porque a interpolação lima->teal já passa por ele — token que
+     ninguém referencia é removido do CSS pelo Tailwind e vira armadilha para
+     quem tentar usá-lo depois num var() de style inline.
+     NUNCA ponha texto em cima destes: nenhum passa em contraste. Quem carrega
+     texto é --color-primary; quem significa "positivo" é --color-good. */
+  --color-marca-1: #70DB23;
+  --color-marca-2: #13AC99;
+  --color-marca-3: #059DC8;
 
   /* filtros / campos — instrumento, não buraco branco */
   --color-field:      rgba(255, 255, 255, 0.65);
-  --color-field-line: rgba(97, 114, 243, 0.28);
+  --color-field-line: rgba(3, 108, 147, 0.28);
 
   /* Status, em três papéis. No escuro um tom só servia pra tudo; no claro não:
      letra precisa ser escura pra ler, e barra de gráfico precisa ser viva pra
@@ -128,15 +150,19 @@ body {
 }
 
 /* O brilho de território: mora no body, atrás de tudo, e é o que os
-   painéis de vidro deixam vazar. Sem ele o glass não tem o que mostrar. */
+   painéis de vidro deixam vazar. Sem ele o glass não tem o que mostrar.
+   As quatro radiais percorrem o gradiente do chevron — azul no topo
+   esquerdo, verde descendo para a direita —, então o fundo é a logo
+   desfocada em escala de tela. Opacidades baixas de propósito: isto passa
+   por baixo de texto, e o teto é o contraste do ink-faint (4.10:1). */
 body {
   color: var(--color-ink);
   background-color: var(--color-bg);
   background-image:
-    radial-gradient(58rem 32rem at 2% -10%, rgba(97, 114, 243, 0.55), transparent 60%),
-    radial-gradient(46rem 30rem at 99% -4%, rgba(20, 184, 166, 0.42), transparent 58%),
-    radial-gradient(44rem 32rem at 78% 106%, rgba(168, 132, 252, 0.44), transparent 60%),
-    radial-gradient(38rem 28rem at 32% 62%, rgba(97, 114, 243, 0.2), transparent 66%);
+    radial-gradient(58rem 32rem at 2% -10%, rgba(5, 157, 200, 0.42), transparent 60%),
+    radial-gradient(46rem 30rem at 99% -4%, rgba(19, 172, 153, 0.38), transparent 58%),
+    radial-gradient(44rem 32rem at 78% 106%, rgba(48, 201, 63, 0.30), transparent 60%),
+    radial-gradient(38rem 28rem at 32% 62%, rgba(112, 219, 35, 0.16), transparent 66%);
   background-attachment: fixed;
 }
 
@@ -233,8 +259,10 @@ div.leaflet-container {
   align-items: center;
   justify-content: center;
   /* Gradiente pra dar volume; anel branco grosso + contorno escuro + sombra
-     pra saltar tanto no mapa claro quanto na imagem de satélite. */
-  background: radial-gradient(circle at 32% 28%, #6f7cff, #3b47c9);
+     pra saltar tanto no mapa claro quanto na imagem de satélite. Os dois tons
+     são o azul da marca clareado/escurecido — o número dentro é branco, então
+     o tom base tem que ser o de AÇÃO, não o azul cru da logo. */
+  background: radial-gradient(circle at 32% 28%, #0a89b4, #02526f);
   color: #fff;
   font-size: 13px;
   font-weight: 700;
@@ -244,11 +272,11 @@ div.leaflet-container {
 
 /* Pulso no marcador "você está aqui". */
 .radar-me {
-  filter: drop-shadow(0 0 6px rgba(62, 76, 203, 0.85));
+  filter: drop-shadow(0 0 6px rgba(3, 108, 147, 0.85));
   animation: radar-pulso 2.4s ease-in-out infinite;
 }
 @keyframes radar-pulso {
-  50% { filter: drop-shadow(0 0 14px rgba(62, 76, 203, 1)); }
+  50% { filter: drop-shadow(0 0 14px rgba(3, 108, 147, 1)); }
 }
 @media (prefers-reduced-motion: reduce) {
   .radar-me { animation: none; }

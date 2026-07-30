@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { limparCookieDemo } from '@/lib/demo/cookie'
 import { useRouter } from 'next/navigation'
@@ -34,18 +35,23 @@ export default function Topbar({ profile, abrirMenu, demoAtivo = false }: {
 
   return (
     <header className="h-14 bg-shell backdrop-blur-xl border-b border-line flex items-center justify-between px-4 md:px-6 flex-shrink-0">
-      {/* Único acesso ao menu no celular, onde a sidebar está escondida.
-          44px é o alvo mínimo de toque que a Apple recomenda — abaixo disso o
-          dedo erra. */}
-      <button
-        onClick={abrirMenu}
-        aria-label="Abrir menu"
-        className="md:hidden -ml-2 w-11 h-11 grid place-items-center rounded-xl text-ink-dim hover:bg-card-2 active:bg-card-2"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
-        </svg>
-      </button>
+      {/* Só no celular: lá a sidebar vira gaveta e leva a marca junto, então
+          sem isto o app fica sem assinatura nenhuma na tela. No desktop o bloco
+          inteiro some — a marca já está fixa no topo da sidebar. */}
+      <div className="flex items-center gap-2 md:hidden">
+        {/* Único acesso ao menu no celular. 44px é o alvo mínimo de toque que a
+            Apple recomenda — abaixo disso o dedo erra. */}
+        <button
+          onClick={abrirMenu}
+          aria-label="Abrir menu"
+          className="-ml-2 w-11 h-11 grid place-items-center rounded-xl text-ink-dim hover:bg-card-2 active:bg-card-2"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
+        <Image src="/inovva-simbolo.png" alt="Inovva Group" width={56} height={56} className="w-7 h-7" />
+      </div>
       {/* Selo de demonstração. Discreto de propósito: precisa aparecer no vídeo
           para ninguém confundir com a operação real, sem roubar a cena. */}
       {demoAtivo ? (

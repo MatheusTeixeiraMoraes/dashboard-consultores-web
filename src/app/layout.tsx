@@ -4,9 +4,22 @@ import './globals.css'
 
 const geist = Geist({ subsets: ['latin'] })
 
+/**
+ * A imagem de compartilhamento (`opengraph-image.png`, convenção de arquivo do
+ * Next) precisa virar URL absoluta. Sem uma base, o Next monta em cima de
+ * `localhost` e o link colado no WhatsApp/Slack não abre imagem nenhuma.
+ * Lê do ambiente em vez de fixar domínio: a Vercel injeta `VERCEL_URL` sozinha
+ * em cada deploy, e `NEXT_PUBLIC_SITE_URL` cobre o domínio próprio quando houver.
+ */
+const baseUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+
 export const metadata: Metadata = {
-  title: 'Dashboard de Performance — Consultores',
-  description: 'Acompanhamento de performance dos consultores Mercado Pago',
+  metadataBase: new URL(baseUrl),
+  title: 'Inovva Group — Dashboard de Consultores',
+  description: 'Desempenho, carteira e roteirização dos consultores da Inovva Group',
+  applicationName: 'Inovva Group',
 }
 
 /**
@@ -22,7 +35,10 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#E4EBFA',
+  /* Pinta a barra do navegador no celular com o fundo do app (--color-bg).
+     Tem que andar junto com o token: se um mudar sozinho, aparece um risco de
+     cor diferente entre a barra e o topo da página. */
+  themeColor: '#E3EFF3',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

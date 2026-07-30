@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useState } from 'react'
 import { loginAction } from './actions'
 
@@ -25,17 +26,26 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
 
+        {/* Aqui a logo COMPLETA (com o nome), não só o símbolo: é a única tela
+            que alguém de fora vê, então carrega o alt de verdade e faz o papel
+            de título da marca — o h1 abaixo diz o que o produto é. */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary mb-4">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-            </svg>
-          </div>
-          <h1 className="text-xl font-bold text-ink">Dashboard de Performance</h1>
-          <p className="text-sm text-ink-muted mt-1">Consultores — Mercado Pago</p>
+          <Image
+            src="/inovva-logo.png"
+            alt="Inovva Group"
+            width={716}
+            height={400}
+            priority
+            className="w-52 h-auto mx-auto mb-4"
+          />
+          <h1 className="text-xl font-bold text-ink">Dashboard de Consultores</h1>
+          <p className="text-sm text-ink-muted mt-1">Desempenho, carteira e rotas</p>
         </div>
 
         <div className="glass rounded-2xl p-7 border border-line">
+          {/* Mesma faixa da sidebar, encaixada na borda do card: as margens
+              negativas cancelam o p-7 para ela encostar no canto arredondado. */}
+          <div className="-mx-7 -mt-7 mb-6 h-1.5 rounded-t-2xl bg-linear-to-r from-marca-1 via-marca-2 to-marca-3" />
           <h2 className="text-base font-semibold text-ink mb-5">Entrar na sua conta</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -83,7 +93,7 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-[11px] text-ink-faint mt-6">Mercado Pago © 2025</p>
+        <p className="text-center text-[11px] text-ink-faint mt-6">Inovva Group © 2026</p>
       </div>
     </div>
   )

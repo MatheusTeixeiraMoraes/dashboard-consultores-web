@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import BotaoDemo from './BotaoDemo'
@@ -170,17 +171,27 @@ export default function Sidebar({
         transition-transform duration-200 ease-out md:translate-x-0
         ${aberto ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}`}
     >
-      {/* Brand */}
+      {/* Assinatura da marca: o gradiente do chevron atravessando o topo. É a
+          única superfície do app pintada com as cores cruas da logo — cabe
+          porque não tem texto em cima (nenhuma delas passa em contraste). */}
+      <div className="h-[3px] bg-linear-to-r from-marca-1 via-marca-2 to-marca-3" />
+
+      {/* Marca. O símbolo entra como imagem e o nome como texto ao lado, então
+          a imagem é decorativa (alt vazio) — com alt="Inovva Group" o leitor de
+          tela anunciaria a marca duas vezes seguidas. */}
       <div className="px-5 py-5 border-b border-line">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-            </svg>
-          </div>
+          <Image
+            src="/inovva-simbolo.png"
+            alt=""
+            width={64}
+            height={64}
+            priority
+            className="w-8 h-8 flex-shrink-0"
+          />
           <div>
-            <p className="text-sm font-semibold text-ink leading-tight">Dashboard</p>
-            <p className="text-[11px] text-ink-faint leading-tight">Consultores MP</p>
+            <p className="text-sm font-semibold text-ink leading-tight">Inovva Group</p>
+            <p className="text-[11px] text-ink-faint leading-tight">Dashboard</p>
           </div>
         </div>
       </div>
