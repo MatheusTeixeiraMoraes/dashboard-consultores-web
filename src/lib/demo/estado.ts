@@ -40,7 +40,10 @@ export { COOKIE_DEMO }
  */
 function ehFaltaDeSessao(erro: { name?: string; status?: number } | null): boolean {
   if (!erro) return true
+  // Sem sessão nenhuma, ou token que não passa na verificação de assinatura —
+  // os dois querem dizer "não está logado".
   if (erro.name === 'AuthSessionMissingError') return true
+  if (erro.name === 'AuthInvalidJwtError') return true
   // 401/403 do servidor de auth = token inválido/expirado. É deslogado de
   // verdade, não falha de infra.
   return erro.status === 401 || erro.status === 403
@@ -49,7 +52,25 @@ function ehFaltaDeSessao(erro: { name?: string; status?: number } | null): boole
 export const perfilReal = cache(async (): Promise<Profile | null> => {
   const supabase = await createClientReal()
 
-  const { data: { user }, error: erroAuth } = await supabase.auth.getUser()
+  /* `getClaims()` e não `getUser()`.
+   *
+   * `getUser()` faz uma IDA DE REDE ao servidor de auth para validar o token, a
+   * cada navegação. `getClaims()` confere a assinatura ES256 localmente
+   * (WebCrypto + JWKS em cache de módulo) e só vai à rede se o projeto assinar
+   * com segredo simétrico ou faltar WebCrypto — nesse caso ele mesmo cai em
+   * getUser() por dentro, então trocar nunca afrouxa a verificação.
+   * Conferido: o JWKS deste projeto publica uma única chave, ES256, com kid.
+   *
+   * NÃO trocar por `getSession()`: aquele lê o cookie SEM verificar assinatura.
+   * A diferença entre os dois é a fronteira de segurança inteira.
+   *
+   * RESSALVA CONSCIENTE: com verificação local, revogação no nível do Supabase
+   * Auth (usuário apagado, sign-out global) só faz efeito quando o token expira.
+   * O botão de desligar deste app NÃO é esse: é `profiles.ativo`, lido do banco
+   * logo abaixo a cada requisição e aplicado pela RLS via get_my_role() — esse
+   * continua imediato. */
+  const { data: claims, error: erroAuth } = await supabase.auth.getClaims()
+
   /* Erro que NÃO é falta de sessão (rede caiu, 5xx, 429 do Auth) sobe como
    * exceção. Antes era descartado, virava `user` undefined, virava null, e o
    * `if (!profile) redirect('/login')` das 20 telas chutava para fora alguém
@@ -57,6 +78,11 @@ export const perfilReal = cache(async (): Promise<Profile | null> => {
   if (erroAuth && !ehFaltaDeSessao(erroAuth)) {
     throw new Error(`Falha ao verificar a sessão: ${erroAuth.message}`, { cause: erroAuth })
   }
+
+  /* Guard obrigatório: sem sessão, `getClaims` devolve `data: null` — inclusive
+   * SEM erro nenhum. Deixar passar faria `.eq('id', undefined)` no PostgREST,
+   * que não é "sem usuário", é consulta malformada. */
+  const user = claims?.claims?.sub ? { id: claims.claims.sub } : null
   if (!user) return null
 
   /* `maybeSingle` e não `single`: `single` trata "zero linhas" como ERRO
