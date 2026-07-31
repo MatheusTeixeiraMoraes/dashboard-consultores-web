@@ -25,16 +25,53 @@ export { COOKIE_DEMO }
  * devolver a persona fictícia para a tela não exibir o nome real do admin no
  * vídeo; autorização não pode usar aquilo.
  */
+/**
+ * "Este erro significa que NÃO HÁ sessão" — em oposição a "não deu para saber".
+ *
+ * A diferença é a linha entre deslogar alguém e mentir sobre quem ele é. Sem
+ * sessão o certo é devolver null (e a tela manda para o login). Com a rede
+ * falhando, devolver null faz o app EXPULSAR um usuário logado — que é a
+ * "instabilidade" relatada: logout aleatório, sem log, sem explicação.
+ *
+ * Checagem por `name`/`status` em vez de `instanceof AuthSessionMissingError`
+ * de propósito: essa classe mora em `@supabase/auth-js`, que é dependência
+ * transitiva (só `@supabase/ssr` e `supabase-js` estão no package.json).
+ * Importar dali quebraria calado numa troca de versão.
+ */
+function ehFaltaDeSessao(erro: { name?: string; status?: number } | null): boolean {
+  if (!erro) return true
+  if (erro.name === 'AuthSessionMissingError') return true
+  // 401/403 do servidor de auth = token inválido/expirado. É deslogado de
+  // verdade, não falha de infra.
+  return erro.status === 401 || erro.status === 403
+}
+
 export const perfilReal = cache(async (): Promise<Profile | null> => {
   const supabase = await createClientReal()
-  const { data: { user } } = await supabase.auth.getUser()
+
+  const { data: { user }, error: erroAuth } = await supabase.auth.getUser()
+  /* Erro que NÃO é falta de sessão (rede caiu, 5xx, 429 do Auth) sobe como
+   * exceção. Antes era descartado, virava `user` undefined, virava null, e o
+   * `if (!profile) redirect('/login')` das 20 telas chutava para fora alguém
+   * que estava perfeitamente logado. */
+  if (erroAuth && !ehFaltaDeSessao(erroAuth)) {
+    throw new Error(`Falha ao verificar a sessão: ${erroAuth.message}`, { cause: erroAuth })
+  }
   if (!user) return null
 
-  const { data } = await supabase
+  /* `maybeSingle` e não `single`: `single` trata "zero linhas" como ERRO
+   * (PGRST116), o que misturava de novo "não tem perfil" com "a consulta
+   * falhou". Com `maybeSingle`, zero linhas devolve data null sem erro, e aí
+   * `error` preenchido significa falha de verdade. */
+  const { data, error: erroPerfil } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
+
+  if (erroPerfil) {
+    throw new Error(`Falha ao carregar o perfil: ${erroPerfil.message}`, { cause: erroPerfil })
+  }
 
   return data ?? null
 })

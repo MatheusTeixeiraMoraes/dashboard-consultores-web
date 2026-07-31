@@ -49,7 +49,12 @@ export default async function AcionaveisPage() {
     return <AcionaveisClient dataReferencia={null} carteira={[]} acoes={[]} fichas={{}} podeGerir={false} />
   }
 
-  const [carteira, acoes] = await Promise.all([
+  /* O `cadastro` entrou neste Promise.all: ele não usa nada de `carteira` nem de
+   * `acoes` (quem cruza é o `naCarteira.has(...)` mais abaixo), mas estava num
+   * `await` solto depois — esperava as duas primeiras terminarem sem motivo.
+   * Como `buscarTudo` já custa duas ondas de rede cada, isso era uma onda
+   * inteira de graça em toda abertura da tela. */
+  const [carteira, acoes, cadastro] = await Promise.all([
     buscarTudo<CarteiraMP>((opcoes, de, ate) =>
       supabase
         .from('mp_carteira')
@@ -65,18 +70,19 @@ export default async function AcionaveisPage() {
         .eq('data_referencia', dataReferencia)
         .range(de, ate),
     ),
+    // Identificação do cliente: a Planilha Geral só traz o ID SELLER. Buscamos
+    // nome e telefone na base de rotas APENAS para exibir — nada é escrito lá, e
+    // as duas bases seguem separadas. Quem não estiver cadastrado aparece pelo ID.
+    // Continua SEM `.eq('em_carteira', true)`: filtrar por ali é outro critério e
+    // faria cliente sem reconciliar perder nome/telefone e cair para o ID cru.
+    buscarTudo<{ seller_id: string; seller_nome: string; seller_telefone: string | null; cidade: string; bairro: string }>(
+      (opcoes, de, ate) =>
+        supabase
+          .from('clientes')
+          .select('seller_id, seller_nome, seller_telefone, cidade, bairro', opcoes)
+          .range(de, ate),
+    ),
   ])
-
-  // Identificação do cliente: a Planilha Geral só traz o ID SELLER. Buscamos
-  // nome e telefone na base de rotas APENAS para exibir — nada é escrito lá, e
-  // as duas bases seguem separadas. Quem não estiver cadastrado aparece pelo ID.
-  const cadastro = await buscarTudo<{ seller_id: string; seller_nome: string; seller_telefone: string | null; cidade: string; bairro: string }>(
-    (opcoes, de, ate) =>
-      supabase
-        .from('clientes')
-        .select('seller_id, seller_nome, seller_telefone, cidade, bairro', opcoes)
-        .range(de, ate),
-  )
 
   const naCarteira = new Set(carteira.map(c => c.seller_id))
   const fichas: Record<string, Ficha> = {}

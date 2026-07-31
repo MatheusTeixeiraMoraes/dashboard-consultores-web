@@ -1,7 +1,24 @@
 'use client'
 
 import { useMemo } from 'react'
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip } from 'recharts'
+import dynamic from 'next/dynamic'
+
+/* recharts fora do first-load desta tela.
+ *
+ * Esta é a porta de entrada do app: importar o gráfico direto colocava ~338 KB
+ * (~84 KB brotli) no pacote inicial de todo mundo — inclusive do consultor, para
+ * quem o `!modoConsultor` abaixo nunca desenha o gráfico.
+ *
+ * `ssr: false` não custa conteúdo aqui: o ResponsiveContainer mede o DOM para se
+ * dimensionar, então no servidor ele já não pintava gráfico nenhum. Só é válido
+ * porque este arquivo é 'use client'.
+ *
+ * O `loading` devolve a mesma altura do container (h-28) para a página não dar
+ * salto quando o chunk chega. */
+const DistribuicaoEquipe = dynamic(() => import('./DistribuicaoEquipe'), {
+  ssr: false,
+  loading: () => <div className="h-full" />,
+})
 import type { CarteiraResumo } from './page'
 
 const PILARES = ['tpv', 'net_churn', 'acionaveis', 'aderencia', 'awareness', 'produtividade']
@@ -195,30 +212,7 @@ export default function GeralClient({ ranking, dateDisplay, dataCarteiraBR, meta
         <div className="glass rounded-2xl border border-line p-5 mb-5">
           <p className="text-sm font-semibold text-ink mb-4">Distribuição da equipe</p>
           <div className="h-28">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 48, top: 4, bottom: 4 }}>
-                <XAxis type="number" hide domain={[0, Math.max(stats.nComScore, 1)]} />
-                <YAxis
-                  type="category" dataKey="name" width={120}
-                  tick={{ fontSize: 12, fill: 'var(--color-ink-muted)' }} axisLine={false} tickLine={false}
-                />
-                <Tooltip
-                  formatter={(v) => { const n = Number(v ?? 0); return [`${n} consultor${n !== 1 ? 'es' : ''}`, ''] }}
-                  // backgroundColor é obrigatório: sem ele o Recharts usa #fff e o texto
-                  // claro do body some. itemStyle idem — o default é #000 porque a cor
-                  // das barras vive nas <Cell>, não no <Bar>.
-                  contentStyle={{ backgroundColor: 'var(--color-surface)', borderRadius: 8, border: '1px solid var(--color-line)', fontSize: 12 }}
-                  labelStyle={{ color: 'var(--color-ink)' }}
-                  itemStyle={{ color: 'var(--color-ink-dim)' }}
-                  cursor={{ fill: 'var(--color-card-2)' }}
-                />
-                <Bar dataKey="count" radius={[0, 6, 6, 0]} maxBarSize={22}
-                  label={{ position: 'right', fontSize: 12, fill: 'var(--color-ink-muted)', fontWeight: 600 }}
-                >
-                  {chartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <DistribuicaoEquipe dados={chartData} total={stats.nComScore} />
           </div>
         </div>
       )}

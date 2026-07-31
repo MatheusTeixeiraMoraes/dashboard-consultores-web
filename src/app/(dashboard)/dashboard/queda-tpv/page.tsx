@@ -42,32 +42,44 @@ export default async function QuedaTpvPage() {
     return <QuedaTpvClient dataReferencia={null} linhas={[]} serie={[]} fichas={{}} podeGerir={false} />
   }
 
-  const linhas = await buscarTudo<LinhaTPV>((opcoes, de, ate) =>
-    supabase
-      .from('mp_carteira')
-      .select('seller_id, consultor_nome, status, quartil, mcc, recorrencia, status_credito, tpv_mes_atual, tpv_mes_passado, ultimo_contato', opcoes)
-      .eq('data_referencia', dataReferencia)
-      .range(de, ate),
-  )
-
   // Série do MESMO MÊS, para medir estagnação. O TPV é acumulado e zera na
   // virada, então misturar meses mostraria queda de 100% em todo mundo no dia 1.
   const mes = dataReferencia.slice(0, 7)
-  const serie = await buscarTudo<PontoSerie>((opcoes, de, ate) =>
-    supabase
-      .from('mp_carteira')
-      .select('seller_id, data_referencia, tpv_mes_atual', opcoes)
-      .gte('data_referencia', `${mes}-01`)
-      .lte('data_referencia', dataReferencia)
-      .range(de, ate),
-  )
 
-  // Nome e telefone vêm da base de rotas só para exibir — as duas bases seguem
-  // separadas, nada é escrito de volta.
-  const cadastro = await buscarTudo<{ seller_id: string; seller_nome: string; seller_telefone: string | null; cidade: string; bairro: string }>(
-    (opcoes, de, ate) =>
-      supabase.from('clientes').select('seller_id, seller_nome, seller_telefone, cidade, bairro', opcoes).range(de, ate),
-  )
+  /* As três buscas só dependem de `dataReferencia`, que já foi resolvida acima —
+   * nenhuma delas usa o resultado da outra. Em fila, cada uma esperava a
+   * anterior terminar à toa, e como `buscarTudo` já custa duas ondas de rede
+   * (contar, depois as páginas), isso somava SEIS ondas antes do primeiro pixel.
+   * Em paralelo o custo passa a ser o da mais lenta. */
+  const [linhas, serie, cadastro] = await Promise.all([
+    buscarTudo<LinhaTPV>((opcoes, de, ate) =>
+      supabase
+        .from('mp_carteira')
+        .select('seller_id, consultor_nome, status, quartil, mcc, recorrencia, status_credito, tpv_mes_atual, tpv_mes_passado, ultimo_contato', opcoes)
+        .eq('data_referencia', dataReferencia)
+        .range(de, ate),
+    ),
+    buscarTudo<PontoSerie>((opcoes, de, ate) =>
+      supabase
+        .from('mp_carteira')
+        .select('seller_id, data_referencia, tpv_mes_atual', opcoes)
+        .gte('data_referencia', `${mes}-01`)
+        .lte('data_referencia', dataReferencia)
+        .range(de, ate),
+    ),
+    // Nome e telefone vêm da base de rotas só para exibir — as duas bases seguem
+    // separadas, nada é escrito de volta.
+    //
+    // Sem `.eq('em_carteira', true)` DE PROPÓSITO: quem filtra é o
+    // `naCarteira.has(...)` logo abaixo, que usa os seller_id da Planilha Geral.
+    // Filtrar aqui por `em_carteira` é outro critério — cliente tirado da
+    // carteira à mão, ou snapshot ainda não reconciliado, perderia nome e
+    // telefone e voltaria a aparecer pelo ID cru.
+    buscarTudo<{ seller_id: string; seller_nome: string; seller_telefone: string | null; cidade: string; bairro: string }>(
+      (opcoes, de, ate) =>
+        supabase.from('clientes').select('seller_id, seller_nome, seller_telefone, cidade, bairro', opcoes).range(de, ate),
+    ),
+  ])
 
   const naCarteira = new Set(linhas.map(l => l.seller_id))
   const fichas: Record<string, { nome: string; telefone: string | null; local: string }> = {}

@@ -1,7 +1,16 @@
 'use client'
 
 import PilaresDetalhe, { type ResultadoPilar, type PilarConfigMin } from '@/components/dashboard/PilaresDetalhe'
-import EvolucaoScore from '@/components/dashboard/EvolucaoScore'
+import dynamic from 'next/dynamic'
+
+/* Import dinâmico só para tirar o recharts (~338 KB) do pacote inicial desta
+ * tela. `loading: () => null` porque o próprio EvolucaoScore já desenha um
+ * "carregando" enquanto busca a série — um segundo esqueleto aqui só piscaria.
+ * `ssr: false` é legal porque este arquivo é 'use client'. */
+const EvolucaoScore = dynamic(() => import('@/components/dashboard/EvolucaoScore'), {
+  ssr: false,
+  loading: () => null,
+})
 import { PILAR_KEYS } from '@/lib/pilares'
 import { SCORE_MAX, SCORE_META_MINIMA, scoreStatus } from '@/lib/types'
 

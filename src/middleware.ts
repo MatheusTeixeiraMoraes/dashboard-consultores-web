@@ -27,8 +27,12 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // getSession lê o JWT local (sem chamada de rede) — rápido para redirect check
-  // A verificação real do token acontece no layout via getUser()
+  // getSession lê o JWT local (sem chamada de rede) — rápido para redirect check.
+  // A verificação real do token acontece no layout, via
+  // `getProfile()` -> `perfilReal()` -> `getUser()`, que bate no servidor de
+  // auth. Não procure um `getUser()` solto no layout: ele existia, era a MESMA
+  // chamada duas vezes, e foi removido. Quem reintroduzir paga uma ida de rede
+  // por navegação sem ganhar nenhuma verificação nova.
   const { data: { session } } = await supabase.auth.getSession()
 
   if (!session) {

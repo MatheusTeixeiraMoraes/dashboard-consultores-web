@@ -2,7 +2,14 @@
 
 import { useState, useMemo } from 'react'
 import PilaresDetalhe, { type ResultadoPilar, type PilarConfigMin } from '@/components/dashboard/PilaresDetalhe'
-import EvolucaoScore from '@/components/dashboard/EvolucaoScore'
+import dynamic from 'next/dynamic'
+
+/* Mesmo motivo do MeuScoreClient: mantém o recharts fora do first-load. O
+ * componente já tem estado de carregamento próprio, daí `loading: () => null`. */
+const EvolucaoScore = dynamic(() => import('@/components/dashboard/EvolucaoScore'), {
+  ssr: false,
+  loading: () => null,
+})
 import { PILAR_KEYS } from '@/lib/pilares'
 import { SCORE_MAX, SCORE_META_MINIMA, scoreStatus } from '@/lib/types'
 

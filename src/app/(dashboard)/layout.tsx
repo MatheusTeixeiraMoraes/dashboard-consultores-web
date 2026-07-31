@@ -1,5 +1,4 @@
 import { cookies } from 'next/headers'
-import { createClientReal } from '@/lib/supabase/server'
 import { getProfile } from '@/lib/supabase/profile'
 import { modoDemoAtivo, podeUsarDemo } from '@/lib/demo/estado'
 import { redirect } from 'next/navigation'
@@ -10,12 +9,18 @@ import { COOKIE_DELEGACAO } from '@/lib/delegacao'
 import type { DelegacaoOrigem } from '@/lib/delegacao'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  // Autenticação sempre no cliente REAL: mesmo numa demonstração, a sessão é
-  // de verdade. O modo demo troca os dados exibidos, não quem está logado.
-  const supabase = await createClientReal()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
+  /* Autenticação sempre no cliente REAL: mesmo numa demonstração, a sessão é
+   * de verdade. O modo demo troca os dados exibidos, não quem está logado.
+   *
+   * Uma chamada só. Aqui existia um `createClientReal()` + `auth.getUser()`
+   * antes desta linha, e ele era ida de rede pura jogada fora: `getProfile()`
+   * chama `perfilReal()`, que faz EXATAMENTE o mesmo `getUser()` — e o
+   * `cache()` do React não dedupava, porque cada `createClientReal()` monta uma
+   * instância nova de GoTrueClient. O `if (!profile)` abaixo cobre o mesmo caso
+   * que o `if (!user)` cobria: sem sessão, `perfilReal()` devolve null.
+   *
+   * O token continua sendo validado CONTRA O SERVIDOR de auth (dentro de
+   * `perfilReal`), não contra o cookie — isso não é atalho de segurança. */
   const profile = await getProfile()
   if (!profile) redirect('/login')
 
