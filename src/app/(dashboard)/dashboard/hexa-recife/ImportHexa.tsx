@@ -114,7 +114,18 @@ export default function ImportHexa({
         .from('hexa_recife_clientes')
         .insert(lidos.slice(i, i + LOTE).map(c => ({ ...c, importado_por: importadoPor })))
       if (error) {
-        setE(s => ({ ...s, status: 'erro', msg: `Erro ao gravar: ${error.message}` }))
+        /* O delete já passou, então parar aqui deixa a base PELA METADE. Com 145
+         * linhas e lote de 200 é um insert só (ou tudo ou nada), mas se a
+         * planilha crescer isso deixa de valer — e base parcial que ninguém
+         * percebe é o pior desfecho possível. Por isso o erro diz o tamanho do
+         * estrago e o que fazer, em vez de só repetir a mensagem do banco. */
+        setE(s => ({
+          ...s, status: 'erro',
+          msg: i === 0
+            ? `Erro ao gravar: ${error.message}\n\nNada foi gravado e a base ficou VAZIA (a versão anterior já tinha sido apagada). Envie a planilha de novo.`
+            : `Erro ao gravar a partir do registro ${i + 1}: ${error.message}\n\n` +
+              `A base ficou INCOMPLETA (${i} de ${lidos.length} clientes). Envie a planilha de novo para refazer o snapshot inteiro.`,
+        }))
         return
       }
     }
