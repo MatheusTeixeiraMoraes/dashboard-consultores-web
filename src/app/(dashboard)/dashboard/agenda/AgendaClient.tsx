@@ -174,8 +174,19 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
   }
 
   // --- Peças reutilizadas pelos dois modos (Semana e Lista) ---
+
+  /* Selo da categoria temporária. A rota da Hexa vive na MESMA tabela das
+   * outras (é o que dá agenda única ao consultor), então o selo é a única
+   * coisa que diz de onde ela veio. `origem` pode vir indefinida em banco
+   * anterior à migration — aí é rota de carteira, e nada é mostrado. */
+  const selo = (r: Rota) =>
+    r.origem === 'hexa_recife' ? (
+      <span className="bg-warn-bg text-warn border border-warn/40 px-1.5 py-0.5 rounded" title="Rota Inter/Hexa Recife">Hexa</span>
+    ) : null
+
   const badges = (r: Rota) => (
     <div className="flex items-center gap-1.5 flex-wrap text-[10px] font-semibold">
+      {selo(r)}
       <span className="bg-primary/10 text-primary-lt px-1.5 py-0.5 rounded">{r.stops?.length ?? 0} cliente{(r.stops?.length ?? 0) !== 1 ? 's' : ''}</span>
       {r.distancia_km != null && <span className="bg-card-2 text-ink-dim px-1.5 py-0.5 rounded">{r.distancia_km.toFixed(1).replace('.', ',')} km</span>}
       {r.tempo_minutos != null && <span className="bg-card-2 text-ink-dim px-1.5 py-0.5 rounded">{Math.round(r.tempo_minutos)} min</span>}
@@ -261,7 +272,10 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
               <button onClick={() => setEditando(null)} className="text-ink-muted text-xs">Cancelar</button>
             </div>
           ) : (
-            <p className="font-semibold text-ink">{r.nome_rota || 'Rota sem nome'}</p>
+            <p className="font-semibold text-ink flex items-center gap-2 flex-wrap">
+              {r.nome_rota || 'Rota sem nome'}
+              <span className="text-[10px] font-semibold">{selo(r)}</span>
+            </p>
           )}
           <p className="text-xs text-ink-muted mt-0.5">
             {fmtData(r.data_visita)} · {r.stops?.length ?? 0} cliente{(r.stops?.length ?? 0) !== 1 ? 's' : ''}
