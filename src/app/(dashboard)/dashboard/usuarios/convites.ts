@@ -148,6 +148,41 @@ export async function gerarLinkAcesso(dados: {
   }
 }
 
+/**
+ * Apaga o registro do link, de vez.
+ *
+ * Diferente de `revogarLink`, que MARCA o link como cancelado e o mantém na
+ * lista: aqui a linha some do banco. Serve para limpar o histórico de links já
+ * usados ou vencidos, que se acumulam e escondem os que importam.
+ *
+ * Num link ainda pendente, apagar também corta o acesso — o aceite procura pelo
+ * hash e não acha nada. A diferença aparece para quem clicar no link: em vez de
+ * "este link foi cancelado por quem o gerou", vê "link inválido". Por isso a
+ * tela oferece **cancelar** como ação primária no que está pendente, e deixa
+ * excluir para arrumação.
+ *
+ * O custo de apagar é perder o rastro: `usado_por` e `criado_por` de um convite
+ * já aceito são a única trilha de quem entrou por qual link. A tela avisa antes.
+ */
+export async function excluirLink(id: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const me = await perfilAutorizado()
+    if (!me || (me.role !== 'admin' && me.role !== 'dono')) {
+      return { ok: false, error: 'Sem permissão' }
+    }
+    if (await escritaBloqueadaPeloDemo()) return { ok: false, error: MSG_BLOQUEIO_DEMO }
+
+    const admin = createAdminClient()
+    const { error } = await admin.from('convites_acesso').delete().eq('id', id)
+    if (error) return { ok: false, error: error.message }
+
+    revalidatePath('/dashboard/usuarios')
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Erro inesperado' }
+  }
+}
+
 /** Corta um link que ainda não foi usado (ou que foi para a pessoa errada). */
 export async function revogarLink(id: string): Promise<{ ok: boolean; error?: string }> {
   try {

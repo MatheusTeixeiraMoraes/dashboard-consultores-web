@@ -2,12 +2,15 @@ import { getProfile } from '@/lib/supabase/profile'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import UsuariosClient from './UsuariosClient'
-import type { Profile } from '@/lib/types'
+import type { Profile, UserRole } from '@/lib/types'
 
 export interface ConviteLinha {
   id: string
   consultor_nome: string
   id_carteira: string | null
+  /** Papel que a conta vai receber ao aceitar. Agora existe link de líder
+   *  também, e sem isto os dois tipos ficariam indistinguíveis na lista. */
+  role: UserRole
   criado_em: string
   expira_em: string
   usado_em: string | null
@@ -35,7 +38,7 @@ export default async function UsuariosPage() {
   // o único momento em que alguém precisa dela.
   const { data: convites } = await supabase
     .from('convites_acesso')
-    .select('id, consultor_nome, id_carteira, criado_em, expira_em, usado_em, revogado_em')
+    .select('id, consultor_nome, id_carteira, role, criado_em, expira_em, usado_em, revogado_em')
     .order('criado_em', { ascending: false })
     .limit(50)
 

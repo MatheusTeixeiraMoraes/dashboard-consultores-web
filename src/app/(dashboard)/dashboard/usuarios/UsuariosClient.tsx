@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile, UserRole } from '@/lib/types'
 import { canManageUsers } from '@/lib/types'
-import { gerarLinkAcesso, revogarLink, listarConsultoresDaPlanilha } from './convites'
+import { gerarLinkAcesso, revogarLink, excluirLink, listarConsultoresDaPlanilha } from './convites'
 import { entrarNaConta } from './delegacao'
 import type { ConsultorPlanilha } from './convites'
 import type { ConviteLinha } from './page'
@@ -40,25 +40,39 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
   const [linkPronto, setLinkPronto] = useState<{ nome: string; url: string } | null>(null)
   const [copiado, setCopiado] = useState(false)
   const [listaConvites, setListaConvites] = useState(convites)
+  /** Aba do modal: link de consultor (lista) ou de líder (nome digitado). */
+  const [tipoLink, setTipoLink] = useState<'consultor' | 'lider'>('consultor')
+  const [nomeLider, setNomeLider] = useState('')
+  const [confirmarExcluirLink, setConfirmarExcluirLink] = useState<string | null>(null)
 
-  async function handleGerarLink(c: ConsultorPlanilha) {
-    setGerando(c.nome)
+  /**
+   * Gera o link. Serve para os dois casos, que diferem só na origem do nome:
+   *
+   *  - consultor: escolhido na lista das planilhas, e leva `id_carteira` junto,
+   *    que é o que faz a RLS casar as linhas dele;
+   *  - líder: nome digitado, sem carteira — líder não tem carteira de pontuação,
+   *    e o papel dele lê a operação inteira.
+   */
+  async function gerar(alvo: { nome: string; id_carteira: string | null; role: UserRole }) {
+    setGerando(alvo.nome)
     setLinkErr(null)
     const r = await gerarLinkAcesso({
-      consultor_nome: c.nome,
-      id_carteira: c.id_carteira,
-      role: 'consultor',
+      consultor_nome: alvo.nome,
+      id_carteira: alvo.id_carteira,
+      role: alvo.role,
     })
     if (r.ok && r.token) {
       // Monta a URL com a origem em que o gestor ESTÁ navegando, em vez de uma
       // variável de ambiente: assim o link sai com o mesmo domínio que ele usa
       // (produção, preview ou localhost) sem depender de configuração.
-      setLinkPronto({ nome: c.nome, url: `${window.location.origin}/convite/${r.token}` })
+      setLinkPronto({ nome: alvo.nome, url: `${window.location.origin}/convite/${r.token}` })
       setCopiado(false)
+      setNomeLider('')
       setListaConvites(prev => [{
         id: `novo-${r.token!.slice(0, 8)}`,
-        consultor_nome: c.nome,
-        id_carteira: c.id_carteira,
+        consultor_nome: alvo.nome,
+        id_carteira: alvo.id_carteira,
+        role: alvo.role,
         criado_em: new Date().toISOString(),
         expira_em: r.expira_em!,
         usado_em: null,
@@ -87,6 +101,18 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
     } else {
       setLinkErr(r.error ?? 'Não foi possível cancelar')
     }
+  }
+
+  /**
+   * Apaga o registro do link. Cancelar MARCA como cancelado e mantém na lista;
+   * isto some com a linha — é para arrumar o histórico, não para cortar acesso.
+   * Num link pendente também corta, e a confirmação diz isso.
+   */
+  async function handleExcluir(id: string) {
+    setConfirmarExcluirLink(null)
+    const r = await excluirLink(id)
+    if (r.ok) setListaConvites(prev => prev.filter(c => c.id !== id))
+    else setLinkErr(r.error ?? 'Não foi possível excluir')
   }
 
   /**
@@ -481,10 +507,19 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
                   : expirado ? 'bg-warn-bg text-warn'
                   : 'bg-primary/15 text-primary-lt'
                 const pendente = !c.revogado_em && !c.usado_em && !expirado
+                // Link recém-gerado ainda não tem o id do banco (o insert não
+                // devolve): sem id, não há o que cancelar nem excluir. Sai da
+                // regra ao recarregar a tela.
+                const semId = c.id.startsWith('novo-')
                 return (
                   <div key={c.id} className="px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-ink truncate">{c.consultor_nome}</p>
+                      <p className="text-sm font-medium text-ink truncate">
+                        {c.consultor_nome}
+                        <span className={`ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded ${ROLE_COLOR[c.role] ?? 'bg-card-2 text-ink-muted'}`}>
+                          {ROLE_LABEL[c.role] ?? c.role}
+                        </span>
+                      </p>
                       <p className="text-[11px] text-ink-muted">
                         {c.id_carteira ? `Carteira ${c.id_carteira} · ` : ''}
                         {pendente
@@ -496,13 +531,40 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
                       <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${cor}`}>
                         {estado}
                       </span>
-                      {pendente && !c.id.startsWith('novo-') && (
-                        <button
-                          onClick={() => handleRevogar(c.id)}
-                          className="text-xs font-medium text-bad hover:text-bad-dk transition-colors"
-                        >
-                          Cancelar
-                        </button>
+                      {confirmarExcluirLink === c.id ? (
+                        /* A confirmação diz o que se perde em cada caso: num
+                           link pendente, excluir também derruba o acesso; num
+                           já usado, o que some é a trilha de quem entrou. */
+                        <span className="flex items-center gap-2 text-[11px]">
+                          <span className="text-bad">
+                            {pendente ? 'Excluir invalida o link. Confirma?' : 'Some do histórico. Confirma?'}
+                          </span>
+                          <button onClick={() => handleExcluir(c.id)}
+                            className="bg-bad hover:bg-bad-dk text-white font-semibold px-2 py-1 rounded-md">Sim</button>
+                          <button onClick={() => setConfirmarExcluirLink(null)}
+                            className="text-ink-muted hover:text-ink px-1">Não</button>
+                        </span>
+                      ) : (
+                        !semId && (
+                          <>
+                            {pendente && (
+                              <button
+                                onClick={() => handleRevogar(c.id)}
+                                className="text-xs font-medium text-warn hover:underline transition-colors"
+                                title="Corta o acesso e mantém o registro na lista"
+                              >
+                                Cancelar
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setConfirmarExcluirLink(c.id)}
+                              className="text-xs font-medium text-bad hover:underline transition-colors"
+                              title="Apaga o registro deste link"
+                            >
+                              Excluir
+                            </button>
+                          </>
+                        )
                       )}
                     </div>
                   </div>
@@ -521,7 +583,9 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
               <div>
                 <h2 className="text-base font-bold text-ink">Gerar link de acesso</h2>
                 <p className="text-xs text-ink-muted mt-0.5">
-                  Escolha pelo nome da planilha — o vínculo vai junto no link.
+                  {tipoLink === 'consultor'
+                    ? 'Escolha pelo nome da planilha — o vínculo vai junto no link.'
+                    : 'Líder não sai da planilha: escreva o nome como ele deve aparecer no painel.'}
                 </p>
               </div>
               <button onClick={() => setShowLink(false)} className="text-ink-faint hover:text-ink-dim transition-colors">
@@ -571,6 +635,52 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
               </div>
             ) : (
               <>
+                {/* Escolha do cargo. Consultor sai da lista das planilhas
+                    porque o link precisa levar o par nome+carteira — é ele que
+                    faz a RLS entregar as linhas certas. Líder não está em
+                    planilha nenhuma e não tem carteira, então ali o nome é
+                    digitado. */}
+                <div className="px-6 pt-4 flex gap-0.5 bg-transparent">
+                  {(['consultor', 'lider'] as const).map(t => (
+                    <button key={t} onClick={() => { setTipoLink(t); setLinkErr(null) }}
+                      className={`flex-1 text-sm font-medium py-2 rounded-xl transition-colors ${
+                        tipoLink === t ? 'bg-primary text-white' : 'text-ink-muted hover:bg-card-2'
+                      }`}>
+                      {t === 'consultor' ? 'Consultor' : 'Líder'}
+                    </button>
+                  ))}
+                </div>
+
+                {tipoLink === 'lider' ? (
+                  <div className="px-6 pt-4 pb-5">
+                    <label className="text-xs font-semibold text-ink-muted block mb-1.5">Nome do líder</label>
+                    <input
+                      autoFocus
+                      value={nomeLider}
+                      onChange={e => setNomeLider(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && nomeLider.trim()) {
+                          gerar({ nome: nomeLider.trim(), id_carteira: null, role: 'lider' })
+                        }
+                      }}
+                      placeholder="Ex.: Maria Souza"
+                      className="w-full bg-field border border-field-line rounded-xl px-3.5 py-2.5 text-sm text-ink placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    <p className="text-[11px] text-ink-muted mt-2 leading-relaxed">
+                      O líder enxerga a operação inteira e não tem carteira própria. Se já existir
+                      um usuário com este nome, o link serve para ele redefinir a senha — e o cargo
+                      passa a ser líder.
+                    </p>
+                    {linkErr && <p className="text-xs text-bad mt-2">{linkErr}</p>}
+                    <button
+                      onClick={() => gerar({ nome: nomeLider.trim(), id_carteira: null, role: 'lider' })}
+                      disabled={!nomeLider.trim() || gerando !== null}
+                      className="w-full mt-4 bg-primary hover:bg-primary-dk disabled:opacity-50 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
+                    >
+                      {gerando ? 'Gerando…' : 'Gerar link de líder'}
+                    </button>
+                  </div>
+                ) : (
                 <div className="px-6 pt-4 pb-3">
                   <input
                     autoFocus
@@ -581,7 +691,8 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
                   />
                   {linkErr && <p className="text-xs text-bad mt-2">{linkErr}</p>}
                 </div>
-                <div className="overflow-y-auto px-3 pb-4">
+                )}
+                <div className={`overflow-y-auto px-3 pb-4 ${tipoLink === 'lider' ? 'hidden' : ''}`}>
                   {carregandoCons && (
                     <p className="px-3 py-8 text-center text-sm text-ink-muted">
                       Lendo as planilhas...
@@ -621,7 +732,7 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
                         )}
                       </div>
                       <button
-                        onClick={() => handleGerarLink(c)}
+                        onClick={() => gerar({ nome: c.nome, id_carteira: c.id_carteira, role: 'consultor' })}
                         disabled={gerando !== null}
                         className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors flex-shrink-0 disabled:opacity-60 ${
                           c.temUsuario
