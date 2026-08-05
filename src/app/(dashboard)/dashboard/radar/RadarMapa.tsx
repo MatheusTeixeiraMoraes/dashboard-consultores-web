@@ -128,10 +128,13 @@ export default function RadarMapa({ pos, raio, clientes, onToggle }: Props) {
       const telFmt = telNac.length === 11 ? `(${telNac.slice(0, 2)}) ${telNac.slice(2, 7)}-${telNac.slice(7)}`
         : telNac.length === 10 ? `(${telNac.slice(0, 2)}) ${telNac.slice(2, 6)}-${telNac.slice(6)}`
         : c.seller_telefone ?? ''
-      // Ícone verde de telefone antes do número — clica e abre o WhatsApp.
+      /* Número clicável que abre o WhatsApp. Fundo verde e 38px de altura pelo
+         mesmo motivo do <BotaoWhatsApp> das listas: é toque de dedo em campo.
+         Aqui não dá para usar o componente React — o popup do Leaflet é HTML
+         montado à mão —, então o estilo é inline e a semelhança é intencional. */
       const telLinha = dig
-        ? `<a href="https://wa.me/${dig.startsWith('55') ? dig : '55' + dig}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:6px;color:var(--color-good);font-weight:600;text-decoration:none;margin-top:5px">
-             <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347"/></svg>
+        ? `<a href="https://wa.me/${dig.startsWith('55') ? dig : '55' + dig}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:7px;min-height:38px;padding:0 10px;margin-top:7px;background:var(--color-good-bg);border:1px solid color-mix(in srgb, var(--color-good) 30%, transparent);border-radius:11px;color:var(--color-good);font-weight:700;text-decoration:none">
+             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347"/></svg>
              ${esc(telFmt)}
            </a>`
         : ''
@@ -151,8 +154,8 @@ export default function RadarMapa({ pos, raio, clientes, onToggle }: Props) {
           </div>` : ''}
         <div style="display:flex;align-items:center;gap:6px;margin-top:9px">
           <span style="background:var(--color-good-bg);color:var(--color-good);font-weight:700;font-size:11px;padding:3px 9px;border-radius:999px">${c.dist.toFixed(1).replace('.', ',')} km</span>
-          <a href="https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}" target="_blank" rel="noopener" style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border:1px solid var(--color-field-line);border-radius:9px;padding:6px 8px;color:var(--color-ink-dim);text-decoration:none;font-weight:600">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <a href="https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}" target="_blank" rel="noopener" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-height:38px;border:1px solid color-mix(in srgb, var(--color-gmaps) 30%, transparent);background:color-mix(in srgb, var(--color-gmaps) 10%, transparent);border-radius:11px;padding:0 10px;color:var(--color-gmaps);text-decoration:none;font-weight:700">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
             Ver no mapa
           </a>
         </div>
