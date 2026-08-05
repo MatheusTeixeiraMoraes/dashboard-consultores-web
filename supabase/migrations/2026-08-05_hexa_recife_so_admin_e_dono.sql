@@ -19,39 +19,39 @@
 -- se a policy dele continuasse existindo. Quem decide quem lê é a RLS; a tela é
 -- só conveniência.
 --
+-- ---------------------------------------------------------------------------
+-- SEM `begin;`/`commit;`, DE PROPÓSITO — e isto foi aprendido na marra.
+--
+-- A primeira versão deste arquivo vinha em transação explícita. No SQL Editor do
+-- Supabase ela rodou DUAS vezes devolvendo "Success. No rows returned" e, nas
+-- duas, nada foi gravado: a consulta a pg_policies depois mostrava as policies
+-- antigas intactas. Um "Success" que não grava é pior que um erro, porque
+-- ninguém vai conferir.
+--
+-- Aqui cada comando roda em autocommit. Para isso ser seguro, a ORDEM importa:
+-- a policy nova é criada ANTES de as antigas serem removidas. Se algo falhar no
+-- meio, a tabela nunca fica sem policy de SELECT — o que, com RLS ligada,
+-- trancaria a base para todo mundo, inclusive o admin.
+--
 -- Rodar no SQL Editor do Supabase. É re-executável.
 -- ============================================================================
 
-begin;
-
--- Some o acesso do consultor.
-drop policy if exists "hexa: consultor le os seus (por nome)" on hexa_recife_clientes;
-
--- Troca a de gestão por uma sem o líder. O `drop` da nova antes do `create`
--- deixa o script re-executável: `create policy` não aceita `if not exists` e o
--- erro 42710 aborta a transação inteira.
-drop policy if exists "hexa: gestao le tudo" on hexa_recife_clientes;
+-- 1. Cria o acesso novo (admin e dono). O `drop` antes existe só para o script
+--    poder rodar de novo: `create policy` não aceita `if not exists`.
 drop policy if exists "hexa: admin e dono leem" on hexa_recife_clientes;
+
 create policy "hexa: admin e dono leem" on hexa_recife_clientes
   for select using ((select get_my_role()) in ('admin', 'dono'));
 
-commit;
+-- 2. Só agora remove os acessos antigos. Policies de SELECT se somam em OR:
+--    enquanto estas existirem, consultor e líder continuam lendo.
+drop policy if exists "hexa: consultor le os seus (por nome)" on hexa_recife_clientes;
 
+drop policy if exists "hexa: gestao le tudo" on hexa_recife_clientes;
 
--- ============================================================================
--- CONFERÊNCIA depois de rodar
---
--- Têm que sobrar 4 policies, e NENHUMA pode mencionar consultor ou lider:
---
---   select policyname, cmd, qual from pg_policies
---    where schemaname = 'public' and tablename = 'hexa_recife_clientes';
---
---   esperado:
---     hexa: admin e dono leem   SELECT
---     hexa: so admin importa    INSERT
---     hexa: so admin atualiza   UPDATE
---     hexa: so admin apaga      DELETE
---
--- Se aparecer 5 linhas, alguma policy velha sobreviveu — e como policies de
--- SELECT se somam em OR, a antiga voltaria a dar acesso ao consultor.
--- ============================================================================
+-- 3. Conferência no mesmo run — o resultado aparece na tela em vez de exigir
+--    uma segunda consulta que alguém pode esquecer de rodar.
+--    Esperado: 4 linhas, nenhuma mencionando consultor ou lider.
+select policyname, cmd from pg_policies
+ where schemaname = 'public' and tablename = 'hexa_recife_clientes'
+ order by policyname;
