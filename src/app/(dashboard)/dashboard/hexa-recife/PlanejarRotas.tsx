@@ -13,6 +13,13 @@ import { fmtDinheiroCurto, type HexaCliente } from '@/lib/hexa-recife'
 /** Acima disto, um dia de visitas deixa de ser realista. */
 const PARADAS_CONFORTAVEIS = 10
 
+/**
+ * Partida mais longe que isto do centro dos clientes é quase certamente engano.
+ * 50 km cobre folgado uma base metropolitana (a de Recife tem ~25 km de ponta a
+ * ponta) sem alarme falso, e pega o caso real: GPS de quem planeja, a 2.700 km.
+ */
+const LIMITE_PARTIDA_KM = 50
+
 interface Props {
   clientes: HexaCliente[]
   meuNome: string
@@ -155,6 +162,7 @@ export default function PlanejarRotas({ clientes, meuNome }: Props) {
     router.refresh()
   }
 
+  const partidaLongeKm = partida ? distanciaAoCentroKm(partida, centro) : 0
   const paradasPorRota = plano.length > 0 ? Math.round(dentro.length / plano.length) : Math.round(dentro.length / quantidade)
   const muitasParadas = paradasPorRota > PARADAS_CONFORTAVEIS
 
@@ -218,7 +226,31 @@ export default function PlanejarRotas({ clientes, meuNome }: Props) {
             <button onClick={usarMeuGps} className="text-xs text-primary-lt font-medium hover:underline px-1">GPS</button>
           </div>
           {partida ? (
-            <p className="text-[11px] text-good truncate">📍 sai de: {partida.endereco}</p>
+            partidaLongeKm > LIMITE_PARTIDA_KM ? (
+              /* Guarda que faltava: um plano foi criado com o GPS de quem
+                 planejava (São Paulo) e as 5 rotas saíram com ~2.800 km, porque
+                 cada dia embutia a viagem até Recife. Os números pareciam
+                 plausíveis na Agenda — só o total denunciava. */
+              <div className="text-[11px] text-bad bg-bad-bg rounded-lg px-2.5 py-2">
+                <p className="font-semibold mb-1">
+                  ⚠ A partida está a {Math.round(partidaLongeKm).toLocaleString('pt-BR')} km dos clientes.
+                </p>
+                <p className="mb-1.5">
+                  {partida.endereco === 'Minha localização'
+                    ? 'O GPS pegou onde VOCÊ está agora, não onde o dia de visitas começa. '
+                    : ''}
+                  Cada rota vai incluir essa viagem inteira e sair com milhares de km.
+                </p>
+                <button onClick={() => { setPartida(null); setFase('idle') }}
+                  className="underline font-semibold">Usar o centro de cada região</button>
+              </div>
+            ) : (
+              <p className="text-[11px] text-good truncate">
+                📍 sai de: {partida.endereco}
+                {partidaLongeKm > 1 && <> · {partidaLongeKm.toFixed(0)} km do centro da região</>}
+                <button onClick={() => { setPartida(null); setFase('idle') }} className="ml-2 text-ink-muted hover:text-ink">remover</button>
+              </p>
+            )
           ) : (
             <p className="text-[11px] text-ink-faint">Sem partida, cada rota começa pelo centro da própria região.</p>
           )}
@@ -287,8 +319,12 @@ export default function PlanejarRotas({ clientes, meuNome }: Props) {
       {fase === 'planejado' ? (
         <div className="flex gap-2">
           <button onClick={criarRotas}
-            className="flex-1 bg-good hover:opacity-90 text-white text-sm font-semibold py-2.5 rounded-xl">
-            Criar {plano.length} rota{plano.length !== 1 ? 's' : ''}
+            className={`flex-1 text-white text-sm font-semibold py-2.5 rounded-xl hover:opacity-90 ${
+              partidaLongeKm > LIMITE_PARTIDA_KM ? 'bg-bad' : 'bg-good'
+            }`}>
+            {partidaLongeKm > LIMITE_PARTIDA_KM
+              ? `Criar mesmo assim (+${Math.round(partidaLongeKm).toLocaleString('pt-BR')} km por rota)`
+              : `Criar ${plano.length} rota${plano.length !== 1 ? 's' : ''}`}
           </button>
           <button onClick={() => setFase('idle')}
             className="px-3 py-2 rounded-xl text-xs font-medium text-ink-dim border border-line hover:bg-card-2">

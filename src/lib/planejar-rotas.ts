@@ -182,9 +182,19 @@ export function separarForaDeArea(
   return { dentro, fora, centro }
 }
 
-/** Distância de um cliente ao centro da operação — para explicar o "fora de área". */
-export function distanciaAoCentroKm(c: ClienteGeo, centro: { lat: number; lng: number }): number {
-  return distanciaKm(centro, c)
+/**
+ * Distância de um ponto ao centro da operação.
+ *
+ * Serve para dois avisos: "este cliente está fora de área" e "esta PARTIDA está
+ * longe da região". O segundo apareceu na prática — um plano foi criado com o
+ * GPS de quem planejava (em São Paulo) e as cinco rotas saíram com ~2.800 km,
+ * porque cada dia incluía a viagem até Recife.
+ */
+export function distanciaAoCentroKm(
+  ponto: { lat: number; lng: number },
+  centro: { lat: number; lng: number },
+): number {
+  return distanciaKm(centro, ponto)
 }
 
 export interface OpcoesPlano {
