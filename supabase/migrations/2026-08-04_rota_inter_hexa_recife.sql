@@ -128,27 +128,32 @@ grant execute on function meu_nome_norm() to authenticated;
 -- sem a policy de delete o import falharia EM SILÊNCIO (RLS não devolve erro,
 -- apaga zero linhas) e a base duplicaria.
 -- ----------------------------------------------------------------------------
-drop policy if exists "hexa: admin, dono e lider leem tudo" on hexa_recife_clientes;
-create policy "hexa: admin, dono e lider leem tudo" on hexa_recife_clientes
+-- NOMES SEM ACENTO, de propósito. Este script é colado à mão no SQL Editor, e
+-- uma cópia que erre o encoding transforma "lê" em "lÃª" — o `create policy`
+-- passa, mas o `drop policy if exists` de uma reexecução deixa de casar e a
+-- policy antiga fica ativa junto com a nova, em silêncio. Mesma escolha das
+-- policies de mp_carteira/mp_acionaveis.
+drop policy if exists "hexa: gestao le tudo" on hexa_recife_clientes;
+create policy "hexa: gestao le tudo" on hexa_recife_clientes
   for select using ((select get_my_role()) in ('admin', 'dono', 'lider'));
 
-drop policy if exists "hexa: consultor lê os seus (por nome)" on hexa_recife_clientes;
-create policy "hexa: consultor lê os seus (por nome)" on hexa_recife_clientes
+drop policy if exists "hexa: consultor le os seus (por nome)" on hexa_recife_clientes;
+create policy "hexa: consultor le os seus (por nome)" on hexa_recife_clientes
   for select using (
     (select get_my_role()) = 'consultor'
     and nome_normalizado(consultor_nome) = (select meu_nome_norm())
   );
 
-drop policy if exists "hexa: só admin importa" on hexa_recife_clientes;
-create policy "hexa: só admin importa" on hexa_recife_clientes
+drop policy if exists "hexa: so admin importa" on hexa_recife_clientes;
+create policy "hexa: so admin importa" on hexa_recife_clientes
   for insert with check ((select get_my_role()) = 'admin');
 
-drop policy if exists "hexa: só admin atualiza" on hexa_recife_clientes;
-create policy "hexa: só admin atualiza" on hexa_recife_clientes
+drop policy if exists "hexa: so admin atualiza" on hexa_recife_clientes;
+create policy "hexa: so admin atualiza" on hexa_recife_clientes
   for update using ((select get_my_role()) = 'admin');
 
-drop policy if exists "hexa: só admin apaga" on hexa_recife_clientes;
-create policy "hexa: só admin apaga" on hexa_recife_clientes
+drop policy if exists "hexa: so admin apaga" on hexa_recife_clientes;
+create policy "hexa: so admin apaga" on hexa_recife_clientes
   for delete using ((select get_my_role()) = 'admin');
 
 
