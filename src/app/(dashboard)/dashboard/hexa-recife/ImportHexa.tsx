@@ -201,7 +201,9 @@ export default function ImportHexa({
         </span>
         <div>
           <p className="text-sm font-semibold text-ink">Planilha da rota Inter/Hexa</p>
-          <p className="text-[11px] text-ink-muted">Só administrador · substitui a base inteira</p>
+          {/* "desta rota" e não "inteira": o texto anterior deu a entender que o
+              import mexeria na carteira. Ele só toca hexa_recife_clientes. */}
+          <p className="text-[11px] text-ink-muted">Só administrador · substitui a base desta rota</p>
         </div>
       </div>
 
@@ -226,8 +228,11 @@ export default function ImportHexa({
       {e.status === 'previa' && (
         <div className="rounded-lg p-3 my-3 border border-primary/30 bg-primary/5">
           <p className="text-xs text-ink-dim font-medium mb-2">
-            {e.arquivo} · a base passa a ter estes {lidos.length.toLocaleString('pt-BR')} clientes
+            {e.arquivo} · <b className="text-ink">só a base desta rota</b> passa a ter estes {lidos.length.toLocaleString('pt-BR')} clientes
             {totalAtual > 0 && <> (hoje tem {totalAtual.toLocaleString('pt-BR')})</>}:
+          </p>
+          <p className="text-[11px] text-ink-faint mb-2">
+            Sua carteira, os acionáveis e as planilhas de score não são tocados.
           </p>
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-ink-muted">
             <span><b className="text-ink">{fmtDinheiroCurto(tpv)}</b> de TPV somado</span>
