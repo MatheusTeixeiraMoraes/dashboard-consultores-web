@@ -276,6 +276,20 @@ export interface HexaCliente {
   importado_em: string
 }
 
+/**
+ * Papéis que entram na categoria — precisa espelhar a policy de SELECT em
+ * `hexa_recife_clientes` (migration 2026-08-05_hexa_recife_inclui_lider.sql).
+ *
+ * Mora aqui, e não solto em cada página, porque quem já mudou três vezes muda
+ * de novo: com a lista repetida, o painel e o roteirizar divergiriam e alguém
+ * cairia numa tela em branco sem entender o porquê. A tela é conveniência — o
+ * que fecha o acesso de verdade é a RLS.
+ *
+ * `string[]` e não `UserRole[]` de propósito: este arquivo é importado pelos
+ * testes que rodam direto no Node, e o alias `@/lib/types` não resolve lá.
+ */
+export const GESTAO_HEXA: string[] = ['admin', 'dono', 'lider']
+
 /** Colunas que as telas da categoria leem. Vale para o painel e o roteirizar. */
 export const COLUNAS_HEXA =
   'id, seller_id, seller_nome, nome_comercio, tpv, mcc, cnae, status_operacional, ' +

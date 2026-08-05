@@ -1,16 +1,16 @@
 import { createClient } from '@/lib/supabase/server'
 import { getProfile } from '@/lib/supabase/profile'
 import { redirect } from 'next/navigation'
-import { tabelaAusente, type HexaCliente } from '@/lib/hexa-recife'
+import { GESTAO_HEXA, tabelaAusente, type HexaCliente } from '@/lib/hexa-recife'
 import HexaRoteirizarClient from './HexaRoteirizarClient'
 
 export default async function HexaRoteirizarPage() {
   const profile = await getProfile()
   if (!profile) redirect('/login')
 
-  // Mesma regra do painel: categoria de gestão, só admin e dono. Quem fecha de
-  // verdade é a RLS; ver o comentário em ../page.tsx.
-  if (profile.role !== 'admin' && profile.role !== 'dono') redirect('/dashboard')
+  // Mesma regra do painel (a lista vive em GESTAO_HEXA para as duas telas não
+  // divergirem). Quem fecha de verdade é a RLS; ver o comentário em ../page.tsx.
+  if (!GESTAO_HEXA.includes(profile.role)) redirect('/dashboard')
 
   const supabase = await createClient()
 
