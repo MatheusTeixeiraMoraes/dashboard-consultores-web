@@ -410,17 +410,24 @@ export default function HexaPainelClient({ clientes, role, uploadedBy, meuNome, 
                       {c.campos_faltando && <p className="text-[11px] text-warn truncate">falta: {c.campos_faltando}</p>}
                     </div>
 
+                    {/* Ações do cliente. Alvo de 40px e ícone de 20px: são os
+                        dois botões que a pessoa usa na rua, com o celular na
+                        mão — em 15px, sem fundo e sem área em volta, o dedo
+                        erra. O fundo tênue também dá a eles a cara de botão,
+                        que os ícones soltos não tinham. */}
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {wa && (
-                        <a href={wa} target="_blank" rel="noopener noreferrer" title="WhatsApp"
-                          className="text-good hover:opacity-80">
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347" /></svg>
+                        <a href={wa} target="_blank" rel="noopener noreferrer"
+                          title="Abrir conversa no WhatsApp" aria-label={`Abrir conversa no WhatsApp com ${c.seller_nome || c.seller_id}`}
+                          className="w-10 h-10 grid place-items-center rounded-xl text-good bg-good-bg border border-good/30 hover:bg-good/25 active:scale-95 transition">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347" /></svg>
                         </a>
                       )}
                       {!semGps && (
                         <a href={`https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}`} target="_blank" rel="noopener noreferrer"
-                          title="Ver no mapa" className="text-gmaps hover:opacity-80">
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
+                          title="Ver no Google Maps" aria-label={`Ver ${c.seller_nome || c.seller_id} no Google Maps`}
+                          className="w-10 h-10 grid place-items-center rounded-xl text-gmaps bg-gmaps/10 border border-gmaps/30 hover:bg-gmaps/20 active:scale-95 transition">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
                         </a>
                       )}
                     </div>
