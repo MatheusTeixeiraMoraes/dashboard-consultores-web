@@ -300,9 +300,21 @@ export default function HexaRoteirizarClient({
                 placeholder="Nome da rota (ex.: Hexa — Boa Viagem)" className={inp} />
               <input type="date" value={dataVisita} onChange={e => setDataVisita(e.target.value)} className={inp} />
             </div>
+            {/* Salvar sem ter gerado é permitido (às vezes a pessoa só quer a
+                lista do dia), mas não pode ser silencioso: aconteceu no primeiro
+                teste real e a rota foi para a agenda sem km, sem tempo e na
+                ordem de seleção — parecendo pronta. */}
+            {stops.length > 0 && !resultado && (
+              <p className="text-[11px] text-warn bg-warn-bg rounded-lg px-2.5 py-2 mb-2">
+                Rota ainda não otimizada. Salvando assim, ela vai para a agenda sem km,
+                sem tempo e na ordem em que você marcou. Clique em <b>Gerar rota</b> antes.
+              </p>
+            )}
             <button onClick={salvar} disabled={salvando || stops.length === 0}
-              className="w-full bg-primary hover:bg-primary-dk disabled:opacity-50 text-white text-sm font-semibold py-2.5 rounded-xl">
-              {salvando ? 'Salvando…' : 'Salvar rota'}
+              className={`w-full disabled:opacity-50 text-white text-sm font-semibold py-2.5 rounded-xl ${
+                resultado ? 'bg-primary hover:bg-primary-dk' : 'bg-ink-faint hover:bg-ink-muted'
+              }`}>
+              {salvando ? 'Salvando…' : resultado ? 'Salvar rota' : 'Salvar mesmo assim'}
             </button>
           </div>
         </div>
