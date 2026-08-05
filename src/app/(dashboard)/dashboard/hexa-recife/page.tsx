@@ -34,6 +34,7 @@ export default async function HexaRecifePage() {
       clientes={(data ?? []) as unknown as HexaCliente[]}
       role={profile.role}
       uploadedBy={profile.id}
+      meuNome={profile.nome || profile.email}
       baseAusente={baseAusente}
     />
   )

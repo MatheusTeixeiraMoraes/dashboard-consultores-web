@@ -80,6 +80,7 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
   const [editando, setEditando] = useState<string | null>(null)
   const [nomeEdit, setNomeEdit] = useState('')
   const [confirmar, setConfirmar] = useState<string | null>(null)
+  const [editandoData, setEditandoData] = useState<string | null>(null)
   const [erro, setErro] = useState('')
   const [refazendo, setRefazendo] = useState<string | null>(null)
 
@@ -128,6 +129,29 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
     const { error } = await supabase.from('rotas').update({ nome_rota: nomeEdit.trim(), updated_at: new Date().toISOString() }).eq('id', id)
     if (error) { setErro(error.message); return }
     setEditando(null)
+    router.refresh()
+  }
+
+  /**
+   * Marca (ou desmarca) o dia da visita.
+   *
+   * É o que transforma um plano em agenda: o planejador da rota Hexa cria as
+   * rotas SEM data, de propósito, porque o dia se decide olhando a semana — que
+   * é esta tela. Sem isto, a única forma de datar uma rota seria refazê-la no
+   * Roteirizar.
+   *
+   * Data vazia volta para "sem data" em vez de recusar: tirar do calendário é
+   * uma decisão legítima, e o cartão continua na lista de pendentes.
+   */
+  async function marcarData(id: string, data: string) {
+    setErro('')
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('rotas')
+      .update({ data_visita: data || null, updated_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) { setErro(error.message); return }
+    setEditandoData(null)
     router.refresh()
   }
 
@@ -205,6 +229,38 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
       </ol>
     )
 
+  /* Seletor de dia. Um `input[type=date]` e não arrastar-e-soltar: funciona no
+   * celular (onde a rota é consultada em campo), abre o calendário nativo, é
+   * acessível pelo teclado, e permite marcar um dia que nem está na semana à
+   * vista — arrastar só alcançaria as 7 colunas visíveis. */
+  const seletorData = (r: Rota, compacto = false) => {
+    if (editandoData === r.id) {
+      return (
+        <span className="inline-flex items-center gap-1">
+          <input type="date" defaultValue={r.data_visita?.slice(0, 10) ?? ''} autoFocus
+            onChange={e => marcarData(r.id, e.target.value)}
+            className="border border-field-line bg-field rounded-md px-1.5 py-0.5 text-[11px] text-ink" />
+          <button onClick={() => setEditandoData(null)} className="text-ink-muted text-[11px] px-1">×</button>
+        </span>
+      )
+    }
+    return (
+      <button onClick={() => setEditandoData(r.id)}
+        title={r.data_visita ? 'Mudar o dia' : 'Marcar o dia'}
+        className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-medium transition-colors ${
+          compacto ? 'text-[10px]' : 'text-[11px]'
+        } ${r.data_visita
+          ? 'text-ink-muted hover:text-primary hover:bg-card-2'
+          : 'text-primary-lt border border-primary/40 bg-primary/10 hover:bg-primary/20'}`}>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" />
+          <line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+        </svg>
+        {r.data_visita ? fmtData(r.data_visita) : 'Marcar dia'}
+      </button>
+    )
+  }
+
   const gmaps = (r: Rota) => {
     const links = linksMapsDaRota(r)
     if (links.length === 0) return null
@@ -237,6 +293,7 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
         <p className="text-xs font-semibold text-ink truncate mb-1.5" title={r.nome_rota}>{r.nome_rota || 'Rota sem nome'}</p>
       )}
       {badges(r)}
+      <div className="mt-1.5">{seletorData(r, true)}</div>
       <div className="my-2"><TracadoRota pontos={pontosDaRota(r)} /></div>
       {paradas(r)}
       <div className="flex items-center gap-2 mt-2 pt-2 border-t border-line">
@@ -277,11 +334,14 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
               <span className="text-[10px] font-semibold">{selo(r)}</span>
             </p>
           )}
-          <p className="text-xs text-ink-muted mt-0.5">
-            {fmtData(r.data_visita)} · {r.stops?.length ?? 0} cliente{(r.stops?.length ?? 0) !== 1 ? 's' : ''}
-            {r.distancia_km != null ? ` · ${r.distancia_km.toFixed(1).replace('.', ',')} km` : ''}
-            {r.tempo_minutos != null ? ` · ${Math.round(r.tempo_minutos)} min` : ''}
-            {podeVerTodos && r.consultor_nome ? ` · ${r.consultor_nome}` : ''}
+          <p className="text-xs text-ink-muted mt-0.5 flex items-center gap-1.5 flex-wrap">
+            {seletorData(r)}
+            <span>
+              · {r.stops?.length ?? 0} cliente{(r.stops?.length ?? 0) !== 1 ? 's' : ''}
+              {r.distancia_km != null ? ` · ${r.distancia_km.toFixed(1).replace('.', ',')} km` : ''}
+              {r.tempo_minutos != null ? ` · ${Math.round(r.tempo_minutos)} min` : ''}
+              {podeVerTodos && r.consultor_nome ? ` · ${r.consultor_nome}` : ''}
+            </span>
           </p>
         </div>
         <div className="flex items-center gap-3 text-xs">

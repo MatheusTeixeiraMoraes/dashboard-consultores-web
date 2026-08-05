@@ -10,6 +10,7 @@ import {
 } from '@/lib/hexa-recife'
 import type { UserRole } from '@/lib/types'
 import ImportHexa from './ImportHexa'
+import PlanejarRotas from './PlanejarRotas'
 
 const POR_PAGINA = 25
 
@@ -86,10 +87,12 @@ interface Props {
   role: UserRole
   /** Perfil de quem importa — vai para `importado_por`. */
   uploadedBy: string
+  /** Nome de quem está logado — vira o dono das rotas criadas pelo planejador. */
+  meuNome: string
   baseAusente: boolean
 }
 
-export default function HexaPainelClient({ clientes, role, uploadedBy, baseAusente }: Props) {
+export default function HexaPainelClient({ clientes, role, uploadedBy, meuNome, baseAusente }: Props) {
   const router = useRouter()
   // Só admin e dono chegam aqui (a página redireciona, a RLS fecha). Dentro
   // disso, quem SOBE a planilha é apenas o admin — foi a regra pedida.
@@ -270,8 +273,8 @@ export default function HexaPainelClient({ clientes, role, uploadedBy, baseAusen
     <div className="pb-4">
       {cabecalho}
 
-      {podeImportar && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+        {podeImportar && (
           <ImportHexa
             importadoPor={uploadedBy}
             totalAtual={clientes.length}
@@ -279,8 +282,9 @@ export default function HexaPainelClient({ clientes, role, uploadedBy, baseAusen
               .filter(c => c.lat == null || c.lng == null)
               .map(c => ({ id: c.id, endereco_completo: c.endereco_completo, cidade: c.cidade, bairro: c.bairro }))}
           />
-        </div>
-      )}
+        )}
+        <PlanejarRotas clientes={clientes} meuNome={meuNome} />
+      </div>
 
       {/* KPIs — sempre da base inteira que o usuário enxerga, não do filtro:
           é o retrato da rota. O filtro tem o próprio contador na tabela. */}
