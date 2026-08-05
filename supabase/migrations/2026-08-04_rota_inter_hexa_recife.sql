@@ -83,6 +83,37 @@ create index if not exists hexa_recife_cidade_idx    on hexa_recife_clientes(cid
 alter table hexa_recife_clientes enable row level security;
 
 -- ----------------------------------------------------------------------------
+-- meu_nome_norm() — pode ainda NÃO existir neste banco.
+--
+-- Ela nasce em 2026-07-31_rls_sem_funcao_opaca.sql, que está no repositório mas
+-- ainda não foi aplicada aqui. Medido em 04/08/2026 contra o banco real:
+-- get_my_role, nome_normalizado, cliente_e_meu e reconciliar_carteira existem;
+-- meu_nome_norm não. Sem ela, o `create policy` abaixo falha com 42883 e, como
+-- tudo está numa transação, a migration inteira volta atrás — foi exatamente o
+-- que aconteceu na primeira tentativa.
+--
+-- A definição é CÓPIA LITERAL da daquele arquivo, incluindo a subconsulta dentro
+-- do argumento: `nome_normalizado((select nome ...))` devolve '' para usuário sem
+-- linha em profiles, enquanto `select nome_normalizado(nome) from ...` devolveria
+-- NULL. Trocar isso mudaria silenciosamente quem casa com o quê.
+--
+-- `create or replace` faz as duas ordens de execução darem no mesmo: se a
+-- migration de 31/07 rodar depois desta, recria a função idêntica.
+-- ----------------------------------------------------------------------------
+create or replace function meu_nome_norm()
+returns text
+language sql
+security definer
+stable
+set search_path = public, extensions
+as $$
+  select nome_normalizado((select nome from profiles where id = (select auth.uid())))
+$$;
+
+revoke all on function meu_nome_norm() from public, anon;
+grant execute on function meu_nome_norm() to authenticated;
+
+-- ----------------------------------------------------------------------------
 -- RLS
 --
 -- Leitura: gestão vê os 145; consultor vê só os do nome dele — mesma regra de
