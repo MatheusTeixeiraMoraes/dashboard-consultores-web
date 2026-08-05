@@ -1,6 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-
-  "//": "Região da função — deve ficar COLADA no banco, não perto do usuário. O padrão da Vercel é iad1 (Virgínia) em todo projeto novo, e medindo produção o header vinha `X-Vercel-Id: gru1::iad1::...` (borda em SP, função na Virgínia). O banco NÃO está no Brasil: db.<ref>.supabase.co resolve para 2600:1f14:131e:fd00:... e o ip-ranges.json oficial da AWS coloca 2600:1f14::/34 em us-west-2 (Oregon). Confere com a medição: uma consulta real do Brasil leva ~265ms dos quais o servidor gasta 32ms (x-envoy-upstream-service-time) — o resto é distância. pdx1 é us-west-2. CUIDADO: NÃO trocar para gru1 'porque o usuário é brasileiro'. O CF-RAY ...-GRU que aparece no host da API é só o PoP da Cloudflare mais perto de quem mediu, não a origem — esse engano já foi cometido aqui uma vez. Cada tela faz várias idas servidor->banco EM FILA e só uma ida navegador->servidor; encurtar as várias vence encurtar a única.",
   "regions": ["pdx1"]
 }
