@@ -30,12 +30,12 @@ function paraParada(c: HexaCliente): ClienteSelecionado {
   }
 }
 
+/** Só admin e dono chegam aqui — a página faz o redirect e a RLS fecha o resto. */
 export default function HexaRoteirizarClient({
-  clientes, meuNome, gestao,
+  clientes, meuNome,
 }: {
   clientes: HexaCliente[]
   meuNome: string
-  gestao: boolean
 }) {
   const router = useRouter()
 
@@ -393,7 +393,7 @@ export default function HexaRoteirizarClient({
             <div className="flex items-center gap-2 flex-wrap mb-3">
               <input value={busca} onChange={e => { setBusca(e.target.value); setPagina(0) }}
                 placeholder="Buscar por ID, nome ou comércio…" className={`${inp} flex-1 min-w-[220px]`} />
-              {gestao && consultores.length > 1 && (
+              {consultores.length > 1 && (
                 <MultiFiltro label="Consultores" opcoes={consultores} sel={fConsultores} onChange={comReset(setFConsultores)} />
               )}
               <MultiFiltro label="Cidades" opcoes={cidades} sel={fCidades} onChange={comReset(setFCidades)} />

@@ -91,8 +91,9 @@ interface Props {
 
 export default function HexaPainelClient({ clientes, role, uploadedBy, baseAusente }: Props) {
   const router = useRouter()
+  // Só admin e dono chegam aqui (a página redireciona, a RLS fecha). Dentro
+  // disso, quem SOBE a planilha é apenas o admin — foi a regra pedida.
   const podeImportar = role === 'admin'
-  const gestao = role === 'admin' || role === 'dono' || role === 'lider'
 
   const [busca, setBusca] = useState('')
   const [fConsultores, setFConsultores] = useState<Set<string>>(new Set())
@@ -239,9 +240,8 @@ export default function HexaPainelClient({ clientes, role, uploadedBy, baseAusen
         <div className="glass rounded-2xl border border-line p-10 text-center">
           <p className="font-semibold text-ink">A categoria ainda não foi criada no banco</p>
           <p className="text-sm text-ink-muted mt-1 max-w-lg mx-auto">
-            {gestao
-              ? <>Falta rodar a migration <span className="font-mono text-xs text-primary">supabase/migrations/2026-08-04_rota_inter_hexa_recife.sql</span> no SQL Editor do Supabase. Depois disso, esta tela passa a aceitar a planilha.</>
-              : <>A administração ainda está preparando esta rota. Volte em breve.</>}
+            Falta rodar a migration <span className="font-mono text-xs text-primary">supabase/migrations/2026-08-04_rota_inter_hexa_recife.sql</span> no
+            SQL Editor do Supabase. Depois disso, esta tela passa a aceitar a planilha.
           </p>
         </div>
       </div>
@@ -259,9 +259,7 @@ export default function HexaPainelClient({ clientes, role, uploadedBy, baseAusen
           <p className="text-sm text-ink-muted mt-1 max-w-lg mx-auto">
             {podeImportar
               ? 'Suba a planilha da rota Inter/Hexa acima para ver o painel e montar rotas.'
-              : gestao
-                ? 'A planilha desta rota é enviada por um administrador.'
-                : 'Assim que a administração subir a planilha, seus clientes desta rota aparecem aqui.'}
+              : 'A planilha desta rota é enviada por um administrador.'}
           </p>
         </div>
       </div>
@@ -316,7 +314,7 @@ export default function HexaPainelClient({ clientes, role, uploadedBy, baseAusen
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
         <Distribuicao titulo="Status operacional" fatias={resumo.porStatus} />
-        <Distribuicao titulo={gestao ? 'Por consultor' : 'Sua carteira nesta rota'} fatias={resumo.porConsultor} />
+        <Distribuicao titulo="Por consultor" fatias={resumo.porConsultor} />
         <Distribuicao titulo="Por cidade" fatias={resumo.porCidade} />
         <Distribuicao titulo="Por segmento (MCC)" fatias={resumo.porMcc} />
       </div>
@@ -403,7 +401,7 @@ export default function HexaPainelClient({ clientes, role, uploadedBy, baseAusen
                       <p className="text-[11px] text-ink-faint truncate">
                         {c.bairro ? `${c.bairro}, ` : ''}{c.cidade}
                         {c.status_operacional && <> · {c.status_operacional}</>}
-                        {gestao && c.consultor_nome && <> · {c.consultor_nome}</>}
+                        {c.consultor_nome && <> · {c.consultor_nome}</>}
                       </p>
                       {c.campos_faltando && <p className="text-[11px] text-warn truncate">falta: {c.campos_faltando}</p>}
                     </div>

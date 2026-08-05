@@ -8,6 +8,10 @@ export default async function HexaRoteirizarPage() {
   const profile = await getProfile()
   if (!profile) redirect('/login')
 
+  // Mesma regra do painel: categoria de gestão, só admin e dono. Quem fecha de
+  // verdade é a RLS; ver o comentário em ../page.tsx.
+  if (profile.role !== 'admin' && profile.role !== 'dono') redirect('/dashboard')
+
   const supabase = await createClient()
 
   // Só quem tem coordenada: sem GPS não há parada. Quem está sem aparece no
@@ -27,7 +31,6 @@ export default async function HexaRoteirizarPage() {
     <HexaRoteirizarClient
       clientes={(data ?? []) as unknown as HexaCliente[]}
       meuNome={profile.nome || profile.email}
-      gestao={profile.role === 'admin' || profile.role === 'dono' || profile.role === 'lider'}
     />
   )
 }

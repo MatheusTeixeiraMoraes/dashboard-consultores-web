@@ -125,11 +125,12 @@ const NAV: NavItem[] = [
   { href: '/dashboard/radar',     label: 'Radar',          roles: ['admin','dono','lider','consultor'], secao: 'Campo', icon: <IconRadar /> },
   { href: '/dashboard/roteirizar',label: 'Roteirizar',     roles: ['admin','dono','lider','consultor'], secao: 'Campo', icon: <IconRoute /> },
   { href: '/dashboard/agenda',    label: 'Agenda',         roles: ['admin','dono','lider','consultor'], secao: 'Campo', icon: <IconClock /> },
-  // Rota Inter/Hexa Recife — categoria temporária. Consultor entra e vê só os
-  // clientes dele (RLS por nome, igual à carteira); quem sobe a planilha é o
-  // admin, e o botão de upload mora dentro do Painel, não em Upar Planilha.
-  { href: '/dashboard/hexa-recife',            label: 'Painel',     roles: ['admin','dono','lider','consultor'], secao: 'Rota Inter/Hexa Recife', icon: <IconPin /> },
-  { href: '/dashboard/hexa-recife/roteirizar', label: 'Roteirizar', roles: ['admin','dono','lider','consultor'], secao: 'Rota Inter/Hexa Recife', icon: <IconRoute /> },
+  // Rota Inter/Hexa Recife — categoria temporária, SÓ admin e dono (decisão do
+  // dono em 05/08). Nem líder, ao contrário das outras telas de carteira. Quem
+  // fecha de verdade é a RLS (2026-08-05_hexa_recife_so_admin_e_dono.sql); esta
+  // lista só evita mostrar um item que levaria a uma tela vazia.
+  { href: '/dashboard/hexa-recife',            label: 'Painel',     roles: ['admin','dono'], secao: 'Rota Inter/Hexa Recife', icon: <IconPin /> },
+  { href: '/dashboard/hexa-recife/roteirizar', label: 'Roteirizar', roles: ['admin','dono'], secao: 'Rota Inter/Hexa Recife', icon: <IconRoute /> },
   // Administração
   { href: '/dashboard/upload',    label: 'Upar Planilha',    roles: ['admin','dono'],              secao: 'Administração', icon: <IconUpload /> },
   { href: '/dashboard/historico', label: 'Histórico',        roles: ['admin','dono'],              secao: 'Administração', icon: <IconClock /> },
