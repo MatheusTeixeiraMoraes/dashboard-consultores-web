@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import MultiFiltro from '@/components/MultiFiltro'
+import { BotaoWhatsApp, BotaoMapa } from '@/components/BotaoContato'
 import { compararRitmo, faixaTPV, ROTULO_FAIXA, type FaixaTPV } from '@/lib/tpv'
 import { precisaIdentificar } from '@/lib/texto'
 import type { LinhaTPV } from './page'
@@ -108,6 +110,23 @@ const RotuloTendencia: Record<Exclude<Tendencia3Meses, null>, string> = {
   'recuperando': 'Recuperando',
   'crescimento-sustentado': 'Crescimento sustentado',
 }
+const ExplicacaoTendencia: Record<Exclude<Tendencia3Meses, null>, string> = {
+  'queda-cronica': 'caindo nos 3 meses seguidos — não é um mês ruim isolado, é um padrão.',
+  'queda-2-meses': 'estava bem 3 meses atrás, mas já caiu nos últimos 2 — vale entender o que mudou.',
+  'piorando-agora': 'vinha estável ou crescendo, e só começou a cair neste mês — pega o problema no início.',
+  'recuperando': 'vinha caindo, mas este mês já está melhor que o mesmo período do mês passado.',
+  'crescimento-sustentado': 'crescendo de forma consistente nos últimos meses.',
+}
+
+function Campo({ rotulo, valor, sub }: { rotulo: string; valor: string; sub?: string | null }) {
+  return (
+    <div>
+      <p className="text-[11px] text-ink-faint">{rotulo}</p>
+      <p className="text-sm font-medium text-ink">{valor}</p>
+      {sub && <p className="text-[10px] text-ink-faint mt-0.5">{sub}</p>}
+    </div>
+  )
+}
 
 type Ordem = 'pior-ritmo' | 'maior-perda' | 'mais-parado' | 'maior-tpv'
 
@@ -167,6 +186,42 @@ function Sparkline({ pontos, alto = false }: { pontos: (number | null)[]; alto?:
   )
 }
 
+/** Campos que a lista NÃO carrega mais (cortados por payload — ver commit de
+ *  performance) mas que o painel de detalhe de um cliente só busca quando
+ *  abre, um de cada vez: rico sem pesar a tela toda. */
+interface DetalheExtra {
+  quartil: string | null
+  status_credito: string | null
+  recorrencia: string | null
+  multicontas: number | null
+  dt_ultima_transacao: string | null
+  lat: number | null
+  lng: number | null
+  endereco_completo: string | null
+}
+
+async function buscarDetalheExtra(sellerId: string, dataReferencia: string): Promise<DetalheExtra> {
+  const supabase = createClient()
+  const [{ data: mp }, { data: cli }] = await Promise.all([
+    supabase.from('mp_carteira')
+      .select('quartil, status_credito, recorrencia, multicontas, dt_ultima_transacao')
+      .eq('data_referencia', dataReferencia).eq('seller_id', sellerId).maybeSingle(),
+    supabase.from('clientes')
+      .select('lat, lng, endereco_completo')
+      .eq('seller_id', sellerId).maybeSingle(),
+  ])
+  return {
+    quartil: mp?.quartil ?? null,
+    status_credito: mp?.status_credito ?? null,
+    recorrencia: mp?.recorrencia ?? null,
+    multicontas: mp?.multicontas ?? null,
+    dt_ultima_transacao: mp?.dt_ultima_transacao ?? null,
+    lat: cli?.lat ?? null,
+    lng: cli?.lng ?? null,
+    endereco_completo: cli?.endereco_completo ?? null,
+  }
+}
+
 export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellersComAcao, podeGerir }: Props) {
   const [busca, setBusca] = useState('')
   const [pagina, setPagina] = useState(0)
@@ -176,6 +231,24 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
   const [fStatus, setFStatus] = useState<Set<string>>(new Set())
   const [fMcc, setFMcc] = useState<Set<string>>(new Set())
   const [fSinais, setFSinais] = useState<Set<string>>(new Set())
+  const [detalheId, setDetalheId] = useState<string | null>(null)
+  // Guarda o resultado junto do id a que ele pertence — evita setState
+  // síncrono de "reset" no início do efeito (o lint do React reclama, e com
+  // razão: cascata de render). Enquanto `resultadoDetalhe.id` não bate com
+  // `detalheId`, ainda está carregando.
+  const [resultadoDetalhe, setResultadoDetalhe] = useState<{ id: string; dados: DetalheExtra } | null>(null)
+
+  useEffect(() => {
+    if (!detalheId || !dataReferencia) return
+    let cancelado = false
+    buscarDetalheExtra(detalheId, dataReferencia).then(dados => {
+      if (!cancelado) setResultadoDetalhe({ id: detalheId, dados })
+    })
+    return () => { cancelado = true }
+  }, [detalheId, dataReferencia])
+
+  const detalheExtra = resultadoDetalhe?.id === detalheId ? resultadoDetalhe.dados : null
+  const carregandoDetalhe = detalheId != null && resultadoDetalhe?.id !== detalheId
 
   const semAcaoSet = useMemo(() => new Set(sellersComAcao), [sellersComAcao])
 
@@ -246,6 +319,11 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
       }
     })
   }, [linhas, dataReferencia, semAcaoSet])
+
+  const clienteDetalhe = useMemo(
+    () => enriquecidas.find(l => l.seller_id === detalheId) ?? null,
+    [enriquecidas, detalheId],
+  )
 
   const consultores = useMemo(
     () => [...new Set(linhas.map(l => l.consultor_nome).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
@@ -489,14 +567,16 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
           const situacao = PillSituacao[l.status ?? ''] ?? { bg: 'bg-card-2 text-ink-dim', dot: 'bg-ink-faint' }
           return (
             <div key={l.seller_id}
-              className="glass rounded-2xl border border-line px-4 py-3.5 grid grid-cols-1 md:grid-cols-[minmax(0,1.55fr)_minmax(0,1.1fr)_minmax(0,1.15fr)_minmax(0,1fr)] gap-3 md:gap-4 md:items-center hover:border-primary/30 transition-colors">
+              role="button" tabIndex={0} onClick={() => setDetalheId(l.seller_id)}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setDetalheId(l.seller_id) }}
+              className="glass rounded-2xl border border-line px-4 py-3.5 grid grid-cols-1 md:grid-cols-[minmax(0,1.55fr)_minmax(0,1.1fr)_minmax(0,1.15fr)_minmax(0,1fr)] gap-3 md:gap-4 md:items-center hover:border-primary/30 transition-colors cursor-pointer">
 
               {/* Identidade + sinais */}
               <div className="flex gap-2.5 min-w-0">
                 <span className={`w-8 h-8 rounded-full grid place-items-center text-white text-xs font-semibold flex-shrink-0 ${corAvatar(l.seller_id)}`}>
                   {inicial(nomeExibido)}
                 </span>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   {pendente
                     ? <p className="text-warn truncate leading-tight text-sm">Pendente de identificação <span className="font-mono text-[11px] text-ink-faint">#{l.seller_id}</span></p>
                     : <p className="text-ink truncate leading-tight text-sm font-medium">{nomeExibido}</p>}
@@ -544,6 +624,12 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
                     </div>
                   )}
                 </div>
+                {/* stopPropagation: o cartão inteiro abre o detalhe ao clicar;
+                    o botão de WhatsApp precisa agir sozinho, sem abrir o painel
+                    junto. */}
+                <span onClick={e => e.stopPropagation()} className="flex-shrink-0">
+                  <BotaoWhatsApp telefone={f?.telefone} nome={nomeExibido} />
+                </span>
               </div>
 
               {/* Ritmo diário + variação + traço de 3 meses (M-3→M0) */}
@@ -619,6 +705,156 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
             <span className="text-ink-muted text-xs">{paginaAtual + 1} / {totalPaginas}</span>
             <button onClick={() => setPagina(p => Math.min(totalPaginas - 1, p + 1))} disabled={paginaAtual >= totalPaginas - 1}
               className="px-3 py-1.5 rounded-lg border border-line text-ink-dim text-xs disabled:opacity-40 hover:bg-card-2">Próxima</button>
+          </div>
+        </div>
+      )}
+
+      {/* Painel de detalhe: tudo sobre UM cliente, incluindo o que a lista não
+          carrega mais (quartil, crédito, recorrência, endereço) — busca só ao
+          abrir, não pesa a lista inteira. */}
+      {detalheId && (
+        <div className="fixed inset-0 bg-black/40 flex items-start justify-center p-4 z-50 overflow-y-auto"
+          onClick={() => setDetalheId(null)}>
+          <div className="glass-blur rounded-2xl border border-line max-w-xl w-full my-8" onClick={e => e.stopPropagation()}>
+            {!clienteDetalhe ? (
+              <div className="p-10 text-center text-sm text-ink-muted">Cliente não encontrado nesta página.</div>
+            ) : (() => {
+              const fd = fichas[clienteDetalhe.seller_id]
+              const nomeDetalhe = precisaIdentificar(fd?.nome ?? '', clienteDetalhe.seller_id)
+                ? `#${clienteDetalhe.seller_id}` : (fd?.nome ?? `#${clienteDetalhe.seller_id}`)
+              return (
+                <>
+                  <div className="flex items-start justify-between gap-3 p-5 border-b border-line">
+                    <div className="flex gap-3 min-w-0">
+                      <span className={`w-11 h-11 rounded-full grid place-items-center text-white text-base font-semibold flex-shrink-0 ${corAvatar(clienteDetalhe.seller_id)}`}>
+                        {inicial(nomeDetalhe)}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-base font-semibold text-ink truncate">{nomeDetalhe}</p>
+                        <p className="text-xs text-ink-faint truncate">#{clienteDetalhe.seller_id} · {clienteDetalhe.consultor_nome}</p>
+                        {(fd?.local || detalheExtra?.endereco_completo) && (
+                          <p className="text-xs text-ink-muted mt-0.5 truncate">{detalheExtra?.endereco_completo || fd?.local}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <BotaoWhatsApp telefone={fd?.telefone} nome={nomeDetalhe} />
+                      {detalheExtra && <BotaoMapa lat={detalheExtra.lat} lng={detalheExtra.lng} nome={nomeDetalhe} />}
+                      <button onClick={() => setDetalheId(null)} aria-label="Fechar"
+                        className="text-ink-faint hover:text-ink-dim text-2xl leading-none w-8 h-8 grid place-items-center flex-shrink-0">×</button>
+                    </div>
+                  </div>
+
+                  <div className="p-5 space-y-5">
+                    <section>
+                      <p className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide mb-2">TPV · últimos 3 meses</p>
+                      <div className="flex items-end gap-5 flex-wrap mb-3">
+                        <Sparkline pontos={clienteDetalhe.pontosTrimestre} alto />
+                        <div className="flex gap-4 flex-wrap">
+                          {([
+                            ['M-3', clienteDetalhe.tpv_m3], ['M-2', clienteDetalhe.tpv_m2],
+                            ['M-1', clienteDetalhe.tpv_mes_passado], ['Este mês (proj.)', clienteDetalhe.projecaoMes],
+                          ] as [string, number | null][]).map(([rot, v]) => (
+                            <div key={rot}>
+                              <p className="text-[10px] text-ink-faint">{rot}</p>
+                              <p className="text-sm font-semibold text-ink tabular-nums">{v != null ? brl(v) : '—'}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-card-2 rounded-xl px-3 py-2">
+                          <p className="text-[11px] text-ink-faint">Ritmo diário</p>
+                          <p className="text-sm font-semibold tabular-nums text-ink">{brl(clienteDetalhe.ritmoAtual)}/dia</p>
+                          <p className={`text-xs tabular-nums font-medium ${CorFaixa[clienteDetalhe.faixa]}`}>
+                            {clienteDetalhe.variacao == null ? '—' : pct(clienteDetalhe.variacao)} vs mês passado
+                          </p>
+                        </div>
+                        <div className="bg-card-2 rounded-xl px-3 py-2">
+                          <p className="text-[11px] text-ink-faint">Hoje vs {clienteDetalhe.rotuloReferencia}</p>
+                          <p className="text-sm font-semibold tabular-nums text-ink">
+                            {clienteDetalhe.tpv_mes_atual != null ? brl(clienteDetalhe.tpv_mes_atual) : '—'}
+                          </p>
+                          <p className="text-xs tabular-nums text-ink-faint">
+                            era {clienteDetalhe.referenciaComparavel != null ? brl(clienteDetalhe.referenciaComparavel) : '—'}
+                          </p>
+                        </div>
+                      </div>
+                      {clienteDetalhe.tendencia && (
+                        <p className={`text-xs mt-3 px-3 py-2 rounded-lg leading-relaxed ${
+                          clienteDetalhe.tendencia === 'queda-cronica' ? 'bg-bad-bg text-bad'
+                          : clienteDetalhe.tendencia === 'recuperando' || clienteDetalhe.tendencia === 'crescimento-sustentado' ? 'bg-good-bg text-good'
+                          : 'bg-warn-bg text-warn'
+                        }`}>
+                          <strong>{RotuloTendencia[clienteDetalhe.tendencia]}</strong> — {ExplicacaoTendencia[clienteDetalhe.tendencia]}
+                        </p>
+                      )}
+                    </section>
+
+                    {(clienteDetalhe.oportunidade_1x || clienteDetalhe.oportunidade_parc) && (
+                      <section>
+                        <p className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide mb-2">Oportunidade de reversão</p>
+                        <div className="space-y-2">
+                          {clienteDetalhe.oportunidade_1x && (
+                            <div className="flex items-center justify-between bg-primary/8 rounded-xl px-3 py-2 text-sm">
+                              <span className="text-ink-dim">À vista</span>
+                              <span className="tabular-nums text-ink">
+                                {brl(clienteDetalhe.valor_1x ?? 0)}
+                                {clienteDetalhe.ating_1x != null && ` · ${Math.round(clienteDetalhe.ating_1x * 100)}% capturado`}
+                                {clienteDetalhe.revertido_1x && <span className="text-good font-medium"> · revertida</span>}
+                              </span>
+                            </div>
+                          )}
+                          {clienteDetalhe.oportunidade_parc && (
+                            <div className="flex items-center justify-between bg-primary/8 rounded-xl px-3 py-2 text-sm">
+                              <span className="text-ink-dim">Parcelado</span>
+                              <span className="tabular-nums text-ink">
+                                {brl(clienteDetalhe.valor_parc ?? 0)}
+                                {clienteDetalhe.ating_parc != null && ` · ${Math.round(clienteDetalhe.ating_parc * 100)}% capturado`}
+                                {clienteDetalhe.revertido_parc && <span className="text-good font-medium"> · revertida</span>}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </section>
+                    )}
+
+                    <section>
+                      <p className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide mb-2">Situação e contexto</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-3">
+                        <Campo rotulo="Status" valor={clienteDetalhe.status ?? '—'} />
+                        <Campo rotulo="Segmento" valor={clienteDetalhe.mcc ?? '—'} />
+                        <Campo rotulo="Prioridade MP" valor={carregandoDetalhe ? '…' : (detalheExtra?.quartil ?? '—')} />
+                        <Campo rotulo="Crédito" valor={carregandoDetalhe ? '…' : (detalheExtra?.status_credito ?? '—')} />
+                        <Campo rotulo="Recorrência" valor={carregandoDetalhe ? '…' : (detalheExtra?.recorrencia ?? '—')} />
+                        <Campo rotulo="Multicontas" valor={carregandoDetalhe ? '…' : (detalheExtra?.multicontas != null ? String(detalheExtra.multicontas) : '—')} />
+                        <Campo rotulo="Sem transacionar"
+                          valor={clienteDetalhe.dias_sem_transacionar != null ? `${clienteDetalhe.dias_sem_transacionar}d` : '—'}
+                          sub={!carregandoDetalhe && detalheExtra?.dt_ultima_transacao ? `última em ${dataBR(detalheExtra.dt_ultima_transacao)}` : null} />
+                        <Campo rotulo="Sem contato" valor={clienteDetalhe.diasSemContato != null ? `${clienteDetalhe.diasSemContato}d` : 'nunca'} />
+                        <Campo rotulo="Sem pesquisa" valor={clienteDetalhe.diasSemPesquisa != null ? `${clienteDetalhe.diasSemPesquisa}d` : 'nunca'} />
+                      </div>
+                      {clienteDetalhe.vazandoFora && (
+                        <p className="text-xs text-ink-dim bg-card-2 rounded-lg px-3 py-2 mt-3">
+                          Processa <strong className="tabular-nums">{brl(clienteDetalhe.tpv_outras_contas ?? 0)}</strong> em
+                          outras contas MP — mais do que processa aqui.
+                        </p>
+                      )}
+                      {clienteDetalhe.semAcao && (
+                        <p className="text-xs text-warn bg-warn-bg rounded-lg px-3 py-2 mt-2">
+                          Nenhuma ação comercial atribuída a este cliente ainda.
+                        </p>
+                      )}
+                    </section>
+
+                    <a href="/dashboard/acionaveis"
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/15 rounded-lg px-3 py-2 transition-colors">
+                      Ver na fila de Acionáveis →
+                    </a>
+                  </div>
+                </>
+              )
+            })()}
           </div>
         </div>
       )}
