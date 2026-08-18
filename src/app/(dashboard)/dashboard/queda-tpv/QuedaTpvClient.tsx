@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import MultiFiltro from '@/components/MultiFiltro'
 import { compararRitmo, faixaTPV, ROTULO_FAIXA, type FaixaTPV } from '@/lib/tpv'
 import { precisaIdentificar } from '@/lib/texto'
-import type { LinhaTPV, PontoSerie } from './page'
+import type { LinhaTPV } from './page'
 
 // Cartão ocupa bem mais altura que uma linha de tabela — 50 por página
 // virava uma rolagem enorme. 20 mantém a lista escaneável de uma vez.
@@ -99,7 +99,6 @@ type Ordem = 'pior-ritmo' | 'maior-perda' | 'mais-parado' | 'maior-tpv'
 interface Props {
   dataReferencia: string | null
   linhas: LinhaTPV[]
-  serie: PontoSerie[]
   fichas: Record<string, { nome: string; telefone: string | null; local: string }>
   sellersComAcao: string[]
   podeGerir: boolean
@@ -119,35 +118,7 @@ const diasDesde = (iso: string | null, hoje: string): number | null => {
   return Math.round((Date.parse(hoje) - Date.parse(iso.slice(0, 10))) / 86400000)
 }
 
-/**
- * Tendência do mês num traço só, sem eixo nem tooltip — cabe dentro da
- * célula, ao lado do valor. Recharts fica de fora de propósito (é ~84KB
- * brotli, já reservado só pra gráfico full-size em outra tela); aqui é SVG
- * cru porque é a única coisa que cabe no espaço de uma linha de tabela.
- */
-function Sparkline({ pontos }: { pontos: number[] }) {
-  if (pontos.length < 2) return null
-  const w = 56, h = 20, pad = 2
-  const min = Math.min(...pontos)
-  const max = Math.max(...pontos)
-  const span = max - min || 1
-  const passo = (w - pad * 2) / (pontos.length - 1)
-  const xy = pontos.map((v, i) => [pad + i * passo, pad + (h - pad * 2) * (1 - (v - min) / span)] as const)
-  const linha = xy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
-  const area = `${pad},${h - pad} ${linha} ${(w - pad).toFixed(1)},${h - pad}`
-  const tendencia = pontos[pontos.length - 1] - pontos[0]
-  const cor = tendencia > 0 ? 'var(--color-good)' : tendencia < 0 ? 'var(--color-bad)' : 'var(--color-ink-faint)'
-  const [lx, ly] = xy[xy.length - 1]
-  return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="flex-shrink-0" aria-hidden="true">
-      <polygon points={area} fill={cor} opacity={0.12} />
-      <polyline points={linha} fill="none" stroke={cor} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={lx} cy={ly} r="2.1" fill={cor} />
-    </svg>
-  )
-}
-
-export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, sellersComAcao, podeGerir }: Props) {
+export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellersComAcao, podeGerir }: Props) {
   const [busca, setBusca] = useState('')
   const [pagina, setPagina] = useState(0)
   const [ordem, setOrdem] = useState<Ordem>('maior-perda')
@@ -156,17 +127,6 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
   const [fStatus, setFStatus] = useState<Set<string>>(new Set())
   const [fMcc, setFMcc] = useState<Set<string>>(new Set())
   const [fSinais, setFSinais] = useState<Set<string>>(new Set())
-
-  // Série por cliente, para saber há quantos dias o acumulado não sobe.
-  const seriePorSeller = useMemo(() => {
-    const m = new Map<string, { data: string; tpv: number | null }[]>()
-    for (const p of serie) {
-      const l = m.get(p.seller_id)
-      const ponto = { data: p.data_referencia, tpv: p.tpv_mes_atual }
-      if (l) l.push(ponto); else m.set(p.seller_id, [ponto])
-    }
-    return m
-  }, [serie])
 
   const semAcaoSet = useMemo(() => new Set(sellersComAcao), [sellersComAcao])
 
@@ -429,10 +389,6 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
       <div className="flex flex-col gap-2">
         {visiveis.map(l => {
           const f = fichas[l.seller_id]
-          const pontos = (seriePorSeller.get(l.seller_id) ?? [])
-            .filter((p): p is { data: string; tpv: number } => p.tpv != null)
-            .sort((a, b) => a.data.localeCompare(b.data))
-            .map(p => p.tpv)
           const pendente = precisaIdentificar(f?.nome ?? '', l.seller_id)
           const nomeExibido = pendente ? `#${l.seller_id}` : (f?.nome ?? `#${l.seller_id}`)
           const situacao = PillSituacao[l.status ?? ''] ?? { bg: 'bg-card-2 text-ink-dim', dot: 'bg-ink-faint' }
@@ -489,18 +445,15 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
                 </div>
               </div>
 
-              {/* Ritmo diário + tendência */}
-              <div className="flex items-center justify-between gap-3 md:justify-end">
-                <div className="text-right">
-                  <p className="tabular-nums text-ink leading-tight text-sm font-medium">
-                    {brl(l.ritmoAtual)}<span className="text-ink-faint font-normal text-xs">/dia</span>
-                  </p>
-                  <p className={`text-xs tabular-nums font-semibold leading-tight mt-0.5 ${CorFaixa[l.faixa]}`}>
-                    {l.variacao === null ? '—' : pct(l.variacao)}
-                    {l.perda > 0 && <span className="text-ink-faint font-normal"> · -{brl(l.perda)} proj.</span>}
-                  </p>
-                </div>
-                <Sparkline pontos={pontos} />
+              {/* Ritmo diário + variação */}
+              <div className="text-right">
+                <p className="tabular-nums text-ink leading-tight text-sm font-medium">
+                  {brl(l.ritmoAtual)}<span className="text-ink-faint font-normal text-xs">/dia</span>
+                </p>
+                <p className={`text-xs tabular-nums font-semibold leading-tight mt-0.5 ${CorFaixa[l.faixa]}`}>
+                  {l.variacao === null ? '—' : pct(l.variacao)}
+                  {l.perda > 0 && <span className="text-ink-faint font-normal"> · -{brl(l.perda)} proj.</span>}
+                </p>
               </div>
 
               {/* TPV no mês — atual, o fechado do mês passado pra referência,

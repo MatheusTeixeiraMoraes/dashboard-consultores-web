@@ -15,7 +15,6 @@ export interface CarteiraMP {
   tpv_mes_passado: number | null
   status_credito: string | null
   mcc: string | null
-  recorrencia: string | null
   ultimo_contato: string | null
   valor_1x: number | null
   valor_parc: number | null
@@ -58,7 +57,7 @@ export default async function AcionaveisPage() {
     buscarTudo<CarteiraMP>((opcoes, de, ate) =>
       supabase
         .from('mp_carteira')
-        .select('seller_id, consultor_nome, status, quartil, prio, tpv_mes_atual, tpv_mes_passado, status_credito, mcc, recorrencia, ultimo_contato, valor_1x, valor_parc, qtd_acionaveis', opcoes)
+        .select('seller_id, consultor_nome, status, quartil, prio, tpv_mes_atual, tpv_mes_passado, status_credito, mcc, ultimo_contato, valor_1x, valor_parc, qtd_acionaveis', opcoes)
         .eq('data_referencia', dataReferencia)
         .order('prio', { ascending: true, nullsFirst: false })
         .range(de, ate),

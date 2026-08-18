@@ -8,10 +8,7 @@ export interface LinhaTPV {
   seller_id: string
   consultor_nome: string
   status: string | null
-  quartil: string | null
   mcc: string | null
-  recorrencia: string | null
-  status_credito: string | null
   tpv_mes_atual: number | null
   tpv_mes_passado: number | null
   ultimo_contato: string | null
@@ -26,7 +23,6 @@ export interface LinhaTPV {
   revertido_parc: boolean
   // Sinal de vazamento: quanto o seller fatura em OUTRAS contas MP.
   tpv_outras_contas: number | null
-  multicontas: number | null
   // Data da última pesquisa de satisfação enviada — não é nota, é só "quando".
   pesquisa_recente: string | null
 
@@ -36,17 +32,9 @@ export interface LinhaTPV {
   tpv_m2: number | null
   tpv_m3: number | null
   dias_sem_transacionar: number | null
-  dt_ultima_transacao: string | null
   tpv_m3_vs_m1: number | null
   tpv_m2_vs_m1: number | null
   tpv_m0_vs_mesma_data: number | null
-}
-
-/** Um envio anterior do mesmo mês, para medir se o acumulado andou. */
-export interface PontoSerie {
-  seller_id: string
-  data_referencia: string
-  tpv_mes_atual: number | null
 }
 
 export default async function QuedaTpvPage() {
@@ -64,35 +52,30 @@ export default async function QuedaTpvPage() {
 
   const dataReferencia: string | null = ultima?.data_referencia ?? null
   if (!dataReferencia) {
-    return <QuedaTpvClient dataReferencia={null} linhas={[]} serie={[]} fichas={{}} sellersComAcao={[]} podeGerir={false} />
+    return <QuedaTpvClient dataReferencia={null} linhas={[]} fichas={{}} sellersComAcao={[]} podeGerir={false} />
   }
 
-  // Série do MESMO MÊS, para medir estagnação. O TPV é acumulado e zera na
-  // virada, então misturar meses mostraria queda de 100% em todo mundo no dia 1.
-  const mes = dataReferencia.slice(0, 7)
-
-  /* As quatro buscas só dependem de `dataReferencia`, que já foi resolvida acima —
+  /* As três buscas só dependem de `dataReferencia`, que já foi resolvida acima —
    * nenhuma delas usa o resultado da outra. Em fila, cada uma esperava a
    * anterior terminar à toa, e como `buscarTudo` já custa duas ondas de rede
    * (contar, depois as páginas), isso somava ondas em série antes do primeiro
-   * pixel. Em paralelo o custo passa a ser o da mais lenta. */
-  const [linhas, serie, cadastro, acoes] = await Promise.all([
+   * pixel. Em paralelo o custo passa a ser o da mais lenta.
+   *
+   * Existia uma quarta busca aqui: a série do mês inteiro (todos os envios),
+   * só para desenhar um sparkline decorativo por cliente. Sem filtrar por
+   * `data_referencia` — ela crescia com CADA envio novo do mês — já eram 17
+   * mil linhas / 1,3 MB no dia 18. Cortada: o % de variação colorido e o
+   * badge de tendência de 3 meses (que já vêm de `linhas`, sem custo extra)
+   * contam a mesma história de tendência sem pagar essa busca. */
+  const [linhas, cadastro, acoes] = await Promise.all([
     buscarTudo<LinhaTPV>((opcoes, de, ate) =>
       supabase
         .from('mp_carteira')
         .select(
-          'seller_id, consultor_nome, status, quartil, mcc, recorrencia, status_credito, tpv_mes_atual, tpv_mes_passado, ultimo_contato, oportunidade_1x, valor_1x, ating_1x, revertido_1x, oportunidade_parc, valor_parc, ating_parc, revertido_parc, tpv_outras_contas, multicontas, pesquisa_recente, tpv_mesma_data_mes_passado, tpv_m2, tpv_m3, dias_sem_transacionar, dt_ultima_transacao, tpv_m3_vs_m1, tpv_m2_vs_m1, tpv_m0_vs_mesma_data',
+          'seller_id, consultor_nome, status, mcc, tpv_mes_atual, tpv_mes_passado, ultimo_contato, oportunidade_1x, valor_1x, ating_1x, revertido_1x, oportunidade_parc, valor_parc, ating_parc, revertido_parc, tpv_outras_contas, pesquisa_recente, tpv_mesma_data_mes_passado, tpv_m2, tpv_m3, dias_sem_transacionar, tpv_m3_vs_m1, tpv_m2_vs_m1, tpv_m0_vs_mesma_data',
           opcoes,
         )
         .eq('data_referencia', dataReferencia)
-        .range(de, ate),
-    ),
-    buscarTudo<PontoSerie>((opcoes, de, ate) =>
-      supabase
-        .from('mp_carteira')
-        .select('seller_id, data_referencia, tpv_mes_atual', opcoes)
-        .gte('data_referencia', `${mes}-01`)
-        .lte('data_referencia', dataReferencia)
         .range(de, ate),
     ),
     // Nome e telefone vêm da base de rotas só para exibir — as duas bases seguem
@@ -134,7 +117,6 @@ export default async function QuedaTpvPage() {
     <QuedaTpvClient
       dataReferencia={dataReferencia}
       linhas={linhas}
-      serie={serie}
       fichas={fichas}
       sellersComAcao={sellersComAcao}
       podeGerir={podeGerir}
