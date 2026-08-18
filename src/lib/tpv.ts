@@ -47,6 +47,8 @@ export interface RitmoTPV {
   projecaoMes: number
   diasDecorridos: number
   diasMesPassado: number
+  /** Dias corridos do mês em curso INTEIRO (não só até a data do snapshot). */
+  diasMesTodo: number
 }
 
 /**
@@ -81,6 +83,7 @@ export function compararRitmo(
     projecaoMes: ritmoAtual * diasMesTodo,
     diasDecorridos,
     diasMesPassado,
+    diasMesTodo,
   }
 }
 

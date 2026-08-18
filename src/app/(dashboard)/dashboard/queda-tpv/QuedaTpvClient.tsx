@@ -164,6 +164,19 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
       const revertida =
         (!l.oportunidade_1x || l.revertido_1x) && (!l.oportunidade_parc || l.revertido_parc)
 
+      // Quanto falta pra bater o mês passado — NÃO é a diferença bruta
+      // (atual parcial vs. passado fechado): isso é exatamente a comparação
+      // enganosa que o ritmo/dia existe pra evitar (ver cabeçalho do
+      // arquivo). É o ritmo médio necessário nos dias que faltam pra que o
+      // total do mês feche igual ao passado.
+      const diasRestantes = r.diasMesTodo - r.diasDecorridos
+      const faltaTotal = l.tpv_mes_passado != null && l.tpv_mes_atual != null
+        ? l.tpv_mes_passado - l.tpv_mes_atual
+        : null
+      const ritmoNecessario = faltaTotal != null && faltaTotal > 0 && diasRestantes > 0
+        ? faltaTotal / diasRestantes
+        : null
+
       const semAcao = !semAcaoSet.has(l.seller_id)
       const vazandoFora = (l.tpv_outras_contas ?? 0) > 0 && (l.tpv_outras_contas ?? 0) > (l.tpv_mes_atual ?? 0)
 
@@ -177,6 +190,7 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
         ...l, ...r, ...e, perda, faixa: faixaTPV(r.variacao),
         temOportunidade, valorOportunidade, pctCapturado, revertida,
         semAcao, vazandoFora, diasSemContato, diasSemPesquisa, riscoAbandono,
+        diasRestantes, faltaTotal, ritmoNecessario,
       }
     })
   }, [linhas, dataReferencia, seriePorSeller, semAcaoSet])
@@ -397,7 +411,7 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
           const situacao = PillSituacao[l.status ?? ''] ?? { bg: 'bg-card-2 text-ink-dim', dot: 'bg-ink-faint' }
           return (
             <div key={l.seller_id}
-              className="glass rounded-2xl border border-line px-4 py-3.5 grid grid-cols-1 md:grid-cols-[minmax(0,1.7fr)_minmax(0,1.15fr)_minmax(0,.85fr)_minmax(0,1.05fr)] gap-3 md:gap-4 md:items-center hover:border-primary/30 transition-colors">
+              className="glass rounded-2xl border border-line px-4 py-3.5 grid grid-cols-1 md:grid-cols-[minmax(0,1.55fr)_minmax(0,1.1fr)_minmax(0,1.15fr)_minmax(0,1fr)] gap-3 md:gap-4 md:items-center hover:border-primary/30 transition-colors">
 
               {/* Identidade + sinais */}
               <div className="flex gap-2.5 min-w-0">
@@ -446,18 +460,37 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
                   </p>
                   <p className={`text-xs tabular-nums font-semibold leading-tight mt-0.5 ${CorFaixa[l.faixa]}`}>
                     {l.variacao === null ? '—' : pct(l.variacao)}
-                    {l.perda > 0 && <span className="text-ink-faint font-normal"> · -{brl(l.perda)}</span>}
+                    {l.perda > 0 && <span className="text-ink-faint font-normal"> · -{brl(l.perda)} proj.</span>}
                   </p>
                 </div>
                 <Sparkline pontos={pontos} />
               </div>
 
-              {/* TPV no mês */}
-              <div className="flex items-center justify-between md:block">
-                <span className="text-[10px] text-ink-faint md:hidden">TPV no mês</span>
-                <span className="text-sm tabular-nums text-ink-muted md:text-right md:block">
-                  {l.tpv_mes_atual != null ? brl(l.tpv_mes_atual) : '—'}
-                </span>
+              {/* TPV no mês — atual, o fechado do mês passado pra referência,
+                  e o ritmo que falta pros dias restantes pra empatar (não a
+                  diferença bruta atual-vs-passado, que compararia parcial
+                  com fechado e mentiria — mesmo motivo do ritmo/dia acima). */}
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center justify-between md:justify-end md:gap-1.5">
+                  <span className="text-[10px] text-ink-faint md:hidden">TPV no mês</span>
+                  <span className="text-sm tabular-nums text-ink font-medium">
+                    {l.tpv_mes_atual != null ? brl(l.tpv_mes_atual) : '—'}
+                  </span>
+                </div>
+                {l.tpv_mes_passado != null && (
+                  <p className="text-[11px] tabular-nums text-ink-faint text-right">
+                    mês passado {brl(l.tpv_mes_passado)}
+                  </p>
+                )}
+                {l.ritmoNecessario != null ? (
+                  <p className="text-[11px] tabular-nums text-warn font-medium text-right">
+                    faltam {brl(l.ritmoNecessario)}/dia · {l.diasRestantes}d
+                  </p>
+                ) : l.faltaTotal != null && l.faltaTotal < 0 && (
+                  <p className="text-[11px] tabular-nums text-good font-medium text-right">
+                    +{brl(-l.faltaTotal)} acima do mês passado
+                  </p>
+                )}
               </div>
 
               {/* Situação */}

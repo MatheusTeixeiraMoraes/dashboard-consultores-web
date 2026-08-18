@@ -61,6 +61,7 @@ t('sem base no mês passado, variação é null (não -100%)', () => {
 t('projeção usa o mês inteiro, e é rotulada como estimativa', () => {
   const r = compararRitmo(35_762_015, 93_884_472, '2026-07-13')
   perto(r.projecaoMes, r.ritmoAtual * 31, 1)   // julho tem 31 dias
+  assert.equal(r.diasMesTodo, 31)
 })
 
 // ---- série entre envios ----
