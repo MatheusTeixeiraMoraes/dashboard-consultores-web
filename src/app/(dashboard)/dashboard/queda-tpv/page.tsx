@@ -29,6 +29,17 @@ export interface LinhaTPV {
   multicontas: number | null
   // Data da última pesquisa de satisfação enviada — não é nota, é só "quando".
   pesquisa_recente: string | null
+
+  // TPV multi-mês, tudo pronto do MP (colunas novas de 18/08/2026) — ver
+  // migration 2026-08-18_tpv_multi_mes.sql pra convenção de sinal completa.
+  tpv_mesma_data_mes_passado: number | null
+  tpv_m2: number | null
+  tpv_m3: number | null
+  dias_sem_transacionar: number | null
+  dt_ultima_transacao: string | null
+  tpv_m3_vs_m1: number | null
+  tpv_m2_vs_m1: number | null
+  tpv_m0_vs_mesma_data: number | null
 }
 
 /** Um envio anterior do mesmo mês, para medir se o acumulado andou. */
@@ -70,7 +81,7 @@ export default async function QuedaTpvPage() {
       supabase
         .from('mp_carteira')
         .select(
-          'seller_id, consultor_nome, status, quartil, mcc, recorrencia, status_credito, tpv_mes_atual, tpv_mes_passado, ultimo_contato, oportunidade_1x, valor_1x, ating_1x, revertido_1x, oportunidade_parc, valor_parc, ating_parc, revertido_parc, tpv_outras_contas, multicontas, pesquisa_recente',
+          'seller_id, consultor_nome, status, quartil, mcc, recorrencia, status_credito, tpv_mes_atual, tpv_mes_passado, ultimo_contato, oportunidade_1x, valor_1x, ating_1x, revertido_1x, oportunidade_parc, valor_parc, ating_parc, revertido_parc, tpv_outras_contas, multicontas, pesquisa_recente, tpv_mesma_data_mes_passado, tpv_m2, tpv_m3, dias_sem_transacionar, dt_ultima_transacao, tpv_m3_vs_m1, tpv_m2_vs_m1, tpv_m0_vs_mesma_data',
           opcoes,
         )
         .eq('data_referencia', dataReferencia)

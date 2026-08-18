@@ -28,6 +28,12 @@ t('os 12 meses abreviados', () => {
   meses.forEach((m, i) => assert.equal(parseData(`15 de ${m}. de 2026`), `2026-${esperado[i]}-15`))
 })
 
+t('DT_ULTIMA_TRANSACAO vem em DD/MM/AAAA, formato diferente do resto', () => {
+  assert.equal(parseData('16/08/2026'), '2026-08-16')
+  assert.equal(parseData('1/7/2026'), '2026-07-01')     // dia e mês sem zero
+  assert.equal(parseData('31/12/2025'), '2025-12-31')
+})
+
 t('"-" é "nunca contatado", não erro (11% da planilha)', () => {
   assert.equal(parseData('-'), null)
   assert.equal(parseData(''), null)
@@ -89,6 +95,14 @@ const linha = (over = {}) => ({
   'REVERTIDO_PARC': 0,
   '#ACIONÁVEIS COMERCIAIS': 2,
   'PESQUISA MAIS RECENTE': '-',
+  ' TPV MESMA DATA MÊS PASSADO ': 3900,
+  ' TPV M-2 ': 5800,
+  ' TPV M-3 ': 7200,
+  'DIAS SEM TRANSACIONAR': 3,
+  'DT_ULTIMA_TRANSACAO': '15/08/2026',
+  ' TPV M3 vs M1 ': -1100,   // M1(6100) - M3(7200)
+  ' TPV M2 vs M1 ': 300,     // M1(6100) - M2(5800)
+  ' TPV M0 vs Mesma data mês anterior ': 310,  // atual(4210) - mesmaData(3900)
   ...over,
 })
 
@@ -153,6 +167,19 @@ t('converte os campos de oportunidade e ignora "-"', () => {
   assert.equal(c.valor_parc, null)      // "-" vira null, não 0
   assert.equal(c.ultimo_contato, '2026-06-26')
   assert.equal(c.pesquisa_recente, null)
+})
+
+t('lê as colunas novas de TPV multi-mês (18/08/2026)', () => {
+  const { clientes } = lerPlanilhaGeral([linha()])
+  const c = clientes[0]
+  assert.equal(c.tpv_mesma_data_mes_passado, 3900)
+  assert.equal(c.tpv_m2, 5800)
+  assert.equal(c.tpv_m3, 7200)
+  assert.equal(c.dias_sem_transacionar, 3)
+  assert.equal(c.dt_ultima_transacao, '2026-08-15')
+  assert.equal(c.tpv_m3_vs_m1, -1100)
+  assert.equal(c.tpv_m2_vs_m1, 300)
+  assert.equal(c.tpv_m0_vs_mesma_data, 310)
 })
 
 t('linha em branco no fim do arquivo é ignorada', () => {

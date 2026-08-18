@@ -40,6 +40,9 @@ const MESES: Record<string, string> = {
  * O MP manda "26 de jun. de 2026" — texto, não data do Excel. Vazio e "-"
  * viram null: 11% dos clientes nunca foram contatados, e isso é informação
  * ("nunca"), não erro.
+ *
+ * DT_ULTIMA_TRANSACAO (chegou em 18/08/2026) vem num formato DIFERENTE —
+ * "16/08/2026", dia/mês/ano com barra — por isso o segundo formato aqui.
  */
 export function parseData(v: unknown): string | null {
   const s = String(v ?? '').trim()
@@ -50,6 +53,8 @@ export function parseData(v: unknown): string | null {
     const mes = MESES[m[2].toLowerCase().slice(0, 3)]
     if (mes) return `${m[3]}-${mes}-${m[1].padStart(2, '0')}`
   }
+  const barra = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (barra) return `${barra[3]}-${barra[2].padStart(2, '0')}-${barra[1].padStart(2, '0')}`
   // Fallback: se um dia vier como data do Excel ou ISO, aproveita.
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
   return null
@@ -106,6 +111,21 @@ export interface ClienteSnapshot {
   ating_parc: number | null
   revertido_parc: boolean
   qtd_acionaveis: number
+
+  // Colunas novas de 18/08/2026 — TPV multi-mês, tudo pronto do MP.
+  /** TPV do mês passado, só até o mesmo dia da planilha atual — comparável
+   *  direto com tpv_mes_atual, sem dividir por dias. */
+  tpv_mesma_data_mes_passado: number | null
+  tpv_m2: number | null   // mês fechado de 2 meses atrás (M-2)
+  tpv_m3: number | null   // mês fechado de 3 meses atrás (M-3)
+  /** Dias corridos desde a última transação na maquininha — do MP, não derivado. */
+  dias_sem_transacionar: number | null
+  dt_ultima_transacao: string | null
+  // "vs": valor = período MAIS RECENTE − período MAIS ANTIGO. Positivo =
+  // cresceu, negativo = caiu. Confirmado linha a linha contra a planilha real.
+  tpv_m3_vs_m1: number | null
+  tpv_m2_vs_m1: number | null
+  tpv_m0_vs_mesma_data: number | null
 }
 
 export interface AcaoSnapshot {
@@ -164,6 +184,16 @@ export function lerPlanilhaGeral(linhas: Record<string, unknown>[]): Lido {
     valParc: findCol(h, 'TPV_ACT_PARC'),
     atParc: findCol(h, 'ATING_PARC'),
     revParc: findCol(h, 'REVERTIDO_PARC'),
+
+    // Colunas novas de 18/08/2026.
+    mesmaData: findCol(h, 'TPV MESMA DATA MÊS PASSADO'),
+    tpvM2: findCol(h, 'TPV M-2'),
+    tpvM3: findCol(h, 'TPV M-3'),
+    diasSemTransacionar: findCol(h, 'DIAS SEM TRANSACIONAR'),
+    dtUltimaTransacao: findCol(h, 'DT_ULTIMA_TRANSACAO'),
+    m3vsM1: findCol(h, 'TPV M3 vs M1'),
+    m2vsM1: findCol(h, 'TPV M2 vs M1'),
+    m0vsMesmaData: findCol(h, 'TPV M0 vs Mesma data mês anterior'),
   }
 
   const obrigatorias: (keyof typeof col)[] = ['seller', 'consultor', 'lista', 'qtd', 'quartil', 'status']
@@ -231,6 +261,15 @@ export function lerPlanilhaGeral(linhas: Record<string, unknown>[]): Lido {
       ating_parc: paraNumero(r[col.atParc!]),
       revertido_parc: paraNumero(r[col.revParc!]) === 1,
       qtd_acionaveis: lista.length,
+
+      tpv_mesma_data_mes_passado: paraNumero(r[col.mesmaData!]),
+      tpv_m2: paraNumero(r[col.tpvM2!]),
+      tpv_m3: paraNumero(r[col.tpvM3!]),
+      dias_sem_transacionar: paraNumero(r[col.diasSemTransacionar!]),
+      dt_ultima_transacao: parseData(r[col.dtUltimaTransacao!]),
+      tpv_m3_vs_m1: paraNumero(r[col.m3vsM1!]),
+      tpv_m2_vs_m1: paraNumero(r[col.m2vsM1!]),
+      tpv_m0_vs_mesma_data: paraNumero(r[col.m0vsMesmaData!]),
     })
 
     for (const acionavel of lista) {

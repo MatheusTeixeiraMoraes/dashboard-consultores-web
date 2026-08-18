@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import MultiFiltro from '@/components/MultiFiltro'
-import { compararRitmo, estagnacao, faixaTPV, ROTULO_FAIXA, type FaixaTPV } from '@/lib/tpv'
+import { compararRitmo, faixaTPV, ROTULO_FAIXA, type FaixaTPV } from '@/lib/tpv'
 import { precisaIdentificar } from '@/lib/texto'
 import type { LinhaTPV, PontoSerie } from './page'
 
@@ -63,6 +63,36 @@ const IconRelogio = () => (
     <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
   </svg>
 )
+const IconTendenciaQueda = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-2.5 h-2.5">
+    <polyline points="22 17 13.5 8.5 8.5 13.5 2 7" /><polyline points="16 17 22 17 22 11" />
+  </svg>
+)
+
+/**
+ * Tendência de 3 meses — a "situação" nova que as colunas TPV M-2/M-3 e as
+ * comparações prontas do MP abrem. Cruza duas janelas independentes:
+ *   - m3vsM1: caiu ou cresceu dos últimos 3 meses até o mês passado?
+ *   - m0vsMesmaData: continua caindo ou já virou, comparando o mesmo
+ *     intervalo de dias deste mês com o mesmo intervalo do mês passado?
+ * "Piorando agora" é o sinal mais raro e mais útil: cliente estável há
+ * meses que começou a cair SÓ neste mês — ninguém pega isso olhando só
+ * quartil ou o ritmo/dia (que compara com o mês passado inteiro, não com o
+ * mesmo pedaço de dias). "Queda sustentada" é o oposto: vem caindo há 3
+ * meses e continua caindo agora — não é ruído de um mês ruim.
+ */
+type Tendencia3Meses = 'queda-sustentada' | 'piorando-agora' | 'recuperando' | 'crescimento-sustentado' | null
+function classificarTendencia(m3vsM1: number | null, m0vsMesmaData: number | null): Tendencia3Meses {
+  if (m3vsM1 == null || m0vsMesmaData == null) return null
+  if (m3vsM1 < 0) return m0vsMesmaData < 0 ? 'queda-sustentada' : 'recuperando'
+  return m0vsMesmaData < 0 ? 'piorando-agora' : 'crescimento-sustentado'
+}
+const RotuloTendencia: Record<Exclude<Tendencia3Meses, null>, string> = {
+  'queda-sustentada': 'Queda há 3 meses',
+  'piorando-agora': 'Piorando agora',
+  'recuperando': 'Recuperando',
+  'crescimento-sustentado': 'Crescimento sustentado',
+}
 
 type Ordem = 'pior-ritmo' | 'maior-perda' | 'mais-parado' | 'maior-tpv'
 
@@ -79,7 +109,10 @@ interface Props {
 const DIAS_SEM_CONTATO = 30
 const DIAS_SEM_PESQUISA = 90
 
-const SINAIS = ['Sem ação atribuída', 'Oportunidade aberta', 'TPV em outras contas', 'Sem contato/pesquisa recente'] as const
+const SINAIS = [
+  'Sem ação atribuída', 'Oportunidade aberta', 'TPV em outras contas', 'Sem contato/pesquisa recente',
+  'Piorando agora', 'Queda há 3 meses',
+] as const
 
 const diasDesde = (iso: string | null, hoje: string): number | null => {
   if (!iso) return null
@@ -141,7 +174,6 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
     if (!dataReferencia) return []
     return linhas.map(l => {
       const r = compararRitmo(l.tpv_mes_atual, l.tpv_mes_passado, dataReferencia)
-      const e = estagnacao(seriePorSeller.get(l.seller_id) ?? [])
       // Quanto de faturamento se perdeu no ritmo, projetado no mês. É derivado
       // (ritmo × dias), e serve só para ordenar por tamanho do problema — quem
       // cai 50% faturando R$ 200 não é o mesmo problema que quem cai 12%
@@ -186,14 +218,16 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
         (diasSemContato === null || diasSemContato >= DIAS_SEM_CONTATO) &&
         (diasSemPesquisa === null || diasSemPesquisa >= DIAS_SEM_PESQUISA)
 
+      const tendencia = classificarTendencia(l.tpv_m3_vs_m1, l.tpv_m0_vs_mesma_data)
+
       return {
-        ...l, ...r, ...e, perda, faixa: faixaTPV(r.variacao),
+        ...l, ...r, perda, faixa: faixaTPV(r.variacao),
         temOportunidade, valorOportunidade, pctCapturado, revertida,
         semAcao, vazandoFora, diasSemContato, diasSemPesquisa, riscoAbandono,
-        diasRestantes, faltaTotal, ritmoNecessario,
+        diasRestantes, faltaTotal, ritmoNecessario, tendencia,
       }
     })
-  }, [linhas, dataReferencia, seriePorSeller, semAcaoSet])
+  }, [linhas, dataReferencia, semAcaoSet])
 
   const consultores = useMemo(
     () => [...new Set(linhas.map(l => l.consultor_nome).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
@@ -210,6 +244,8 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
     if (fSinais.has('Oportunidade aberta') && l.temOportunidade && !l.revertida) return true
     if (fSinais.has('TPV em outras contas') && l.vazandoFora) return true
     if (fSinais.has('Sem contato/pesquisa recente') && l.riscoAbandono) return true
+    if (fSinais.has('Piorando agora') && l.tendencia === 'piorando-agora') return true
+    if (fSinais.has('Queda há 3 meses') && l.tendencia === 'queda-sustentada') return true
     return false
   }, [fSinais])
 
@@ -226,7 +262,7 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
     const cmp: Record<Ordem, (a: typeof arr[0], b: typeof arr[0]) => number> = {
       'pior-ritmo': (a, b) => (a.variacao ?? 9) - (b.variacao ?? 9),
       'maior-perda': (a, b) => b.perda - a.perda,
-      'mais-parado': (a, b) => (b.diasSemVender ?? -1) - (a.diasSemVender ?? -1),
+      'mais-parado': (a, b) => (b.dias_sem_transacionar ?? -1) - (a.dias_sem_transacionar ?? -1),
       'maior-tpv': (a, b) => (b.tpv_mes_atual ?? 0) - (a.tpv_mes_atual ?? 0),
     }
     return [...arr].sort(cmp[ordem])
@@ -234,7 +270,7 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
 
   const kpis = useMemo(() => {
     const emQueda = filtradas.filter(l => l.faixa === 'queda' || l.faixa === 'queda-forte')
-    const parados = filtradas.filter(l => (l.diasSemVender ?? 0) >= 3)
+    const parados = filtradas.filter(l => (l.dias_sem_transacionar ?? 0) >= 3)
     const comOportunidade = filtradas.filter(l => l.temOportunidade && !l.revertida)
     return {
       total: filtradas.length,
@@ -260,8 +296,6 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
     return [...m.values()].sort((a, b) => b.perdaTotal - a.perdaTotal)
   }, [filtradas])
   const maiorPerdaConsultor = porConsultor[0]?.perdaTotal ?? 0
-
-  const temSerie = useMemo(() => enriquecidas.some(l => l.temSerie), [enriquecidas])
 
   const totalPaginas = Math.max(1, Math.ceil(filtradas.length / POR_PAGINA))
   const paginaAtual = Math.min(pagina, totalPaginas - 1)
@@ -387,13 +421,6 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
         </div>
       </div>
 
-      {!temSerie && (
-        <p className="text-xs text-warn bg-warn-bg rounded-xl px-4 py-2.5 mb-4">
-          Só existe um envio deste mês. A coluna &quot;sem vender&quot; começa a funcionar no
-          segundo envio — é a diferença entre dois retratos que mostra quem parou.
-        </p>
-      )}
-
       {/* Lista de cartões, não tabela: cada cliente é um bloco com respiro
           próprio, não uma linha presa numa grade de bordas de célula — é
           isso, mais do que qualquer cor, que tira a cara de planilha.
@@ -425,7 +452,7 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
                   <p className="text-[11px] text-ink-faint truncate mt-0.5">
                     {podeGerir ? l.consultor_nome : f?.local || `#${l.seller_id}`}
                   </p>
-                  {(l.temOportunidade || l.semAcao || l.vazandoFora || l.riscoAbandono) && (
+                  {(l.temOportunidade || l.semAcao || l.vazandoFora || l.riscoAbandono || l.tendencia === 'piorando-agora' || l.tendencia === 'queda-sustentada') && (
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {l.temOportunidade && !l.revertida && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/12 text-primary-lt">
@@ -445,6 +472,16 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
                       {l.riscoAbandono && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-warn-bg/70 text-warn">
                           <IconRelogio />Sem contato/pesquisa
+                        </span>
+                      )}
+                      {/* Tendência de 3 meses — só os dois casos que pedem atenção;
+                          "recuperando"/"crescimento sustentado" não geram badge
+                          (a tela é de queda, não de comemoração). */}
+                      {(l.tendencia === 'piorando-agora' || l.tendencia === 'queda-sustentada') && (
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                          l.tendencia === 'queda-sustentada' ? 'bg-bad-bg text-bad' : 'bg-warn-bg text-warn'
+                        }`}>
+                          <IconTendenciaQueda />{RotuloTendencia[l.tendencia]}
                         </span>
                       )}
                     </div>
@@ -499,8 +536,8 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
                   <span className={`w-1.5 h-1.5 rounded-full ${situacao.dot}`} />
                   {l.status}
                 </span>
-                <span className={`text-[11px] ${l.diasSemVender != null && l.diasSemVender >= 3 ? 'text-bad font-semibold' : 'text-ink-faint'}`}>
-                  {l.diasSemVender == null ? '—' : `${l.diasSemVender}d sem vender`}
+                <span className={`text-[11px] ${l.dias_sem_transacionar != null && l.dias_sem_transacionar >= 3 ? 'text-bad font-semibold' : 'text-ink-faint'}`}>
+                  {l.dias_sem_transacionar == null ? '—' : `${l.dias_sem_transacionar}d sem transacionar`}
                 </span>
               </div>
             </div>
