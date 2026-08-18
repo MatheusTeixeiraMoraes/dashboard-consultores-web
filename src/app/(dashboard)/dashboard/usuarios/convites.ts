@@ -22,11 +22,11 @@ export interface ConsultorPlanilha {
 /**
  * Monta a lista de consultores das planilhas, SOB DEMANDA.
  *
- * Isto varre a tabela de clientes inteira (~3,9 mil linhas) e a de scores, e
- * por isso NÃO mora mais no carregamento da página: quando morava, a tela de
- * Usuários pagava ~3s e chegou a estourar `statement timeout` do Postgres sob
- * concorrência. Só quem clica em "Gerar link de acesso" precisa da lista, e aí
- * a espera tem contexto.
+ * Isto varre a tabela de clientes ativos (~3,9 mil linhas) e o score do
+ * upload mais recente, e por isso NÃO mora mais no carregamento da página:
+ * quando morava, a tela de Usuários pagava ~3s e chegou a estourar
+ * `statement timeout` do Postgres sob concorrência. Só quem clica em "Gerar
+ * link de acesso" precisa da lista, e aí a espera tem contexto.
  *
  * (A alternativa seria agregar no banco, mas a agregação do PostgREST está
  * desligada neste projeto — `select=consultor_nome,count()` responde 400.)
@@ -42,15 +42,31 @@ export async function listarConsultoresDaPlanilha(): Promise<{
 
     const supabase = await createClient()
 
+    // As duas fontes acumulam HISTÓRICO (score guarda todo upload já feito;
+    // clientes mantém quem saiu da planilha com em_carteira=false — ver
+    // reconciliar_carteira). Sem filtrar pelo snapshot atual, consultor que
+    // saiu há meses reaparece aqui como se ainda existisse.
+    const { data: uploads } = await supabase
+      .from('score_uploads')
+      .select('data_referencia')
+      .order('data_referencia', { ascending: false })
+      .limit(1)
+    const latestDate = uploads?.[0]?.data_referencia ?? null
+
     // O score é a fonte boa: única que traz nome E id_carteira na mesma linha.
     // `clientes` entra por cima para quem tem carteira de campo mas ainda não
     // pontuou — esse fica sem id_carteira, e a tela avisa.
-    const doScore = await buscarTudo<{ consultor_nome: string; id_carteira: string }>(
-      (opcoes, de, ate) =>
-        supabase.from('score_consultor_resultados').select('consultor_nome, id_carteira', opcoes).range(de, ate),
-    )
+    const doScore = latestDate
+      ? await buscarTudo<{ consultor_nome: string; id_carteira: string }>((opcoes, de, ate) =>
+          supabase
+            .from('score_consultor_resultados')
+            .select('consultor_nome, id_carteira', opcoes)
+            .eq('data_referencia', latestDate)
+            .range(de, ate),
+        )
+      : []
     const dosClientes = await buscarTudo<{ consultor_nome: string }>((opcoes, de, ate) =>
-      supabase.from('clientes').select('consultor_nome', opcoes).range(de, ate),
+      supabase.from('clientes').select('consultor_nome', opcoes).eq('em_carteira', true).range(de, ate),
     )
     const { data: perfis } = await supabase.from('profiles').select('nome')
 
