@@ -6,7 +6,9 @@ import { compararRitmo, estagnacao, faixaTPV, ROTULO_FAIXA, type FaixaTPV } from
 import { precisaIdentificar } from '@/lib/texto'
 import type { LinhaTPV, PontoSerie } from './page'
 
-const POR_PAGINA = 50
+// Cartão ocupa bem mais altura que uma linha de tabela — 50 por página
+// virava uma rolagem enorme. 20 mantém a lista escaneável de uma vez.
+const POR_PAGINA = 20
 
 const nBR = (n: number) => n.toLocaleString('pt-BR')
 const brl = (n: number) => 'R$ ' + n.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
@@ -20,6 +22,47 @@ const CorFaixa: Record<FaixaTPV, string> = {
   'alta': 'text-good',
   'sem-base': 'text-ink-faint',
 }
+
+// Cor do avatar sorteada pelo nome — estável por cliente, sem significado.
+// Mesmo padrão de src/app/(dashboard)/dashboard/clientes/ClientesClient.tsx:
+// classes escritas por extenso porque o Tailwind não gera nome montado em runtime.
+const AVATARES = ['bg-av-1', 'bg-av-2', 'bg-av-3', 'bg-av-4', 'bg-av-5']
+function corAvatar(chave: string) {
+  let soma = 0
+  for (let i = 0; i < chave.length; i++) soma += chave.charCodeAt(i)
+  return AVATARES[soma % AVATARES.length]
+}
+// Primeira LETRA, não primeiro caractere: nome de cliente às vezes vem com
+// número na frente, e o avatar viraria um dígito sem sentido.
+const inicial = (texto: string) => (texto.match(/\p{L}/u)?.[0] ?? '?').toUpperCase()
+
+const PillSituacao: Record<string, { bg: string; dot: string }> = {
+  ATIVO: { bg: 'bg-card-2 text-ink-dim', dot: 'bg-ink-faint' },
+  CHURN: { bg: 'bg-bad-bg text-bad', dot: 'bg-bad-fill' },
+  INATIVO: { bg: 'bg-warn-bg text-warn', dot: 'bg-warn-fill' },
+  REATIVADO: { bg: 'bg-good-bg text-good', dot: 'bg-good-fill' },
+}
+
+const IconCifrao = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="w-2.5 h-2.5">
+    <line x1="12" y1="2" x2="12" y2="22" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+  </svg>
+)
+const IconAlerta = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="w-2.5 h-2.5">
+    <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+  </svg>
+)
+const IconVazamento = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="w-2.5 h-2.5">
+    <path d="M17 7 7 17M7 7l10 10" />
+  </svg>
+)
+const IconRelogio = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="w-2.5 h-2.5">
+    <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+  </svg>
+)
 
 type Ordem = 'pior-ritmo' | 'maior-perda' | 'mais-parado' | 'maior-tpv'
 
@@ -51,19 +94,22 @@ const diasDesde = (iso: string | null, hoje: string): number | null => {
  */
 function Sparkline({ pontos }: { pontos: number[] }) {
   if (pontos.length < 2) return null
-  const w = 56, h = 18, pad = 2
+  const w = 56, h = 20, pad = 2
   const min = Math.min(...pontos)
   const max = Math.max(...pontos)
   const span = max - min || 1
   const passo = (w - pad * 2) / (pontos.length - 1)
-  const coords = pontos
-    .map((v, i) => `${(pad + i * passo).toFixed(1)},${(pad + (h - pad * 2) * (1 - (v - min) / span)).toFixed(1)}`)
-    .join(' ')
+  const xy = pontos.map((v, i) => [pad + i * passo, pad + (h - pad * 2) * (1 - (v - min) / span)] as const)
+  const linha = xy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
+  const area = `${pad},${h - pad} ${linha} ${(w - pad).toFixed(1)},${h - pad}`
   const tendencia = pontos[pontos.length - 1] - pontos[0]
   const cor = tendencia > 0 ? 'var(--color-good)' : tendencia < 0 ? 'var(--color-bad)' : 'var(--color-ink-faint)'
+  const [lx, ly] = xy[xy.length - 1]
   return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="inline-block align-middle ml-2" aria-hidden="true">
-      <polyline points={coords} fill="none" stroke={cor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="flex-shrink-0" aria-hidden="true">
+      <polygon points={area} fill={cor} opacity={0.12} />
+      <polyline points={linha} fill="none" stroke={cor} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={lx} cy={ly} r="2.1" fill={cor} />
     </svg>
   )
 }
@@ -254,7 +300,7 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
       {podeGerir && porConsultor.length > 0 && (
         <div className="glass rounded-2xl border border-line px-4 py-3.5 mb-3">
           <p className="text-xs font-medium text-ink-muted mb-2.5">Por consultor · maior perda primeiro</p>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             {porConsultor.map(c => (
               <button
                 key={c.nome}
@@ -263,19 +309,19 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
                   if (next.has(c.nome)) next.delete(c.nome); else { next.clear(); next.add(c.nome) }
                   return next
                 })}
-                className={`w-full flex items-center gap-3 text-left rounded-lg px-2 py-1.5 transition-colors ${
-                  fConsultores.has(c.nome) ? 'bg-primary/10' : 'hover:bg-card-2'
+                className={`w-full flex items-center gap-3 text-left rounded-lg px-2.5 py-1.5 border transition-colors ${
+                  fConsultores.has(c.nome) ? 'bg-primary/10 border-primary/35' : 'border-transparent hover:bg-card-2'
                 }`}
               >
-                <span className="text-xs text-ink truncate w-36 flex-shrink-0">{c.nome}</span>
-                <span className="flex-1 h-1.5 rounded-full bg-card-2 overflow-hidden">
+                <span className="text-xs text-ink-dim truncate w-32 flex-shrink-0">{c.nome}</span>
+                <span className="flex-1 h-[7px] rounded-full bg-card-2 overflow-hidden">
                   <span
-                    className="block h-full rounded-full bg-bad"
+                    className="block h-full rounded-full bg-bad-fill"
                     style={{ width: maiorPerdaConsultor > 0 ? `${Math.max(4, (c.perdaTotal / maiorPerdaConsultor) * 100)}%` : '0%' }}
                   />
                 </span>
-                <span className="text-[11px] text-ink-muted flex-shrink-0 w-14 text-right">{c.emQueda}/{c.total}</span>
-                <span className="text-xs font-medium text-bad flex-shrink-0 w-20 text-right tabular-nums">{brl(c.perdaTotal)}</span>
+                <span className="text-[11px] text-ink-faint flex-shrink-0 w-12 text-right">{c.emQueda}/{c.total}</span>
+                <span className="text-xs font-semibold text-bad flex-shrink-0 w-20 text-right tabular-nums">{brl(c.perdaTotal)}</span>
               </button>
             ))}
           </div>
@@ -293,13 +339,17 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
       {/* Todos os controles que afetam a tabela, juntos numa barra só, logo
           acima dela — busca e ordenação à esquerda, filtros à direita. */}
       <div className="flex items-center gap-2 flex-wrap mb-4">
-        <input
-          type="text" placeholder="Buscar cliente ou seller ID…"
-          value={busca} onChange={e => { setBusca(e.target.value); setPagina(0) }}
-          className="flex-1 min-w-56 max-w-sm text-sm bg-field border border-field-line rounded-lg px-3 py-1.5 text-ink placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-        <div className="flex items-center gap-1.5 text-xs">
-          <span className="text-ink-muted">Ordenar:</span>
+        <div className="relative flex-1 min-w-56 max-w-sm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5 text-ink-faint absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="text" placeholder="Buscar cliente ou seller ID…"
+            value={busca} onChange={e => { setBusca(e.target.value); setPagina(0) }}
+            className="w-full text-sm bg-field border border-field-line rounded-lg pl-8 pr-3 py-1.5 text-ink placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+        <div className="flex items-center gap-0.5 text-xs bg-field border border-field-line rounded-lg p-0.5">
           {([
             ['maior-perda', 'Maior perda'],
             ['pior-ritmo', 'Pior queda %'],
@@ -307,8 +357,8 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
             ['maior-tpv', 'Maior TPV'],
           ] as [Ordem, string][]).map(([k, rot]) => (
             <button key={k} onClick={() => { setOrdem(k); setPagina(0) }}
-              className={`px-2.5 py-1.5 rounded-lg border transition-colors ${
-                ordem === k ? 'border-primary/60 bg-primary/15 text-ink' : 'border-field-line bg-field text-ink-muted hover:text-ink'
+              className={`px-2.5 py-1.5 rounded-md font-medium transition-colors ${
+                ordem === k ? 'bg-primary text-white' : 'text-ink-muted hover:text-ink'
               }`}>
               {rot}
             </button>
@@ -330,77 +380,99 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
         </p>
       )}
 
-      {/* Quatro colunas, não sete: ritmo, variação e perda contam a mesma
-          história (o que o cliente fatura por dia e como isso mudou), então
-          viram uma célula composta em vez de três colunas de número cru lado
-          a lado — é o que dava a cara de planilha. Mesmo raciocínio juntando
-          situação e dias parado. */}
-      <div className="glass rounded-2xl border border-line overflow-x-auto">
-        <table className="w-full min-w-[640px] text-sm">
-          <thead>
-            <tr className="border-b border-line bg-card-2 text-left">
-              {['Cliente', 'Ritmo diário', 'TPV no mês', 'Situação'].map((h, i) => (
-                <th key={h} className={`px-4 py-3 text-xs font-semibold text-ink-muted uppercase tracking-wider ${i > 0 && i < 3 ? 'text-right' : ''}`}>
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            {visiveis.map(l => {
-              const f = fichas[l.seller_id]
-              const pontos = (seriePorSeller.get(l.seller_id) ?? [])
-                .filter((p): p is { data: string; tpv: number } => p.tpv != null)
-                .sort((a, b) => a.data.localeCompare(b.data))
-                .map(p => p.tpv)
-              return (
-                <tr key={l.seller_id} className="hover:bg-card-2 transition-colors">
-                  <td className="px-4 py-2.5 max-w-[240px]">
-                    {precisaIdentificar(f?.nome ?? '', l.seller_id)
-                      ? <p className="text-warn truncate leading-tight">Pendente de identificação <span className="font-mono text-[11px] text-ink-faint">#{l.seller_id}</span></p>
-                      : <p className="text-ink truncate leading-tight">{f?.nome}</p>}
-                    <p className="text-[11px] text-ink-faint truncate">
-                      {podeGerir ? l.consultor_nome : f?.local || `#${l.seller_id}`}
-                    </p>
-                    {(l.temOportunidade || l.semAcao || l.vazandoFora || l.riscoAbandono) && (
-                      <p className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
-                        {l.temOportunidade && !l.revertida && (
-                          <span className="text-[10px] font-medium text-primary">
-                            {brl(l.valorOportunidade)}{l.pctCapturado != null && ` · ${Math.round(l.pctCapturado * 100)}%`}
-                          </span>
-                        )}
-                        {l.semAcao && <span className="text-[10px] font-medium text-warn">Sem ação</span>}
-                        {l.vazandoFora && <span className="text-[10px] font-medium text-primary">Processa fora</span>}
-                        {l.riscoAbandono && <span className="text-[10px] font-medium text-ink-faint">Sem contato/pesquisa</span>}
-                      </p>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
-                    <p className="tabular-nums text-ink leading-tight">
-                      {brl(l.ritmoAtual)}<span className="text-ink-faint font-normal">/dia</span>
-                      <Sparkline pontos={pontos} />
-                    </p>
-                    <p className={`text-xs tabular-nums font-medium leading-tight mt-0.5 ${CorFaixa[l.faixa]}`}>
-                      {l.variacao === null ? '—' : pct(l.variacao)}
-                      {l.perda > 0 && <span className="text-ink-faint font-normal"> · -{brl(l.perda)}</span>}
-                    </p>
-                  </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-ink-muted">
-                    {l.tpv_mes_atual != null ? brl(l.tpv_mes_atual) : '—'}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <span className={`text-[11px] font-medium ${l.status === 'CHURN' ? 'text-bad' : l.status === 'INATIVO' ? 'text-warn' : 'text-ink-muted'}`}>
-                      {l.status}
-                    </span>
-                    <p className={`text-[11px] mt-0.5 ${l.diasSemVender != null && l.diasSemVender >= 3 ? 'text-bad font-medium' : 'text-ink-faint'}`}>
-                      {l.diasSemVender == null ? '—' : `${l.diasSemVender}d sem vender`}
-                    </p>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+      {/* Lista de cartões, não tabela: cada cliente é um bloco com respiro
+          próprio, não uma linha presa numa grade de bordas de célula — é
+          isso, mais do que qualquer cor, que tira a cara de planilha.
+          Ritmo, variação e perda continuam numa célula composta só; situação
+          e dias parado também. */}
+      <div className="flex flex-col gap-2">
+        {visiveis.map(l => {
+          const f = fichas[l.seller_id]
+          const pontos = (seriePorSeller.get(l.seller_id) ?? [])
+            .filter((p): p is { data: string; tpv: number } => p.tpv != null)
+            .sort((a, b) => a.data.localeCompare(b.data))
+            .map(p => p.tpv)
+          const pendente = precisaIdentificar(f?.nome ?? '', l.seller_id)
+          const nomeExibido = pendente ? `#${l.seller_id}` : (f?.nome ?? `#${l.seller_id}`)
+          const situacao = PillSituacao[l.status ?? ''] ?? { bg: 'bg-card-2 text-ink-dim', dot: 'bg-ink-faint' }
+          return (
+            <div key={l.seller_id}
+              className="glass rounded-2xl border border-line px-4 py-3.5 grid grid-cols-1 md:grid-cols-[minmax(0,1.7fr)_minmax(0,1.15fr)_minmax(0,.85fr)_minmax(0,1.05fr)] gap-3 md:gap-4 md:items-center hover:border-primary/30 transition-colors">
+
+              {/* Identidade + sinais */}
+              <div className="flex gap-2.5 min-w-0">
+                <span className={`w-8 h-8 rounded-full grid place-items-center text-white text-xs font-semibold flex-shrink-0 ${corAvatar(l.seller_id)}`}>
+                  {inicial(nomeExibido)}
+                </span>
+                <div className="min-w-0">
+                  {pendente
+                    ? <p className="text-warn truncate leading-tight text-sm">Pendente de identificação <span className="font-mono text-[11px] text-ink-faint">#{l.seller_id}</span></p>
+                    : <p className="text-ink truncate leading-tight text-sm font-medium">{nomeExibido}</p>}
+                  <p className="text-[11px] text-ink-faint truncate mt-0.5">
+                    {podeGerir ? l.consultor_nome : f?.local || `#${l.seller_id}`}
+                  </p>
+                  {(l.temOportunidade || l.semAcao || l.vazandoFora || l.riscoAbandono) && (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {l.temOportunidade && !l.revertida && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/12 text-primary-lt">
+                          <IconCifrao />{brl(l.valorOportunidade)}{l.pctCapturado != null && ` · ${Math.round(l.pctCapturado * 100)}%`}
+                        </span>
+                      )}
+                      {l.semAcao && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-warn-bg text-warn">
+                          <IconAlerta />Sem ação
+                        </span>
+                      )}
+                      {l.vazandoFora && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-card-2 text-ink-dim border border-line">
+                          <IconVazamento />Processa fora
+                        </span>
+                      )}
+                      {l.riscoAbandono && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-warn-bg/70 text-warn">
+                          <IconRelogio />Sem contato/pesquisa
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Ritmo diário + tendência */}
+              <div className="flex items-center justify-between gap-3 md:justify-end">
+                <div className="text-right">
+                  <p className="tabular-nums text-ink leading-tight text-sm font-medium">
+                    {brl(l.ritmoAtual)}<span className="text-ink-faint font-normal text-xs">/dia</span>
+                  </p>
+                  <p className={`text-xs tabular-nums font-semibold leading-tight mt-0.5 ${CorFaixa[l.faixa]}`}>
+                    {l.variacao === null ? '—' : pct(l.variacao)}
+                    {l.perda > 0 && <span className="text-ink-faint font-normal"> · -{brl(l.perda)}</span>}
+                  </p>
+                </div>
+                <Sparkline pontos={pontos} />
+              </div>
+
+              {/* TPV no mês */}
+              <div className="flex items-center justify-between md:block">
+                <span className="text-[10px] text-ink-faint md:hidden">TPV no mês</span>
+                <span className="text-sm tabular-nums text-ink-muted md:text-right md:block">
+                  {l.tpv_mes_atual != null ? brl(l.tpv_mes_atual) : '—'}
+                </span>
+              </div>
+
+              {/* Situação */}
+              <div className="flex items-center justify-between md:flex-col md:items-end gap-1">
+                <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full ${situacao.bg}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${situacao.dot}`} />
+                  {l.status}
+                </span>
+                <span className={`text-[11px] ${l.diasSemVender != null && l.diasSemVender >= 3 ? 'text-bad font-semibold' : 'text-ink-faint'}`}>
+                  {l.diasSemVender == null ? '—' : `${l.diasSemVender}d sem vender`}
+                </span>
+              </div>
+            </div>
+          )
+        })}
       </div>
 
       {filtradas.length === 0 && (
