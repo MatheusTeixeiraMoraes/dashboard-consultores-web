@@ -46,17 +46,16 @@ export default async function AreaPage() {
     )
   }
 
-  const [{ data: uploadIds }, { data: pilaresConfig }] = await Promise.all([
-    supabase.from('score_uploads').select('id').eq('data_referencia', latestDate),
+  // `data_referencia` já vem gravada em cada linha de resultado (mesmo valor
+  // do upload que a gerou) — filtrar direto por ela poupa a ida extra de buscar
+  // os uploadIds do dia só para usar em `upload_id in (...)`.
+  const [{ data: pilaresConfig }, { data: resultados }] = await Promise.all([
     supabase.from('pillar_config').select('pilar_key, meta, unidade, tipo_comp, pontos_max'),
+    supabase
+      .from('score_consultor_resultados')
+      .select('id_carteira, consultor_nome, pilar_key, score_planilha, valor_metrica')
+      .eq('data_referencia', latestDate),
   ])
-
-  const idList = (uploadIds ?? []).map(u => u.id)
-
-  const { data: resultados } = await supabase
-    .from('score_consultor_resultados')
-    .select('id_carteira, consultor_nome, pilar_key, score_planilha, valor_metrica')
-    .in('upload_id', idList.length > 0 ? idList : ['none'])
 
   const cfgPorPilar = Object.fromEntries((pilaresConfig ?? []).map(p => [p.pilar_key, p]))
 

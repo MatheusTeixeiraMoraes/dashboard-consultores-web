@@ -102,15 +102,13 @@ export default async function AlertasPage() {
     )
   }
 
-  const { data: uploadIds } = await supabase
-    .from('score_uploads').select('id').eq('data_referencia', latestDate)
-
-  const idList = (uploadIds ?? []).map(u => u.id)
-
+  // `data_referencia` já vem gravada em cada linha de resultado (mesmo valor
+  // do upload que a gerou) — filtrar direto por ela poupa a ida extra de buscar
+  // os uploadIds do dia só para usar em `upload_id in (...)`.
   const { data: resultados } = await supabase
     .from('score_consultor_resultados')
     .select('id_carteira, consultor_nome, pilar_key, score_planilha')
-    .in('upload_id', idList.length > 0 ? idList : ['none'])
+    .eq('data_referencia', latestDate)
 
   const map = new Map<string, { nome: string; scores: Record<string, number>; total: number }>()
   for (const r of resultados ?? []) {

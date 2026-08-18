@@ -53,18 +53,17 @@ export default async function MeuScorePage() {
     )
   }
 
-  const [{ data: uploadIds }, { data: pilaresConfig }] = await Promise.all([
-    supabase.from('score_uploads').select('id').eq('data_referencia', latestDate),
+  // `data_referencia` já vem gravada em cada linha de resultado (mesmo valor
+  // do upload que a gerou) — filtrar direto por ela poupa a ida extra de buscar
+  // os uploadIds do dia só para usar em `upload_id in (...)`.
+  const [{ data: pilaresConfig }, { data: resultados }] = await Promise.all([
     supabase.from('pillar_config').select('pilar_key, pontos_max, meta, tipo_comp, unidade'),
+    supabase
+      .from('score_consultor_resultados')
+      .select('id_carteira, consultor_nome, pilar_key, score_planilha, metricas, valor_metrica')
+      .eq('data_referencia', latestDate)
+      .eq('id_carteira', profile.id_carteira),
   ])
-
-  const idList = (uploadIds ?? []).map((u: { id: string }) => u.id)
-
-  const { data: resultados } = await supabase
-    .from('score_consultor_resultados')
-    .select('id_carteira, consultor_nome, pilar_key, score_planilha, metricas, valor_metrica')
-    .in('upload_id', idList.length > 0 ? idList : ['none'])
-    .eq('id_carteira', profile.id_carteira)
 
   const dateDisplay = new Date(latestDate + 'T12:00:00').toLocaleDateString('pt-BR', {
     day: '2-digit', month: 'long', year: 'numeric',

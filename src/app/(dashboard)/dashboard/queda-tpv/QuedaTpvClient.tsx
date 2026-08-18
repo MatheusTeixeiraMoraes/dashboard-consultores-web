@@ -127,31 +127,17 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
 
   return (
     <div className="pb-20">
-      <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
-        <div>
-          <h1 className="text-xl font-bold text-ink">Queda de TPV</h1>
-          <p className="text-sm text-ink-muted mt-0.5">
-            Planilha de {dataBR(dataReferencia)} · {ref?.diasDecorridos} dias corridos no mês,
-            contra {ref?.diasMesPassado} do mês passado fechado
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {podeGerir && <MultiFiltro label="Consultores" opcoes={consultores} sel={fConsultores} onChange={setFConsultores} />}
-          <MultiFiltro label="Faixa" opcoes={Object.values(ROTULO_FAIXA)} sel={fFaixas} onChange={setFFaixas} />
-          <MultiFiltro label="Situação" opcoes={['ATIVO', 'CHURN', 'INATIVO', 'REATIVADO']} sel={fStatus} onChange={setFStatus} />
-          <MultiFiltro label="Segmento" opcoes={mccs} sel={fMcc} onChange={setFMcc} />
-        </div>
+      <div className="mb-4">
+        <h1 className="text-xl font-bold text-ink">Queda de TPV</h1>
+        <p className="text-sm text-ink-muted mt-0.5">
+          Planilha de {dataBR(dataReferencia)} · {ref?.diasDecorridos} dias corridos no mês,
+          contra {ref?.diasMesPassado} do mês passado fechado
+        </p>
       </div>
 
-      {/* Por que os números não são o que a planilha mostra crua. Fica visível
-          de propósito: sem esta linha, alguém compara os brutos e entra em pânico. */}
-      <div className="text-xs text-ink-muted bg-card-2 rounded-xl px-4 py-2.5 mb-4 leading-relaxed">
-        O mês ainda está em curso, então o TPV da planilha é parcial. A comparação aqui é por{' '}
-        <span className="text-ink font-medium">ritmo diário</span> (faturamento ÷ dias de cada
-        período) — comparar os valores brutos mostraria uma queda que não existe.
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+      {/* Os números primeiro — é a resposta que o líder quer, antes de qualquer
+          controle de filtro ou explicação de método. */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
         {[
           { l: 'Clientes', v: nBR(kpis.total), c: 'text-ink' },
           { l: 'Em queda', v: nBR(kpis.emQueda), c: 'text-bad' },
@@ -165,6 +151,16 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
         ))}
       </div>
 
+      {/* Por que os números não são o que a planilha mostra crua. Fica visível
+          de propósito: sem esta linha, alguém compara os brutos e entra em pânico.
+          Uma linha só, sem caixa — é contexto, não é o destaque da tela. */}
+      <p className="text-xs text-ink-faint mb-4 leading-relaxed">
+        Mês em curso: comparação por <span className="text-ink-muted font-medium">ritmo diário</span> (faturamento
+        ÷ dias de cada período), não pelos valores brutos da planilha.
+      </p>
+
+      {/* Todos os controles que afetam a tabela, juntos numa barra só, logo
+          acima dela — busca e ordenação à esquerda, filtros à direita. */}
       <div className="flex items-center gap-2 flex-wrap mb-4">
         <input
           type="text" placeholder="Buscar cliente ou seller ID…"
@@ -187,6 +183,12 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
             </button>
           ))}
         </div>
+        <div className="flex items-center gap-2 flex-wrap ml-auto">
+          {podeGerir && <MultiFiltro label="Consultores" opcoes={consultores} sel={fConsultores} onChange={setFConsultores} />}
+          <MultiFiltro label="Faixa" opcoes={Object.values(ROTULO_FAIXA)} sel={fFaixas} onChange={setFFaixas} />
+          <MultiFiltro label="Situação" opcoes={['ATIVO', 'CHURN', 'INATIVO', 'REATIVADO']} sel={fStatus} onChange={setFStatus} />
+          <MultiFiltro label="Segmento" opcoes={mccs} sel={fMcc} onChange={setFMcc} />
+        </div>
       </div>
 
       {!temSerie && (
@@ -196,12 +198,17 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
         </p>
       )}
 
+      {/* Quatro colunas, não sete: ritmo, variação e perda contam a mesma
+          história (o que o cliente fatura por dia e como isso mudou), então
+          viram uma célula composta em vez de três colunas de número cru lado
+          a lado — é o que dava a cara de planilha. Mesmo raciocínio juntando
+          situação e dias parado. */}
       <div className="glass rounded-2xl border border-line overflow-x-auto">
-        <table className="w-full min-w-[860px] text-sm">
+        <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="border-b border-line bg-card-2 text-left">
-              {['Cliente', 'Ritmo/dia', 'vs mês passado', 'Perda no ritmo', 'TPV no mês', 'Sem vender', 'Situação'].map((h, i) => (
-                <th key={h} className={`px-4 py-3 text-xs font-semibold text-ink-muted uppercase tracking-wider ${i > 0 && i < 6 ? 'text-right' : ''}`}>
+              {['Cliente', 'Ritmo diário', 'TPV no mês', 'Situação'].map((h, i) => (
+                <th key={h} className={`px-4 py-3 text-xs font-semibold text-ink-muted uppercase tracking-wider ${i > 0 && i < 3 ? 'text-right' : ''}`}>
                   {h}
                 </th>
               ))}
@@ -220,25 +227,25 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
                       {podeGerir ? l.consultor_nome : f?.local || `#${l.seller_id}`}
                     </p>
                   </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-ink">{brl(l.ritmoAtual)}</td>
-                  <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${CorFaixa[l.faixa]}`}>
-                    {l.variacao === null ? '—' : pct(l.variacao)}
-                  </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-ink-muted">
-                    {l.perda > 0 ? brl(l.perda) : '—'}
+                  <td className="px-4 py-2.5 text-right">
+                    <p className="tabular-nums text-ink leading-tight">
+                      {brl(l.ritmoAtual)}<span className="text-ink-faint font-normal">/dia</span>
+                    </p>
+                    <p className={`text-xs tabular-nums font-medium leading-tight mt-0.5 ${CorFaixa[l.faixa]}`}>
+                      {l.variacao === null ? '—' : pct(l.variacao)}
+                      {l.perda > 0 && <span className="text-ink-faint font-normal"> · -{brl(l.perda)}</span>}
+                    </p>
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-ink-muted">
                     {l.tpv_mes_atual != null ? brl(l.tpv_mes_atual) : '—'}
-                  </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">
-                    {l.diasSemVender == null ? <span className="text-ink-faint">—</span>
-                      : l.diasSemVender >= 3 ? <span className="text-bad font-medium">{l.diasSemVender}d</span>
-                      : <span className="text-ink-muted">{l.diasSemVender}d</span>}
                   </td>
                   <td className="px-4 py-2.5">
                     <span className={`text-[11px] font-medium ${l.status === 'CHURN' ? 'text-bad' : l.status === 'INATIVO' ? 'text-warn' : 'text-ink-muted'}`}>
                       {l.status}
                     </span>
+                    <p className={`text-[11px] mt-0.5 ${l.diasSemVender != null && l.diasSemVender >= 3 ? 'text-bad font-medium' : 'text-ink-faint'}`}>
+                      {l.diasSemVender == null ? '—' : `${l.diasSemVender}d sem vender`}
+                    </p>
                   </td>
                 </tr>
               )

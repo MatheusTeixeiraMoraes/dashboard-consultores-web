@@ -54,37 +54,25 @@ export default async function GeralPage() {
     )
   }
 
-  // --- Score (planilhas de pontuação) ---
-  let resultados: { id_carteira: string; consultor_nome: string; pilar_key: string; score_planilha: number }[] = []
-  let metaMap: Record<string, { meta: number; unidade: string }> = {}
-  if (latestDate) {
-    const [{ data: uploadIds }, { data: pilaresConfig }] = await Promise.all([
-      supabase.from('score_uploads').select('id').eq('data_referencia', latestDate),
-      supabase.from('pillar_config').select('pilar_key, meta, unidade'),
-    ])
-    metaMap = Object.fromEntries(
-      (pilaresConfig ?? []).map(p => [p.pilar_key, { meta: p.meta, unidade: p.unidade }])
-    )
-    const uploadIdList = (uploadIds ?? []).map(u => u.id)
-    const { data } = await supabase
-      .from('score_consultor_resultados')
-      .select('id_carteira, consultor_nome, pilar_key, score_planilha')
-      .in('upload_id', uploadIdList.length > 0 ? uploadIdList : ['none'])
-    resultados = data ?? []
-  }
-
-  const consultoresMap = new Map<string, { nome: string; scores: Record<string, number>; total: number }>()
-  for (const r of resultados) {
-    if (!consultoresMap.has(r.id_carteira)) {
-      consultoresMap.set(r.id_carteira, { nome: r.consultor_nome, scores: {}, total: 0 })
-    }
-    const c = consultoresMap.get(r.id_carteira)!
-    c.scores[r.pilar_key] = r.score_planilha
-    c.total += r.score_planilha
-  }
-
-  // --- Carteira (clientes em carteira + última Planilha Ação Oportunidades) ---
-  const [clientes, linhasCarteira] = await Promise.all([
+  /* Score + carteira, tudo numa onda só.
+   *
+   * `resultados` filtra `score_consultor_resultados` direto por `data_referencia`
+   * (a coluna já vem gravada em cada linha, igual ao upload que a gerou) — não
+   * precisa do hop de buscar `uploadIds` para usar em `upload_id in (...)`.
+   * E `clientes`/`linhasCarteira` nunca dependeram do score: só de `dataCarteira`,
+   * que já saiu da primeira onda. Antes essas quatro buscas rodavam em três ondas
+   * em fila; nenhuma depende do resultado de outra, então cabem todas juntas. */
+  type ResultadoRow = { id_carteira: string; consultor_nome: string; pilar_key: string; score_planilha: number }
+  const [{ data: pilaresConfig }, { data: resultadosData }, clientes, linhasCarteira] = await Promise.all([
+    latestDate
+      ? supabase.from('pillar_config').select('pilar_key, meta, unidade')
+      : Promise.resolve({ data: [] as { pilar_key: string; meta: number; unidade: string }[] }),
+    latestDate
+      ? supabase
+          .from('score_consultor_resultados')
+          .select('id_carteira, consultor_nome, pilar_key, score_planilha')
+          .eq('data_referencia', latestDate)
+      : Promise.resolve({ data: [] as ResultadoRow[] }),
     buscarTudo<{ consultor_nome: string; seller_nome: string; seller_id: string }>((opcoes, de, ate) =>
       supabase.from('clientes')
         .select('consultor_nome, seller_nome, seller_id', opcoes)
@@ -100,6 +88,21 @@ export default async function GeralPage() {
         )
       : Promise.resolve([]),
   ])
+
+  const metaMap: Record<string, { meta: number; unidade: string }> = Object.fromEntries(
+    (pilaresConfig ?? []).map(p => [p.pilar_key, { meta: p.meta, unidade: p.unidade }])
+  )
+  const resultados: ResultadoRow[] = resultadosData ?? []
+
+  const consultoresMap = new Map<string, { nome: string; scores: Record<string, number>; total: number }>()
+  for (const r of resultados) {
+    if (!consultoresMap.has(r.id_carteira)) {
+      consultoresMap.set(r.id_carteira, { nome: r.consultor_nome, scores: {}, total: 0 })
+    }
+    const c = consultoresMap.get(r.id_carteira)!
+    c.scores[r.pilar_key] = r.score_planilha
+    c.total += r.score_planilha
+  }
 
   const carteiras = new Map<string, CarteiraResumo & { nome: string }>()
   const pega = (nome: string) => {
