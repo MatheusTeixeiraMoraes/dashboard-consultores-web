@@ -68,27 +68,42 @@ const IconTendenciaQueda = () => (
     <polyline points="22 17 13.5 8.5 8.5 13.5 2 7" /><polyline points="16 17 22 17 22 11" />
   </svg>
 )
+const IconTendenciaAlta = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-2.5 h-2.5">
+    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" />
+  </svg>
+)
 
 /**
- * Tendência de 3 meses — a "situação" nova que as colunas TPV M-2/M-3 e as
- * comparações prontas do MP abrem. Cruza duas janelas independentes:
- *   - m3vsM1: caiu ou cresceu dos últimos 3 meses até o mês passado?
- *   - m0vsMesmaData: continua caindo ou já virou, comparando o mesmo
- *     intervalo de dias deste mês com o mesmo intervalo do mês passado?
- * "Piorando agora" é o sinal mais raro e mais útil: cliente estável há
- * meses que começou a cair SÓ neste mês — ninguém pega isso olhando só
- * quartil ou o ritmo/dia (que compara com o mês passado inteiro, não com o
- * mesmo pedaço de dias). "Queda sustentada" é o oposto: vem caindo há 3
- * meses e continua caindo agora — não é ruído de um mês ruim.
+ * Tendência de 3 meses, em 3 passos consecutivos (não 2) — cada um é a
+ * diferença "período mais recente − período mais antigo" de uma dupla
+ * seguida, olhando de trás pra frente até achar onde a direção mudou:
+ *   passo1 = M2 − M3   (virou de 3 pra 2 meses atrás?)
+ *   passo2 = M1 − M2   (= tpv_m2_vs_m1, já pronto do MP)
+ *   passo3 = M0 − mesma-data-M1  (= tpv_m0_vs_mesma_data, já pronto do MP)
+ * "Piorando agora" é o sinal mais raro e mais útil: cliente estável (ou
+ * crescendo) nos meses fechados que começou a cair SÓ neste mês — ninguém
+ * pega isso olhando só o ritmo/dia (que compara com o mês passado inteiro,
+ * não com o mesmo pedaço de dias). Separar "queda há 2 meses" de "crônica
+ * (3 meses)" evita tratar os dois como o mesmo problema.
  */
-type Tendencia3Meses = 'queda-sustentada' | 'piorando-agora' | 'recuperando' | 'crescimento-sustentado' | null
-function classificarTendencia(m3vsM1: number | null, m0vsMesmaData: number | null): Tendencia3Meses {
-  if (m3vsM1 == null || m0vsMesmaData == null) return null
-  if (m3vsM1 < 0) return m0vsMesmaData < 0 ? 'queda-sustentada' : 'recuperando'
-  return m0vsMesmaData < 0 ? 'piorando-agora' : 'crescimento-sustentado'
+type Tendencia3Meses = 'queda-cronica' | 'queda-2-meses' | 'piorando-agora' | 'recuperando' | 'crescimento-sustentado' | null
+function classificarTendencia(
+  tpvM3: number | null, tpvM2: number | null, m2vsM1: number | null, m0vsMesmaData: number | null,
+): Tendencia3Meses {
+  if (m2vsM1 == null || m0vsMesmaData == null) return null
+  const passo3 = m0vsMesmaData
+  const passo2 = m2vsM1
+  if (passo3 >= 0) return passo2 < 0 ? 'recuperando' : 'crescimento-sustentado'
+  if (passo2 >= 0) return 'piorando-agora'
+  // Caindo neste mês E no mês passado — olha mais um passo pra trás se der.
+  const passo1 = (tpvM3 != null && tpvM2 != null) ? tpvM2 - tpvM3 : null
+  if (passo1 == null) return 'queda-2-meses'   // sem dado de 3 meses atrás pra confirmar crônica
+  return passo1 < 0 ? 'queda-cronica' : 'queda-2-meses'
 }
 const RotuloTendencia: Record<Exclude<Tendencia3Meses, null>, string> = {
-  'queda-sustentada': 'Queda há 3 meses',
+  'queda-cronica': 'Queda crônica (3 meses)',
+  'queda-2-meses': 'Queda há 2 meses',
   'piorando-agora': 'Piorando agora',
   'recuperando': 'Recuperando',
   'crescimento-sustentado': 'Crescimento sustentado',
@@ -110,12 +125,46 @@ const DIAS_SEM_PESQUISA = 90
 
 const SINAIS = [
   'Sem ação atribuída', 'Oportunidade aberta', 'TPV em outras contas', 'Sem contato/pesquisa recente',
-  'Piorando agora', 'Queda há 3 meses',
+  'Piorando agora', 'Queda há 2 meses', 'Queda crônica (3 meses)', 'Recuperando',
 ] as const
 
 const diasDesde = (iso: string | null, hoje: string): number | null => {
   if (!iso) return null
   return Math.round((Date.parse(hoje) - Date.parse(iso.slice(0, 10))) / 86400000)
+}
+
+/**
+ * Traço de 4 pontos (M-3, M-2, M-1, este mês) sem eixo nem tooltip — cabe
+ * dentro da célula. Todos os 4 valores já vêm carregados junto com o resto
+ * da linha (nenhuma busca nova), diferente do sparkline diário antigo que
+ * puxava o mês inteiro à parte e foi cortado por custar 1,3MB de payload.
+ * O último ponto é `projecaoMes` (estimativa pro mês fechar), não o TPV
+ * parcial cru — comparar parcial com 3 meses fechados mostraria uma queda
+ * no fim que não existe, a mesma armadilha do ritmo/dia.
+ */
+function Sparkline({ pontos, alto = false }: { pontos: (number | null)[]; alto?: boolean }) {
+  const validos = pontos.filter((v): v is number => v != null)
+  if (validos.length < 2) return null
+  const w = alto ? 96 : 56, h = alto ? 32 : 20, pad = 2
+  const min = Math.min(...validos)
+  const max = Math.max(...validos)
+  const span = max - min || 1
+  const passo = (w - pad * 2) / (pontos.length - 1)
+  const xy = pontos
+    .map((v, i) => (v == null ? null : [pad + i * passo, pad + (h - pad * 2) * (1 - (v - min) / span)] as const))
+    .filter((p): p is readonly [number, number] => p != null)
+  const linha = xy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
+  const area = `${xy[0][0]},${h - pad} ${linha} ${xy[xy.length - 1][0]},${h - pad}`
+  const tendencia = validos[validos.length - 1] - validos[0]
+  const cor = tendencia > 0 ? 'var(--color-good)' : tendencia < 0 ? 'var(--color-bad)' : 'var(--color-ink-faint)'
+  const [lx, ly] = xy[xy.length - 1]
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="flex-shrink-0" aria-hidden="true">
+      <polygon points={area} fill={cor} opacity={0.12} />
+      <polyline points={linha} fill="none" stroke={cor} strokeWidth={alto ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={lx} cy={ly} r={alto ? 2.6 : 2.1} fill={cor} />
+    </svg>
+  )
 }
 
 export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellersComAcao, podeGerir }: Props) {
@@ -178,13 +227,22 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
         (diasSemContato === null || diasSemContato >= DIAS_SEM_CONTATO) &&
         (diasSemPesquisa === null || diasSemPesquisa >= DIAS_SEM_PESQUISA)
 
-      const tendencia = classificarTendencia(l.tpv_m3_vs_m1, l.tpv_m0_vs_mesma_data)
+      const tendencia = classificarTendencia(l.tpv_m3, l.tpv_m2, l.tpv_m2_vs_m1, l.tpv_m0_vs_mesma_data)
+
+      // Referência "mesmo período" é mais precisa que "mês passado inteiro"
+      // pra comparar com o TPV parcial de hoje — não depende de assumir
+      // distribuição uniforme dos dias, é o número real do MP pro mesmo
+      // intervalo. Cai pro mês fechado só quando essa coluna não existir.
+      const referenciaComparavel = l.tpv_mesma_data_mes_passado ?? l.tpv_mes_passado
+      const rotuloReferencia = l.tpv_mesma_data_mes_passado != null ? 'mesmo período' : 'mês passado'
 
       return {
         ...l, ...r, perda, faixa: faixaTPV(r.variacao),
         temOportunidade, valorOportunidade, pctCapturado, revertida,
         semAcao, vazandoFora, diasSemContato, diasSemPesquisa, riscoAbandono,
         diasRestantes, faltaTotal, ritmoNecessario, tendencia,
+        referenciaComparavel, rotuloReferencia,
+        pontosTrimestre: [l.tpv_m3, l.tpv_m2, l.tpv_mes_passado, r.projecaoMes] as (number | null)[],
       }
     })
   }, [linhas, dataReferencia, semAcaoSet])
@@ -205,7 +263,9 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
     if (fSinais.has('TPV em outras contas') && l.vazandoFora) return true
     if (fSinais.has('Sem contato/pesquisa recente') && l.riscoAbandono) return true
     if (fSinais.has('Piorando agora') && l.tendencia === 'piorando-agora') return true
-    if (fSinais.has('Queda há 3 meses') && l.tendencia === 'queda-sustentada') return true
+    if (fSinais.has('Queda há 2 meses') && l.tendencia === 'queda-2-meses') return true
+    if (fSinais.has('Queda crônica (3 meses)') && l.tendencia === 'queda-cronica') return true
+    if (fSinais.has('Recuperando') && l.tendencia === 'recuperando') return true
     return false
   }, [fSinais])
 
@@ -257,6 +317,23 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
   }, [filtradas])
   const maiorPerdaConsultor = porConsultor[0]?.perdaTotal ?? 0
 
+  /** Visão de portfólio: a carteira toda subiu ou caiu nos últimos 3 meses?
+   *  Soma os mesmos 4 pontos do sparkline por cliente — nenhuma busca nova. */
+  const tendenciaCarteira = useMemo(() => {
+    const somas = filtradas.reduce((s, l) => ({
+      m3: s.m3 + (l.tpv_m3 ?? 0),
+      m2: s.m2 + (l.tpv_m2 ?? 0),
+      m1: s.m1 + (l.tpv_mes_passado ?? 0),
+      m0: s.m0 + l.projecaoMes,
+    }), { m3: 0, m2: 0, m1: 0, m0: 0 })
+    return [
+      { rotulo: 'M-3', valor: somas.m3 },
+      { rotulo: 'M-2', valor: somas.m2 },
+      { rotulo: 'M-1', valor: somas.m1 },
+      { rotulo: 'Este mês (proj.)', valor: somas.m0 },
+    ]
+  }, [filtradas])
+
   const totalPaginas = Math.max(1, Math.ceil(filtradas.length / POR_PAGINA))
   const paginaAtual = Math.min(pagina, totalPaginas - 1)
   const visiveis = filtradas.slice(paginaAtual * POR_PAGINA, (paginaAtual + 1) * POR_PAGINA)
@@ -300,6 +377,24 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
             <p className={`text-2xl font-semibold tracking-tight ${k.c}`}>{k.v}</p>
           </div>
         ))}
+      </div>
+
+      {/* Visão de portfólio: a carteira (filtrada) inteira subiu ou caiu nos
+          últimos 3 meses — pergunta que nenhum KPI acima responde sozinho,
+          porque cada um olha só o mês atual vs passado. */}
+      <div className="glass rounded-2xl border border-line px-4 py-3.5 mb-3">
+        <p className="text-xs font-medium text-ink-muted mb-2.5">TPV da carteira · últimos 3 meses</p>
+        <div className="flex items-center gap-5 flex-wrap">
+          <Sparkline pontos={tendenciaCarteira.map(p => p.valor)} alto />
+          <div className="flex gap-5 flex-wrap">
+            {tendenciaCarteira.map(p => (
+              <div key={p.rotulo}>
+                <p className="text-[10px] text-ink-faint">{p.rotulo}</p>
+                <p className="text-sm font-semibold text-ink tabular-nums">{brl(p.valor)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Ranking por consultor: só quem gerencia vê (a mesma regra que já
@@ -408,7 +503,7 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
                   <p className="text-[11px] text-ink-faint truncate mt-0.5">
                     {podeGerir ? l.consultor_nome : f?.local || `#${l.seller_id}`}
                   </p>
-                  {(l.temOportunidade || l.semAcao || l.vazandoFora || l.riscoAbandono || l.tendencia === 'piorando-agora' || l.tendencia === 'queda-sustentada') && (
+                  {(l.temOportunidade || l.semAcao || l.vazandoFora || l.riscoAbandono || l.tendencia === 'piorando-agora' || l.tendencia === 'queda-2-meses' || l.tendencia === 'queda-cronica' || l.tendencia === 'recuperando') && (
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {l.temOportunidade && !l.revertida && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/12 text-primary-lt">
@@ -430,12 +525,18 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
                           <IconRelogio />Sem contato/pesquisa
                         </span>
                       )}
-                      {/* Tendência de 3 meses — só os dois casos que pedem atenção;
-                          "recuperando"/"crescimento sustentado" não geram badge
-                          (a tela é de queda, não de comemoração). */}
-                      {(l.tendencia === 'piorando-agora' || l.tendencia === 'queda-sustentada') && (
+                      {/* Tendência de 3 meses — "crescimento sustentado" não gera
+                          badge (a tela é de queda, não de comemoração), mas
+                          "recuperando" agora sim: junto com o sparkline, ajuda o
+                          consultor a saber quem já não precisa de urgência. */}
+                      {l.tendencia === 'recuperando' && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-good-bg text-good">
+                          <IconTendenciaAlta />Recuperando
+                        </span>
+                      )}
+                      {(l.tendencia === 'piorando-agora' || l.tendencia === 'queda-2-meses' || l.tendencia === 'queda-cronica') && (
                         <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                          l.tendencia === 'queda-sustentada' ? 'bg-bad-bg text-bad' : 'bg-warn-bg text-warn'
+                          l.tendencia === 'queda-cronica' ? 'bg-bad-bg text-bad' : 'bg-warn-bg text-warn'
                         }`}>
                           <IconTendenciaQueda />{RotuloTendencia[l.tendencia]}
                         </span>
@@ -445,15 +546,18 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
                 </div>
               </div>
 
-              {/* Ritmo diário + variação */}
-              <div className="text-right">
-                <p className="tabular-nums text-ink leading-tight text-sm font-medium">
-                  {brl(l.ritmoAtual)}<span className="text-ink-faint font-normal text-xs">/dia</span>
-                </p>
-                <p className={`text-xs tabular-nums font-semibold leading-tight mt-0.5 ${CorFaixa[l.faixa]}`}>
-                  {l.variacao === null ? '—' : pct(l.variacao)}
-                  {l.perda > 0 && <span className="text-ink-faint font-normal"> · -{brl(l.perda)} proj.</span>}
-                </p>
+              {/* Ritmo diário + variação + traço de 3 meses (M-3→M0) */}
+              <div className="flex items-center justify-between gap-3 md:justify-end">
+                <div className="text-right">
+                  <p className="tabular-nums text-ink leading-tight text-sm font-medium">
+                    {brl(l.ritmoAtual)}<span className="text-ink-faint font-normal text-xs">/dia</span>
+                  </p>
+                  <p className={`text-xs tabular-nums font-semibold leading-tight mt-0.5 ${CorFaixa[l.faixa]}`}>
+                    {l.variacao === null ? '—' : pct(l.variacao)}
+                    {l.perda > 0 && <span className="text-ink-faint font-normal"> · -{brl(l.perda)} proj.</span>}
+                  </p>
+                </div>
+                <Sparkline pontos={l.pontosTrimestre} />
               </div>
 
               {/* TPV no mês — atual, o fechado do mês passado pra referência,
@@ -467,9 +571,9 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
                     {l.tpv_mes_atual != null ? brl(l.tpv_mes_atual) : '—'}
                   </span>
                 </div>
-                {l.tpv_mes_passado != null && (
+                {l.referenciaComparavel != null && (
                   <p className="text-[11px] tabular-nums text-ink-faint text-right">
-                    mês passado {brl(l.tpv_mes_passado)}
+                    {l.rotuloReferencia} {brl(l.referenciaComparavel)}
                   </p>
                 )}
                 {l.ritmoNecessario != null ? (
