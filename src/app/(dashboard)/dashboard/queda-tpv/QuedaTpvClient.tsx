@@ -28,10 +28,47 @@ interface Props {
   linhas: LinhaTPV[]
   serie: PontoSerie[]
   fichas: Record<string, { nome: string; telefone: string | null; local: string }>
+  sellersComAcao: string[]
   podeGerir: boolean
 }
 
-export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, podeGerir }: Props) {
+/** Limiares de primeira versão para "sinal de abandono" — fáceis de ajustar. */
+const DIAS_SEM_CONTATO = 30
+const DIAS_SEM_PESQUISA = 90
+
+const SINAIS = ['Sem ação atribuída', 'Oportunidade aberta', 'TPV em outras contas', 'Sem contato/pesquisa recente'] as const
+
+const diasDesde = (iso: string | null, hoje: string): number | null => {
+  if (!iso) return null
+  return Math.round((Date.parse(hoje) - Date.parse(iso.slice(0, 10))) / 86400000)
+}
+
+/**
+ * Tendência do mês num traço só, sem eixo nem tooltip — cabe dentro da
+ * célula, ao lado do valor. Recharts fica de fora de propósito (é ~84KB
+ * brotli, já reservado só pra gráfico full-size em outra tela); aqui é SVG
+ * cru porque é a única coisa que cabe no espaço de uma linha de tabela.
+ */
+function Sparkline({ pontos }: { pontos: number[] }) {
+  if (pontos.length < 2) return null
+  const w = 56, h = 18, pad = 2
+  const min = Math.min(...pontos)
+  const max = Math.max(...pontos)
+  const span = max - min || 1
+  const passo = (w - pad * 2) / (pontos.length - 1)
+  const coords = pontos
+    .map((v, i) => `${(pad + i * passo).toFixed(1)},${(pad + (h - pad * 2) * (1 - (v - min) / span)).toFixed(1)}`)
+    .join(' ')
+  const tendencia = pontos[pontos.length - 1] - pontos[0]
+  const cor = tendencia > 0 ? 'var(--color-good)' : tendencia < 0 ? 'var(--color-bad)' : 'var(--color-ink-faint)'
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="inline-block align-middle ml-2" aria-hidden="true">
+      <polyline points={coords} fill="none" stroke={cor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, sellersComAcao, podeGerir }: Props) {
   const [busca, setBusca] = useState('')
   const [pagina, setPagina] = useState(0)
   const [ordem, setOrdem] = useState<Ordem>('maior-perda')
@@ -39,6 +76,7 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
   const [fFaixas, setFFaixas] = useState<Set<string>>(new Set())
   const [fStatus, setFStatus] = useState<Set<string>>(new Set())
   const [fMcc, setFMcc] = useState<Set<string>>(new Set())
+  const [fSinais, setFSinais] = useState<Set<string>>(new Set())
 
   // Série por cliente, para saber há quantos dias o acumulado não sobe.
   const seriePorSeller = useMemo(() => {
@@ -50,6 +88,8 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
     }
     return m
   }, [serie])
+
+  const semAcaoSet = useMemo(() => new Set(sellersComAcao), [sellersComAcao])
 
   const enriquecidas = useMemo(() => {
     if (!dataReferencia) return []
@@ -63,9 +103,37 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
       const perda = r.variacao !== null && r.variacao < 0
         ? (r.ritmoPassado - r.ritmoAtual) * r.diasMesPassado
         : 0
-      return { ...l, ...r, ...e, perda, faixa: faixaTPV(r.variacao) }
+
+      // Oportunidade de reversão: o MP já marca quais clientes têm uma (à
+      // vista e/ou parcelada), com valor em aberto e fração já capturada
+      // (`ating_*`). Combina as duas em um único valor e um único % — a tela
+      // não precisa saber que por baixo são dois números da planilha.
+      const temOportunidade = l.oportunidade_1x || l.oportunidade_parc
+      const valorOportunidade =
+        (l.oportunidade_1x ? l.valor_1x ?? 0 : 0) + (l.oportunidade_parc ? l.valor_parc ?? 0 : 0)
+      const valorCapturado =
+        (l.oportunidade_1x ? (l.ating_1x ?? 0) * (l.valor_1x ?? 0) : 0) +
+        (l.oportunidade_parc ? (l.ating_parc ?? 0) * (l.valor_parc ?? 0) : 0)
+      const pctCapturado = valorOportunidade > 0 ? valorCapturado / valorOportunidade : null
+      const revertida =
+        (!l.oportunidade_1x || l.revertido_1x) && (!l.oportunidade_parc || l.revertido_parc)
+
+      const semAcao = !semAcaoSet.has(l.seller_id)
+      const vazandoFora = (l.tpv_outras_contas ?? 0) > 0 && (l.tpv_outras_contas ?? 0) > (l.tpv_mes_atual ?? 0)
+
+      const diasSemContato = diasDesde(l.ultimo_contato, dataReferencia)
+      const diasSemPesquisa = diasDesde(l.pesquisa_recente, dataReferencia)
+      const riscoAbandono =
+        (diasSemContato === null || diasSemContato >= DIAS_SEM_CONTATO) &&
+        (diasSemPesquisa === null || diasSemPesquisa >= DIAS_SEM_PESQUISA)
+
+      return {
+        ...l, ...r, ...e, perda, faixa: faixaTPV(r.variacao),
+        temOportunidade, valorOportunidade, pctCapturado, revertida,
+        semAcao, vazandoFora, diasSemContato, diasSemPesquisa, riscoAbandono,
+      }
     })
-  }, [linhas, dataReferencia, seriePorSeller])
+  }, [linhas, dataReferencia, seriePorSeller, semAcaoSet])
 
   const consultores = useMemo(
     () => [...new Set(linhas.map(l => l.consultor_nome).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
@@ -76,6 +144,15 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
     [linhas],
   )
 
+  const passaSinais = useMemo(() => (l: (typeof enriquecidas)[number]) => {
+    if (fSinais.size === 0) return true
+    if (fSinais.has('Sem ação atribuída') && l.semAcao) return true
+    if (fSinais.has('Oportunidade aberta') && l.temOportunidade && !l.revertida) return true
+    if (fSinais.has('TPV em outras contas') && l.vazandoFora) return true
+    if (fSinais.has('Sem contato/pesquisa recente') && l.riscoAbandono) return true
+    return false
+  }, [fSinais])
+
   const filtradas = useMemo(() => {
     const q = busca.trim().toLowerCase()
     const arr = enriquecidas.filter(l =>
@@ -83,6 +160,7 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
       (fFaixas.size === 0 || fFaixas.has(ROTULO_FAIXA[l.faixa])) &&
       (fStatus.size === 0 || fStatus.has(l.status ?? '')) &&
       (fMcc.size === 0 || fMcc.has(l.mcc ?? '')) &&
+      passaSinais(l) &&
       (!q || l.seller_id.includes(q) || (fichas[l.seller_id]?.nome ?? '').toLowerCase().includes(q)),
     )
     const cmp: Record<Ordem, (a: typeof arr[0], b: typeof arr[0]) => number> = {
@@ -92,19 +170,36 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
       'maior-tpv': (a, b) => (b.tpv_mes_atual ?? 0) - (a.tpv_mes_atual ?? 0),
     }
     return [...arr].sort(cmp[ordem])
-  }, [enriquecidas, busca, fConsultores, fFaixas, fStatus, fMcc, ordem, fichas])
+  }, [enriquecidas, busca, fConsultores, fFaixas, fStatus, fMcc, passaSinais, ordem, fichas])
 
   const kpis = useMemo(() => {
     const emQueda = filtradas.filter(l => l.faixa === 'queda' || l.faixa === 'queda-forte')
     const parados = filtradas.filter(l => (l.diasSemVender ?? 0) >= 3)
+    const comOportunidade = filtradas.filter(l => l.temOportunidade && !l.revertida)
     return {
       total: filtradas.length,
       emQueda: emQueda.length,
       perdaTotal: emQueda.reduce((s, l) => s + l.perda, 0),
       emAlta: filtradas.filter(l => l.faixa === 'alta').length,
       parados: parados.length,
+      oportunidadeAberta: comOportunidade.reduce((s, l) => s + l.valorOportunidade, 0),
+      semAcaoQueda: emQueda.filter(l => l.semAcao).length,
     }
   }, [filtradas])
+
+  /** Onde o líder deveria olhar primeiro: quem concentra a queda na equipe. */
+  const porConsultor = useMemo(() => {
+    const m = new Map<string, { nome: string; total: number; emQueda: number; perdaTotal: number }>()
+    for (const l of filtradas) {
+      if (!l.consultor_nome) continue
+      let c = m.get(l.consultor_nome)
+      if (!c) { c = { nome: l.consultor_nome, total: 0, emQueda: 0, perdaTotal: 0 }; m.set(l.consultor_nome, c) }
+      c.total++
+      if (l.faixa === 'queda' || l.faixa === 'queda-forte') { c.emQueda++; c.perdaTotal += l.perda }
+    }
+    return [...m.values()].sort((a, b) => b.perdaTotal - a.perdaTotal)
+  }, [filtradas])
+  const maiorPerdaConsultor = porConsultor[0]?.perdaTotal ?? 0
 
   const temSerie = useMemo(() => enriquecidas.some(l => l.temSerie), [enriquecidas])
 
@@ -137,12 +232,14 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
 
       {/* Os números primeiro — é a resposta que o líder quer, antes de qualquer
           controle de filtro ou explicação de método. */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
         {[
           { l: 'Clientes', v: nBR(kpis.total), c: 'text-ink' },
           { l: 'Em queda', v: nBR(kpis.emQueda), c: 'text-bad' },
           { l: 'Perda no ritmo', v: brl(kpis.perdaTotal), c: 'text-bad' },
           { l: 'Em alta', v: nBR(kpis.emAlta), c: 'text-good' },
+          { l: 'Oportunidade aberta', v: brl(kpis.oportunidadeAberta), c: 'text-primary' },
+          { l: 'Em queda sem ação', v: nBR(kpis.semAcaoQueda), c: 'text-warn' },
         ].map(k => (
           <div key={k.l} className="glass rounded-2xl border border-line px-4 py-3.5">
             <p className="text-xs font-medium text-ink-muted mb-1.5">{k.l}</p>
@@ -150,6 +247,40 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
           </div>
         ))}
       </div>
+
+      {/* Ranking por consultor: só quem gerencia vê (a mesma regra que já
+          esconde o filtro de Consultores) — responde "por onde eu começo",
+          pergunta que a tabela linha-a-linha não responde sozinha. */}
+      {podeGerir && porConsultor.length > 0 && (
+        <div className="glass rounded-2xl border border-line px-4 py-3.5 mb-3">
+          <p className="text-xs font-medium text-ink-muted mb-2.5">Por consultor · maior perda primeiro</p>
+          <div className="space-y-1.5">
+            {porConsultor.map(c => (
+              <button
+                key={c.nome}
+                onClick={() => setFConsultores(prev => {
+                  const next = new Set(prev)
+                  if (next.has(c.nome)) next.delete(c.nome); else { next.clear(); next.add(c.nome) }
+                  return next
+                })}
+                className={`w-full flex items-center gap-3 text-left rounded-lg px-2 py-1.5 transition-colors ${
+                  fConsultores.has(c.nome) ? 'bg-primary/10' : 'hover:bg-card-2'
+                }`}
+              >
+                <span className="text-xs text-ink truncate w-36 flex-shrink-0">{c.nome}</span>
+                <span className="flex-1 h-1.5 rounded-full bg-card-2 overflow-hidden">
+                  <span
+                    className="block h-full rounded-full bg-bad"
+                    style={{ width: maiorPerdaConsultor > 0 ? `${Math.max(4, (c.perdaTotal / maiorPerdaConsultor) * 100)}%` : '0%' }}
+                  />
+                </span>
+                <span className="text-[11px] text-ink-muted flex-shrink-0 w-14 text-right">{c.emQueda}/{c.total}</span>
+                <span className="text-xs font-medium text-bad flex-shrink-0 w-20 text-right tabular-nums">{brl(c.perdaTotal)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Por que os números não são o que a planilha mostra crua. Fica visível
           de propósito: sem esta linha, alguém compara os brutos e entra em pânico.
@@ -188,6 +319,7 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
           <MultiFiltro label="Faixa" opcoes={Object.values(ROTULO_FAIXA)} sel={fFaixas} onChange={setFFaixas} />
           <MultiFiltro label="Situação" opcoes={['ATIVO', 'CHURN', 'INATIVO', 'REATIVADO']} sel={fStatus} onChange={setFStatus} />
           <MultiFiltro label="Segmento" opcoes={mccs} sel={fMcc} onChange={setFMcc} />
+          <MultiFiltro label="Sinais" opcoes={[...SINAIS]} sel={fSinais} onChange={setFSinais} />
         </div>
       </div>
 
@@ -217,6 +349,10 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
           <tbody className="divide-y divide-line">
             {visiveis.map(l => {
               const f = fichas[l.seller_id]
+              const pontos = (seriePorSeller.get(l.seller_id) ?? [])
+                .filter((p): p is { data: string; tpv: number } => p.tpv != null)
+                .sort((a, b) => a.data.localeCompare(b.data))
+                .map(p => p.tpv)
               return (
                 <tr key={l.seller_id} className="hover:bg-card-2 transition-colors">
                   <td className="px-4 py-2.5 max-w-[240px]">
@@ -226,10 +362,23 @@ export default function QuedaTpvClient({ dataReferencia, linhas, serie, fichas, 
                     <p className="text-[11px] text-ink-faint truncate">
                       {podeGerir ? l.consultor_nome : f?.local || `#${l.seller_id}`}
                     </p>
+                    {(l.temOportunidade || l.semAcao || l.vazandoFora || l.riscoAbandono) && (
+                      <p className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
+                        {l.temOportunidade && !l.revertida && (
+                          <span className="text-[10px] font-medium text-primary">
+                            {brl(l.valorOportunidade)}{l.pctCapturado != null && ` · ${Math.round(l.pctCapturado * 100)}%`}
+                          </span>
+                        )}
+                        {l.semAcao && <span className="text-[10px] font-medium text-warn">Sem ação</span>}
+                        {l.vazandoFora && <span className="text-[10px] font-medium text-primary">Processa fora</span>}
+                        {l.riscoAbandono && <span className="text-[10px] font-medium text-ink-faint">Sem contato/pesquisa</span>}
+                      </p>
+                    )}
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <p className="tabular-nums text-ink leading-tight">
                       {brl(l.ritmoAtual)}<span className="text-ink-faint font-normal">/dia</span>
+                      <Sparkline pontos={pontos} />
                     </p>
                     <p className={`text-xs tabular-nums font-medium leading-tight mt-0.5 ${CorFaixa[l.faixa]}`}>
                       {l.variacao === null ? '—' : pct(l.variacao)}

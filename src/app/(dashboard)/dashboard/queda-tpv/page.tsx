@@ -15,6 +15,20 @@ export interface LinhaTPV {
   tpv_mes_atual: number | null
   tpv_mes_passado: number | null
   ultimo_contato: string | null
+  // Oportunidade de reversão de TPV, como o MP já classifica na planilha.
+  oportunidade_1x: boolean
+  valor_1x: number | null
+  ating_1x: number | null       // fração 0–1 do valor_1x já capturada
+  revertido_1x: boolean
+  oportunidade_parc: boolean
+  valor_parc: number | null
+  ating_parc: number | null     // fração 0–1 do valor_parc já capturada
+  revertido_parc: boolean
+  // Sinal de vazamento: quanto o seller fatura em OUTRAS contas MP.
+  tpv_outras_contas: number | null
+  multicontas: number | null
+  // Data da última pesquisa de satisfação enviada — não é nota, é só "quando".
+  pesquisa_recente: string | null
 }
 
 /** Um envio anterior do mesmo mês, para medir se o acumulado andou. */
@@ -39,23 +53,26 @@ export default async function QuedaTpvPage() {
 
   const dataReferencia: string | null = ultima?.data_referencia ?? null
   if (!dataReferencia) {
-    return <QuedaTpvClient dataReferencia={null} linhas={[]} serie={[]} fichas={{}} podeGerir={false} />
+    return <QuedaTpvClient dataReferencia={null} linhas={[]} serie={[]} fichas={{}} sellersComAcao={[]} podeGerir={false} />
   }
 
   // Série do MESMO MÊS, para medir estagnação. O TPV é acumulado e zera na
   // virada, então misturar meses mostraria queda de 100% em todo mundo no dia 1.
   const mes = dataReferencia.slice(0, 7)
 
-  /* As três buscas só dependem de `dataReferencia`, que já foi resolvida acima —
+  /* As quatro buscas só dependem de `dataReferencia`, que já foi resolvida acima —
    * nenhuma delas usa o resultado da outra. Em fila, cada uma esperava a
    * anterior terminar à toa, e como `buscarTudo` já custa duas ondas de rede
-   * (contar, depois as páginas), isso somava SEIS ondas antes do primeiro pixel.
-   * Em paralelo o custo passa a ser o da mais lenta. */
-  const [linhas, serie, cadastro] = await Promise.all([
+   * (contar, depois as páginas), isso somava ondas em série antes do primeiro
+   * pixel. Em paralelo o custo passa a ser o da mais lenta. */
+  const [linhas, serie, cadastro, acoes] = await Promise.all([
     buscarTudo<LinhaTPV>((opcoes, de, ate) =>
       supabase
         .from('mp_carteira')
-        .select('seller_id, consultor_nome, status, quartil, mcc, recorrencia, status_credito, tpv_mes_atual, tpv_mes_passado, ultimo_contato', opcoes)
+        .select(
+          'seller_id, consultor_nome, status, quartil, mcc, recorrencia, status_credito, tpv_mes_atual, tpv_mes_passado, ultimo_contato, oportunidade_1x, valor_1x, ating_1x, revertido_1x, oportunidade_parc, valor_parc, ating_parc, revertido_parc, tpv_outras_contas, multicontas, pesquisa_recente',
+          opcoes,
+        )
         .eq('data_referencia', dataReferencia)
         .range(de, ate),
     ),
@@ -79,7 +96,15 @@ export default async function QuedaTpvPage() {
       (opcoes, de, ate) =>
         supabase.from('clientes').select('seller_id, seller_nome, seller_telefone, cidade, bairro', opcoes).range(de, ate),
     ),
+    // Quem já tem alguma ação comercial atribuída neste snapshot — a tela usa
+    // isto só para sinalizar quem caiu SEM nada em andamento. A fila de
+    // trabalho em si (mural por acionável) já existe em /dashboard/acionaveis.
+    buscarTudo<{ seller_id: string }>((opcoes, de, ate) =>
+      supabase.from('mp_acionaveis').select('seller_id', opcoes).eq('data_referencia', dataReferencia).range(de, ate),
+    ),
   ])
+
+  const sellersComAcao = [...new Set(acoes.map(a => a.seller_id))]
 
   const naCarteira = new Set(linhas.map(l => l.seller_id))
   const fichas: Record<string, { nome: string; telefone: string | null; local: string }> = {}
@@ -100,6 +125,7 @@ export default async function QuedaTpvPage() {
       linhas={linhas}
       serie={serie}
       fichas={fichas}
+      sellersComAcao={sellersComAcao}
       podeGerir={podeGerir}
     />
   )
