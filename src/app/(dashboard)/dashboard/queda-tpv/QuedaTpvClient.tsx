@@ -147,6 +147,21 @@ const SINAIS = [
   'Piorando agora', 'Queda há 2 meses', 'Queda crônica (3 meses)', 'Recuperando',
 ] as const
 
+/** Faixas em vez de número solto — mesmo padrão dos outros filtros
+ *  (MultiFiltro é feito pra opção discreta, não pra range numérico). */
+const FAIXAS_DIAS_TRANSACIONAR: [string, (d: number | null) => boolean][] = [
+  ['0-2 dias', d => d != null && d <= 2],
+  ['3-7 dias', d => d != null && d >= 3 && d <= 7],
+  ['8-30 dias', d => d != null && d >= 8 && d <= 30],
+  ['31+ dias', d => d != null && d >= 31],
+]
+const FAIXAS_DIAS_CONTATO: [string, (d: number | null) => boolean][] = [
+  ['Até 15 dias', d => d != null && d <= 15],
+  ['16-30 dias', d => d != null && d >= 16 && d <= 30],
+  ['31+ dias', d => d != null && d >= 31],
+  ['Nunca contatado', d => d == null],
+]
+
 const diasDesde = (iso: string | null, hoje: string): number | null => {
   if (!iso) return null
   return Math.round((Date.parse(hoje) - Date.parse(iso.slice(0, 10))) / 86400000)
@@ -231,6 +246,8 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
   const [fStatus, setFStatus] = useState<Set<string>>(new Set())
   const [fMcc, setFMcc] = useState<Set<string>>(new Set())
   const [fSinais, setFSinais] = useState<Set<string>>(new Set())
+  const [fDiasTransacionar, setFDiasTransacionar] = useState<Set<string>>(new Set())
+  const [fDiasContato, setFDiasContato] = useState<Set<string>>(new Set())
   const [detalheId, setDetalheId] = useState<string | null>(null)
   // Guarda o resultado junto do id a que ele pertence — evita setState
   // síncrono de "reset" no início do efeito (o lint do React reclama, e com
@@ -347,6 +364,9 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
     return false
   }, [fSinais])
 
+  const passaFaixaDias = <T,>(sel: Set<string>, valor: T, faixas: [string, (v: T) => boolean][]) =>
+    sel.size === 0 || faixas.some(([rot, teste]) => sel.has(rot) && teste(valor))
+
   const filtradas = useMemo(() => {
     const q = busca.trim().toLowerCase()
     const arr = enriquecidas.filter(l =>
@@ -355,6 +375,8 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
       (fStatus.size === 0 || fStatus.has(l.status ?? '')) &&
       (fMcc.size === 0 || fMcc.has(l.mcc ?? '')) &&
       passaSinais(l) &&
+      passaFaixaDias(fDiasTransacionar, l.dias_sem_transacionar, FAIXAS_DIAS_TRANSACIONAR) &&
+      passaFaixaDias(fDiasContato, l.diasSemContato, FAIXAS_DIAS_CONTATO) &&
       (!q || l.seller_id.includes(q) || (fichas[l.seller_id]?.nome ?? '').toLowerCase().includes(q)),
     )
     const cmp: Record<Ordem, (a: typeof arr[0], b: typeof arr[0]) => number> = {
@@ -364,7 +386,7 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
       'maior-tpv': (a, b) => (b.tpv_mes_atual ?? 0) - (a.tpv_mes_atual ?? 0),
     }
     return [...arr].sort(cmp[ordem])
-  }, [enriquecidas, busca, fConsultores, fFaixas, fStatus, fMcc, passaSinais, ordem, fichas])
+  }, [enriquecidas, busca, fConsultores, fFaixas, fStatus, fMcc, passaSinais, fDiasTransacionar, fDiasContato, ordem, fichas])
 
   const kpis = useMemo(() => {
     const emQueda = filtradas.filter(l => l.faixa === 'queda' || l.faixa === 'queda-forte')
@@ -551,6 +573,8 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
           <MultiFiltro label="Situação" opcoes={['ATIVO', 'CHURN', 'INATIVO', 'REATIVADO']} sel={fStatus} onChange={setFStatus} />
           <MultiFiltro label="Segmento" opcoes={mccs} sel={fMcc} onChange={setFMcc} />
           <MultiFiltro label="Sinais" opcoes={[...SINAIS]} sel={fSinais} onChange={setFSinais} />
+          <MultiFiltro label="Sem transacionar" opcoes={FAIXAS_DIAS_TRANSACIONAR.map(([r]) => r)} sel={fDiasTransacionar} onChange={setFDiasTransacionar} />
+          <MultiFiltro label="Sem contato" opcoes={FAIXAS_DIAS_CONTATO.map(([r]) => r)} sel={fDiasContato} onChange={setFDiasContato} />
         </div>
       </div>
 
