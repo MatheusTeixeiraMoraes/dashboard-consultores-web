@@ -789,6 +789,32 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
                           <strong>{RotuloTendencia[clienteDetalhe.tendencia]}</strong> — {ExplicacaoTendencia[clienteDetalhe.tendencia]}
                         </p>
                       )}
+
+                      {/* Os 3 comparativos prontos do MP, com o número — não só
+                          a categoria derivada. Mesma regra de sinal confirmada
+                          contra a planilha real: período mais recente menos
+                          período mais antigo (positivo = cresceu, negativo =
+                          caiu). */}
+                      <div className="mt-3 space-y-1.5">
+                        <p className="text-[10px] text-ink-faint">Comparativos · mais recente − mais antigo (positivo = cresceu, negativo = caiu)</p>
+                        {([
+                          ['TPV M3 vs M1', clienteDetalhe.tpv_m3_vs_m1, '3 meses atrás → mês passado'],
+                          ['TPV M2 vs M1', clienteDetalhe.tpv_m2_vs_m1, '2 meses atrás → mês passado'],
+                          ['TPV M0 vs mesma data mês anterior', clienteDetalhe.tpv_m0_vs_mesma_data, 'este mês até hoje → mesmo intervalo no mês passado'],
+                        ] as [string, number | null, string][]).map(([rot, v, sub]) => (
+                          <div key={rot} className="flex items-center justify-between gap-3 bg-card-2 rounded-lg px-3 py-2">
+                            <div className="min-w-0">
+                              <p className="text-xs text-ink-dim">{rot}</p>
+                              <p className="text-[10px] text-ink-faint truncate">{sub}</p>
+                            </div>
+                            <p className={`text-sm font-semibold tabular-nums flex-shrink-0 ${
+                              v == null ? 'text-ink-faint' : v < 0 ? 'text-bad' : v > 0 ? 'text-good' : 'text-ink-muted'
+                            }`}>
+                              {v == null ? '—' : `${v >= 0 ? '+' : '-'}${brl(Math.abs(v))}`}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
                     </section>
 
                     {(clienteDetalhe.oportunidade_1x || clienteDetalhe.oportunidade_parc) && (
