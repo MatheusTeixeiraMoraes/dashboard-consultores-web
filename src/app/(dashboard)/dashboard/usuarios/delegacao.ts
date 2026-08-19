@@ -6,7 +6,7 @@ import { createClientReal } from '@/lib/supabase/server-real'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { perfilAutorizado } from '@/lib/demo/estado'
 import { escritaBloqueadaPeloDemo, MSG_BLOQUEIO_DEMO } from '@/lib/demo/guarda'
-import { canManageUsers } from '@/lib/types'
+import { canDelegateInto } from '@/lib/types'
 import {
   COOKIE_DELEGACAO, COOKIE_DELEGACAO_SINAL, DELEGACAO_MAX_SEGUNDOS,
 } from '@/lib/delegacao'
@@ -63,7 +63,10 @@ export async function entrarNaConta(
   // outros com a sessão que já tinha no navegador — o Supabase Auth não conhece
   // `ativo` e não derruba ninguém.
   const me = await perfilAutorizado()
-  if (!me || (me.role !== 'admin' && me.role !== 'dono')) {
+  // Líder pode delegar (só pra dentro de consultor — checado abaixo por
+  // `canDelegateInto`), mas continua sem alçada nenhuma sobre criar/editar/
+  // excluir usuário: isso é outro gate (`canManageUsers`), em outro lugar.
+  if (!me || (me.role !== 'admin' && me.role !== 'dono' && me.role !== 'lider')) {
     return { ok: false, error: 'Sem permissão' }
   }
 
@@ -88,9 +91,10 @@ export async function entrarNaConta(
 
   if (!alvo) return { ok: false, error: 'Usuário não encontrado' }
 
-  // O MESMO gate de hierarquia de `excluirUsuario`: um dono não entra na conta
-  // de um admin.
-  if (!canManageUsers(me.role, alvo.role as UserRole)) {
+  // Mesma ideia do gate de hierarquia de `excluirUsuario` (um dono não entra
+  // na conta de um admin), mas com a régua própria de delegação: líder só
+  // entra em consultor, nunca em outro líder/admin/dono.
+  if (!canDelegateInto(me.role, alvo.role as UserRole)) {
     return { ok: false, error: 'Sem permissão para entrar nesta conta' }
   }
 

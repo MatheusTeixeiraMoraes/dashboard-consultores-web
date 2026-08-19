@@ -131,3 +131,18 @@ export function canManageUsers(role: UserRole, targetRole?: UserRole): boolean {
   if (role === 'dono') return targetRole === 'lider' || targetRole === 'consultor'
   return false
 }
+
+/**
+ * Quem pode "entrar na conta de" (abrir o painel como outra pessoa). É
+ * DELIBERADAMENTE separada de `canManageUsers`: líder passa a poder
+ * delegar pra dentro de consultor, mas continua SEM alçada nenhuma pra
+ * criar, editar, ativar/desativar ou excluir usuário — ampliar
+ * `canManageUsers` em vez de criar esta função teria dado as duas coisas
+ * juntas por engano.
+ */
+export function canDelegateInto(role: UserRole, targetRole?: UserRole): boolean {
+  if (role === 'admin') return true
+  if (role === 'dono') return targetRole === 'lider' || targetRole === 'consultor'
+  if (role === 'lider') return targetRole === 'consultor'
+  return false
+}

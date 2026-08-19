@@ -142,7 +142,10 @@ const NAV: NavItem[] = [
   { href: '/dashboard/historico', label: 'Histórico',        roles: ['admin','dono'],              secao: 'Administração', icon: <IconClock /> },
   { href: '/dashboard/atividade', label: 'Atividade',        roles: ['admin','dono'],              secao: 'Administração', icon: <IconLista /> },
   { href: '/dashboard/metas',     label: 'Configurar Metas', roles: ['admin','dono'],              secao: 'Administração', icon: <IconSettings /> },
-  { href: '/dashboard/usuarios',  label: 'Usuários',         roles: ['admin','dono'],              secao: 'Administração', icon: <IconUsers /> },
+  // Líder entra aqui só pra "Entrar na conta" de consultor — a tela e o
+  // server action (delegacao.ts) já escondem/bloqueiam o resto (criar
+  // usuário, link de acesso, editar, excluir) pra esse papel.
+  { href: '/dashboard/usuarios',  label: 'Usuários',         roles: ['admin','dono','lider'],      secao: 'Administração', icon: <IconUsers /> },
 ]
 
 const ROLE_LABEL: Record<UserRole, string> = {

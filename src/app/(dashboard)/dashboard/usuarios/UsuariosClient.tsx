@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile, UserRole } from '@/lib/types'
-import { canManageUsers } from '@/lib/types'
+import { canManageUsers, canDelegateInto } from '@/lib/types'
 import { gerarLinkAcesso, revogarLink, excluirLink, listarConsultoresDaPlanilha } from './convites'
 import { entrarNaConta } from './delegacao'
 import { registrarEvento } from '@/lib/atividade'
@@ -314,30 +314,34 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
               {lista.length} usuário{lista.length !== 1 ? 's' : ''} cadastrado{lista.length !== 1 ? 's' : ''}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            {/* Caminho recomendado: o gestor escolhe o nome na planilha e o
-                vínculo nasce certo. O "Novo Usuário" ao lado continua para os
-                casos que não vêm de planilha (outro admin, um líder). */}
-            <button
-              onClick={abrirModalLink}
-              className="flex items-center gap-2 bg-primary hover:bg-primary-dk text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-              </svg>
-              Gerar link de acesso
-            </button>
-            <button
-              onClick={() => { setShowModal(true); setCreateErr(null); setCreateForm(EMPTY_FORM) }}
-              className="flex items-center gap-2 text-ink-dim border border-line hover:bg-card-2 text-sm font-medium px-4 py-2 rounded-xl transition-colors"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              Novo Usuário
-            </button>
-          </div>
+          {/* Líder só entra na conta de consultor — nem vê que existe link de
+              acesso ou criação direta de usuário, que continuam de admin/dono. */}
+          {myRole !== 'lider' && (
+            <div className="flex items-center gap-2">
+              {/* Caminho recomendado: o gestor escolhe o nome na planilha e o
+                  vínculo nasce certo. O "Novo Usuário" ao lado continua para os
+                  casos que não vêm de planilha (outro admin, um líder). */}
+              <button
+                onClick={abrirModalLink}
+                className="flex items-center gap-2 bg-primary hover:bg-primary-dk text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                </svg>
+                Gerar link de acesso
+              </button>
+              <button
+                onClick={() => { setShowModal(true); setCreateErr(null); setCreateForm(EMPTY_FORM) }}
+                className="flex items-center gap-2 text-ink-dim border border-line hover:bg-card-2 text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Novo Usuário
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="glass rounded-2xl border border-line overflow-x-auto">
@@ -354,6 +358,9 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
               {lista.map(u => {
                 const isMe    = u.id === myId
                 const canEdit = !isMe && canManageUsers(myRole, u.role)
+                // Independente de canEdit: líder passa por aqui mas nunca por
+                // canManageUsers (ele não gerencia usuário, só entra na conta).
+                const podeEntrar = !isMe && u.ativo && canDelegateInto(myRole, u.role)
                 const isEditing  = editing === u.id
                 const isConfirm  = confirmDel === u.id
                 const isDel      = deleting === u.id
@@ -417,53 +424,55 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
 
                     {/* Ações */}
                     <td className="px-5 py-3.5">
-                      {canEdit && (
-                        isEditing ? (
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => saveEdit(u)}
-                              disabled={saving === u.id}
-                              className="text-xs font-medium text-white bg-primary hover:bg-primary-dk px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60"
-                            >
-                              {saving === u.id ? 'Salvando...' : 'Salvar'}
-                            </button>
-                            <button
-                              onClick={() => { setEditing(null); setEditErr(null) }}
-                              className="text-xs font-medium text-ink-muted hover:text-ink px-3 py-1.5 rounded-lg border border-line transition-colors"
-                            >
-                              Cancelar
-                            </button>
-                            {editErr && <span className="text-[11px] text-bad">{editErr}</span>}
-                          </div>
-                        ) : isConfirm ? (
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs text-bad">Excluir?</span>
-                            <button
-                              onClick={() => handleDelete(u.id)}
-                              disabled={isDel}
-                              className="text-xs font-medium text-white bg-bad hover:bg-bad-dk px-2.5 py-1 rounded-lg transition-colors disabled:opacity-60"
-                            >
-                              {isDel ? '...' : 'Sim'}
-                            </button>
-                            <button
-                              onClick={() => { setConfirmDel(null); setDelErr(null) }}
-                              className="text-xs font-medium text-ink-muted hover:text-ink px-2.5 py-1 rounded-lg border border-line transition-colors"
-                            >
-                              Não
-                            </button>
-                            {delErr && <span className="text-xs text-bad">{delErr}</span>}
-                          </div>
-                        ) : (
-                          <div className="flex gap-3 items-center flex-wrap">
+                      {canEdit && isEditing ? (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => saveEdit(u)}
+                            disabled={saving === u.id}
+                            className="text-xs font-medium text-white bg-primary hover:bg-primary-dk px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60"
+                          >
+                            {saving === u.id ? 'Salvando...' : 'Salvar'}
+                          </button>
+                          <button
+                            onClick={() => { setEditing(null); setEditErr(null) }}
+                            className="text-xs font-medium text-ink-muted hover:text-ink px-3 py-1.5 rounded-lg border border-line transition-colors"
+                          >
+                            Cancelar
+                          </button>
+                          {editErr && <span className="text-[11px] text-bad">{editErr}</span>}
+                        </div>
+                      ) : canEdit && isConfirm ? (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs text-bad">Excluir?</span>
+                          <button
+                            onClick={() => handleDelete(u.id)}
+                            disabled={isDel}
+                            className="text-xs font-medium text-white bg-bad hover:bg-bad-dk px-2.5 py-1 rounded-lg transition-colors disabled:opacity-60"
+                          >
+                            {isDel ? '...' : 'Sim'}
+                          </button>
+                          <button
+                            onClick={() => { setConfirmDel(null); setDelErr(null) }}
+                            className="text-xs font-medium text-ink-muted hover:text-ink px-2.5 py-1 rounded-lg border border-line transition-colors"
+                          >
+                            Não
+                          </button>
+                          {delErr && <span className="text-xs text-bad">{delErr}</span>}
+                        </div>
+                      ) : (
+                        <div className="flex gap-3 items-center flex-wrap">
+                          {canEdit && (
                             <button
                               onClick={() => startEdit(u)}
                               className="text-xs font-medium text-primary hover:text-primary-dk transition-colors"
                             >
                               Editar
                             </button>
-                            {/* Corta o acesso sem destruir a conta — antes disto
-                                a única saída era Excluir, que apaga o usuário em
-                                auth.users e não tem volta. */}
+                          )}
+                          {/* Corta o acesso sem destruir a conta — antes disto
+                              a única saída era Excluir, que apaga o usuário em
+                              auth.users e não tem volta. */}
+                          {canEdit && (
                             <button
                               onClick={() => alternarAtivo(u)}
                               disabled={saving === u.id}
@@ -473,30 +482,33 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
                             >
                               {saving === u.id ? '...' : u.ativo ? 'Desativar' : 'Reativar'}
                             </button>
-                            {/* Só faz sentido em conta ativa: desativado tem
-                                get_my_role() nulo e o painel viria todo vazio,
-                                dando a impressão de que algo quebrou. */}
-                            {u.ativo && (
-                              <button
-                                onClick={() => entrar(u)}
-                                disabled={saving === u.id}
-                                className="text-xs font-medium text-ink-dim hover:text-ink transition-colors disabled:opacity-60"
-                                title={`Abrir o painel exatamente como ${u.nome || u.email} o vê`}
-                              >
-                                {saving === u.id ? '...' : 'Entrar na conta'}
-                              </button>
-                            )}
+                          )}
+                          {/* Independente de canEdit: líder passa por aqui (via
+                              canDelegateInto) sem ter alçada de gestão nenhuma —
+                              só isto. Só faz sentido em conta ativa: desativado
+                              tem get_my_role() nulo e o painel viria todo vazio. */}
+                          {podeEntrar && (
+                            <button
+                              onClick={() => entrar(u)}
+                              disabled={saving === u.id}
+                              className="text-xs font-medium text-ink-dim hover:text-ink transition-colors disabled:opacity-60"
+                              title={`Abrir o painel exatamente como ${u.nome || u.email} o vê`}
+                            >
+                              {saving === u.id ? '...' : 'Entrar na conta'}
+                            </button>
+                          )}
+                          {canEdit && (
                             <button
                               onClick={() => { setConfirmDel(u.id); setDelErr(null) }}
                               className="text-xs font-medium text-bad hover:text-bad-dk transition-colors"
                             >
                               Excluir
                             </button>
-                            {editErr && saving !== u.id && (
-                              <span className="text-[11px] text-bad">{editErr}</span>
-                            )}
-                          </div>
-                        )
+                          )}
+                          {editErr && saving !== u.id && (
+                            <span className="text-[11px] text-bad">{editErr}</span>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>
