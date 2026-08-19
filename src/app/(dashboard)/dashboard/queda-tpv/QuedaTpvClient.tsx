@@ -161,6 +161,15 @@ const FAIXAS_DIAS_CONTATO: [string, (d: number | null) => boolean][] = [
   ['31+ dias', d => d != null && d >= 31],
   ['Nunca contatado', d => d == null],
 ]
+// Cortes calibrados pela distribuição real da carteira (p25≈6k, p50≈12k,
+// p75≈20k, p90≈33k) — não são redondos por estética, são pra não deixar
+// nenhuma faixa concentrando metade da carteira sozinha.
+const FAIXAS_PORTE: [string, (v: number | null) => boolean][] = [
+  ['Até R$5 mil', v => v != null && v <= 5000],
+  ['R$5 mil-15 mil', v => v != null && v > 5000 && v <= 15000],
+  ['R$15 mil-35 mil', v => v != null && v > 15000 && v <= 35000],
+  ['Acima de R$35 mil', v => v != null && v > 35000],
+]
 
 const diasDesde = (iso: string | null, hoje: string): number | null => {
   if (!iso) return null
@@ -248,6 +257,7 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
   const [fSinais, setFSinais] = useState<Set<string>>(new Set())
   const [fDiasTransacionar, setFDiasTransacionar] = useState<Set<string>>(new Set())
   const [fDiasContato, setFDiasContato] = useState<Set<string>>(new Set())
+  const [fPorte, setFPorte] = useState<Set<string>>(new Set())
   const [detalheId, setDetalheId] = useState<string | null>(null)
   // Guarda o resultado junto do id a que ele pertence — evita setState
   // síncrono de "reset" no início do efeito (o lint do React reclama, e com
@@ -377,6 +387,7 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
       passaSinais(l) &&
       passaFaixaDias(fDiasTransacionar, l.dias_sem_transacionar, FAIXAS_DIAS_TRANSACIONAR) &&
       passaFaixaDias(fDiasContato, l.diasSemContato, FAIXAS_DIAS_CONTATO) &&
+      passaFaixaDias(fPorte, l.tpv_mes_atual, FAIXAS_PORTE) &&
       (!q || l.seller_id.includes(q) || (fichas[l.seller_id]?.nome ?? '').toLowerCase().includes(q)),
     )
     const cmp: Record<Ordem, (a: typeof arr[0], b: typeof arr[0]) => number> = {
@@ -386,7 +397,7 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
       'maior-tpv': (a, b) => (b.tpv_mes_atual ?? 0) - (a.tpv_mes_atual ?? 0),
     }
     return [...arr].sort(cmp[ordem])
-  }, [enriquecidas, busca, fConsultores, fFaixas, fStatus, fMcc, passaSinais, fDiasTransacionar, fDiasContato, ordem, fichas])
+  }, [enriquecidas, busca, fConsultores, fFaixas, fStatus, fMcc, passaSinais, fDiasTransacionar, fDiasContato, fPorte, ordem, fichas])
 
   const kpis = useMemo(() => {
     const emQueda = filtradas.filter(l => l.faixa === 'queda' || l.faixa === 'queda-forte')
@@ -575,6 +586,7 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
           <MultiFiltro label="Sinais" opcoes={[...SINAIS]} sel={fSinais} onChange={setFSinais} />
           <MultiFiltro label="Sem transacionar" opcoes={FAIXAS_DIAS_TRANSACIONAR.map(([r]) => r)} sel={fDiasTransacionar} onChange={setFDiasTransacionar} />
           <MultiFiltro label="Sem contato" opcoes={FAIXAS_DIAS_CONTATO.map(([r]) => r)} sel={fDiasContato} onChange={setFDiasContato} />
+          <MultiFiltro label="Porte" opcoes={FAIXAS_PORTE.map(([r]) => r)} sel={fPorte} onChange={setFPorte} />
         </div>
       </div>
 
