@@ -10,6 +10,7 @@ import { geocodar, sleep } from '@/lib/geo'
 import { tituloCaso, tipoDoc, precisaIdentificar } from '@/lib/texto'
 import type { Cliente, UserRole } from '@/lib/types'
 import type { FichaMP } from './page'
+import { registrarEvento } from '@/lib/atividade'
 
 const POR_PAGINA = 48        // múltiplo de 2 e 3: fecha a última fila do grid
 const LOTE_IMPORT = 500
@@ -293,9 +294,23 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
           setErro('Não foi possível salvar: este cliente pode ter saído da sua carteira. Recarregue a página.')
           return
         }
+        registrarEvento({
+          tipo: 'cliente_editado',
+          alvoTipo: 'cliente',
+          alvoId: payload.seller_id,
+          alvoDescricao: payload.seller_nome || payload.seller_id,
+          detalhes: { consultor_nome: nomeConsultor },
+        })
       } else {
         const { error } = await supabase.from('clientes').insert({ ...payload, consultor_nome: nomeConsultor })
         if (error) throw error
+        registrarEvento({
+          tipo: 'cliente_criado',
+          alvoTipo: 'cliente',
+          alvoId: payload.seller_id,
+          alvoDescricao: payload.seller_nome || payload.seller_id,
+          detalhes: { consultor_nome: nomeConsultor },
+        })
       }
     } catch (e) {
       const err = e as { code?: string; message: string }
@@ -313,14 +328,20 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   // enriquecido). Marcando em_carteira=false, o dado sobrevive; se o cliente
   // ainda estiver na Planilha Geral, a reconciliação o traz de volta — correto,
   // porque a planilha é quem diz de quem é a carteira.
-  async function excluir(id: string) {
+  async function excluir(c: Cliente) {
     const supabase = createClient()
     const { data, error } = await supabase
       .from('clientes')
       .update({ em_carteira: false, updated_at: new Date().toISOString() })
-      .eq('id', id).select('id')
+      .eq('id', c.id).select('id')
     if (error) { setErro(error.message); return }
     if (!data || data.length === 0) { setErro('Este cliente já não está na sua carteira. Recarregue a página.'); return }
+    registrarEvento({
+      tipo: 'cliente_removido_carteira',
+      alvoTipo: 'cliente',
+      alvoId: c.seller_id,
+      alvoDescricao: c.seller_nome || c.seller_id,
+    })
     setConfirmarExcluir(null)
     router.refresh()
   }
@@ -635,7 +656,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                   {confirmarExcluir === c.id ? (
                     <div className="flex items-center gap-2 text-xs">
                       <span className="text-bad font-medium">Tirar da carteira?</span>
-                      <button onClick={() => excluir(c.id)} className="ml-auto bg-bad hover:bg-bad-dk text-white px-3 py-1.5 rounded-lg font-semibold">Sim</button>
+                      <button onClick={() => excluir(c)} className="ml-auto bg-bad hover:bg-bad-dk text-white px-3 py-1.5 rounded-lg font-semibold">Sim</button>
                       <button onClick={() => setConfirmarExcluir(null)} className="text-ink-muted hover:text-ink px-2 py-1.5">Não</button>
                     </div>
                   ) : (

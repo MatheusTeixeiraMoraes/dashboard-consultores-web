@@ -12,6 +12,7 @@ import {
 } from '@/lib/delegacao'
 import type { DelegacaoOrigem } from '@/lib/delegacao'
 import type { UserRole } from '@/lib/types'
+import { registrarEvento } from '@/lib/atividade'
 
 const BASE_COOKIE = {
   sameSite: 'lax' as const,
@@ -143,6 +144,14 @@ export async function entrarNaConta(
     .select('id')
     .single()
 
+  registrarEvento({
+    tipo: 'delegacao_iniciada',
+    alvoTipo: 'usuario',
+    alvoId: alvo.id,
+    alvoDescricao: alvo.nome,
+    atorOverride: { id: me.id, nome: me.nome || me.email, email: me.email },
+  })
+
   // Guarda a volta ANTES de trocar a sessão: depois do verifyOtp os cookies já
   // são do alvo e a sessão do admin não estaria mais ao alcance.
   const origem: DelegacaoOrigem = {
@@ -217,6 +226,14 @@ export async function voltarParaMinhaConta(): Promise<{ ok: boolean; error?: str
   // Fecha a trilha pelo dono da SESSÃO, nunca pelo registro_id do cookie.
   await fecharAberta('alvo_id', user.id)
 
+  registrarEvento({
+    tipo: 'delegacao_encerrada',
+    alvoTipo: 'usuario',
+    alvoId: origem.alvo_id,
+    alvoDescricao: user.email ?? origem.alvo_id,
+    atorOverride: { id: origem.admin_id, nome: origem.admin_nome, email: origem.admin_email },
+  })
+
   // Revoga a sessão criada para o alvo. Sem isto, quem delegou podia copiar os
   // cookies `sb-*` antes de voltar e ficar com um refresh token permanente
   // daquela pessoa — e o teto de 2 horas viraria enfeite. Escopo 'local' derruba
@@ -257,7 +274,29 @@ export async function voltarParaMinhaConta(): Promise<{ ok: boolean; error?: str
 export async function sairEncerrandoDelegacao(): Promise<void> {
   const supabase = await createClientReal()
   const { data: { user } } = await supabase.auth.getUser()
-  if (user) await fecharAberta('alvo_id', user.id)
+  if (user) {
+    await fecharAberta('alvo_id', user.id)
+
+    // Lê o cookie ANTES de limpar, só pra saber quem era o admin que delegou
+    // (mesmo raciocínio de voltarParaMinhaConta: a sessão atual é do alvo,
+    // não de quem começou a delegação).
+    const bruto = (await cookies()).get(COOKIE_DELEGACAO)?.value
+    if (bruto) {
+      try {
+        const origem = JSON.parse(bruto) as DelegacaoOrigem
+        registrarEvento({
+          tipo: 'delegacao_encerrada',
+          alvoTipo: 'usuario',
+          alvoId: user.id,
+          alvoDescricao: user.email ?? user.id,
+          detalhes: { via: 'sair' },
+          atorOverride: { id: origem.admin_id, nome: origem.admin_nome, email: origem.admin_email },
+        })
+      } catch {
+        // cookie corrompido — sem trilha de quem delegou, não força o log.
+      }
+    }
+  }
   await limparCookies()
   await supabase.auth.signOut()
   redirect('/login')

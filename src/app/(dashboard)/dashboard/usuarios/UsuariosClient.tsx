@@ -6,6 +6,7 @@ import type { Profile, UserRole } from '@/lib/types'
 import { canManageUsers } from '@/lib/types'
 import { gerarLinkAcesso, revogarLink, excluirLink, listarConsultoresDaPlanilha } from './convites'
 import { entrarNaConta } from './delegacao'
+import { registrarEvento } from '@/lib/atividade'
 import type { ConsultorPlanilha } from './convites'
 import type { ConviteLinha } from './page'
 
@@ -188,7 +189,24 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
       setSaving(null)
       return
     }
-    if (data) setLista(prev => prev.map(p => p.id === u.id ? data as Profile : p))
+    if (data) {
+      setLista(prev => prev.map(p => p.id === u.id ? data as Profile : p))
+      // Tipo é 'usuario_editado' (não só "papel alterado") porque este
+      // salvamento toca nome/papel/id_carteira juntos — o diff real fica em
+      // `detalhes`, pra não perder o que de fato mudou.
+      registrarEvento({
+        tipo: 'usuario_editado',
+        alvoTipo: 'usuario',
+        alvoId: u.id,
+        alvoDescricao: (data as Profile).nome || (data as Profile).email,
+        detalhes: {
+          nome: u.nome !== (data as Profile).nome ? { de: u.nome, para: (data as Profile).nome } : undefined,
+          role: u.role !== (data as Profile).role ? { de: u.role, para: (data as Profile).role } : undefined,
+          id_carteira: u.id_carteira !== (data as Profile).id_carteira
+            ? { de: u.id_carteira, para: (data as Profile).id_carteira } : undefined,
+        },
+      })
+    }
     setSaving(null)
     setEditing(null)
   }
@@ -227,7 +245,16 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
       .select()
       .single()
     if (error) setEditErr(error.message)
-    else if (data) setLista(prev => prev.map(p => p.id === u.id ? data as Profile : p))
+    else if (data) {
+      setLista(prev => prev.map(p => p.id === u.id ? data as Profile : p))
+      registrarEvento({
+        tipo: 'usuario_ativo_alterado',
+        alvoTipo: 'usuario',
+        alvoId: u.id,
+        alvoDescricao: u.nome || u.email,
+        detalhes: { ativo: (data as Profile).ativo },
+      })
+    }
     setSaving(null)
   }
 

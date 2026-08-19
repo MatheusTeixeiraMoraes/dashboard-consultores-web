@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { registrarEvento } from '@/lib/atividade'
 
 export async function loginAction(formData: FormData) {
   const email = formData.get('email') as string
@@ -14,5 +15,6 @@ export async function loginAction(formData: FormData) {
     return { error: 'E-mail ou senha incorretos.' }
   }
 
+  await registrarEvento({ tipo: 'login' })
   redirect('/dashboard')
 }

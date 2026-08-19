@@ -4,6 +4,7 @@ import { escritaBloqueadaPeloDemo, MSG_BLOQUEIO_DEMO } from '@/lib/demo/guarda'
 import { canManageUsers } from '@/lib/types'
 import type { UserRole } from '@/lib/types'
 import { NextResponse } from 'next/server'
+import { registrarEvento } from '@/lib/atividade'
 
 export async function POST(request: Request) {
   try {
@@ -56,6 +57,14 @@ export async function POST(request: Request) {
       await admin.auth.admin.deleteUser(authUser.user.id)
       return NextResponse.json({ ok: false, error: profErr.message }, { status: 500 })
     }
+
+    await registrarEvento({
+      tipo: 'usuario_criado',
+      alvoTipo: 'usuario',
+      alvoId: authUser.user.id,
+      alvoDescricao: nome || email,
+      detalhes: { role, id_carteira: id_carteira || null },
+    })
 
     return NextResponse.json({ ok: true, profile: prof })
   } catch (err) {

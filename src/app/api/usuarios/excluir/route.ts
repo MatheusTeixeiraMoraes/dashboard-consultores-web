@@ -4,6 +4,7 @@ import { escritaBloqueadaPeloDemo, MSG_BLOQUEIO_DEMO } from '@/lib/demo/guarda'
 import { canManageUsers } from '@/lib/types'
 import type { UserRole } from '@/lib/types'
 import { NextResponse } from 'next/server'
+import { registrarEvento } from '@/lib/atividade'
 
 export async function POST(request: Request) {
   try {
@@ -26,7 +27,9 @@ export async function POST(request: Request) {
 
     const admin = createAdminClient()
 
-    const { data: target } = await admin.from('profiles').select('role').eq('id', userId).single()
+    // nome/email capturados ANTES de apagar: profiles referencia auth.users
+    // com on delete cascade, então depois do deleteUser essa linha já era.
+    const { data: target } = await admin.from('profiles').select('role, nome, email').eq('id', userId).single()
 
     if (!canManageUsers(me.role, target?.role as UserRole)) {
       return NextResponse.json({ ok: false, error: 'Sem permissão para excluir esse usuário' }, { status: 403 })
@@ -34,6 +37,14 @@ export async function POST(request: Request) {
 
     const { error } = await admin.auth.admin.deleteUser(userId)
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 })
+
+    await registrarEvento({
+      tipo: 'usuario_excluido',
+      alvoTipo: 'usuario',
+      alvoId: userId,
+      alvoDescricao: target?.nome || target?.email || userId,
+      detalhes: { role: target?.role ?? null },
+    })
 
     return NextResponse.json({ ok: true })
   } catch (err) {

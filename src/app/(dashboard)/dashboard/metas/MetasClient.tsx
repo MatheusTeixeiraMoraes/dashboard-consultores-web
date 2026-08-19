@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { PillarConfig } from '@/lib/types'
+import { registrarEvento } from '@/lib/atividade'
 
 const CAT_LABEL: Record<string, string> = { atuacao: 'Atuação', resultado: 'Resultado' }
 const CAT_COLOR: Record<string, string> = { atuacao: 'var(--color-primary)', resultado: 'var(--color-good)' }
@@ -45,6 +46,14 @@ export default function MetasClient({ pilares, profileId }: { pilares: PillarCon
       setErro(prev => ({ ...prev, [pilar.pilar_key]: error.message }))
       return
     }
+
+    registrarEvento({
+      tipo: 'meta_alterada',
+      alvoTipo: 'meta',
+      alvoId: pilar.pilar_key,
+      alvoDescricao: pilar.label,
+      detalhes: { de: pilar.meta, para: novaMeta, unidade: pilar.unidade },
+    })
 
     setSaved(pilar.pilar_key)
     setTimeout(() => setSaved(null), 2000)
