@@ -53,7 +53,7 @@ interface Estado {
  * confirmação. Se o snapshot encolheu demais (planilha errada/parcial), o piso
  * de sanidade bloqueia e exige revisão.
  */
-export default function ImportPlanilhaGeral({ data }: { data: string }) {
+export default function ImportPlanilhaGeral({ data, uploadedBy }: { data: string; uploadedBy: string }) {
   const router = useRouter()
   const [e, setE] = useState<Estado>({ status: 'idle' })
   const input = useRef<HTMLInputElement>(null)
@@ -94,6 +94,33 @@ export default function ImportPlanilhaGeral({ data }: { data: string }) {
     } catch (err) {
       setE({ status: 'erro', msg: (err as Error).message, lido })
       return
+    }
+
+    // Histórico do envio + arquivo original pra download. Não bloqueia o
+    // import se falhar — o snapshot já foi salvo, que é o que importa de
+    // verdade; o arquivo em si é um extra (mesmo espírito do UploadClient).
+    const { data: uploadRow, error: uploadErr } = await supabase
+      .from('carteira_uploads')
+      .insert({
+        uploaded_by: uploadedBy,
+        filename: file.name,
+        data_referencia: data,
+        total_clientes: lido.clientes.length,
+        total_acionaveis: lido.acoes.length,
+      })
+      .select('id').single()
+
+    if (!uploadErr && uploadRow) {
+      const ext = file.name.includes('.') ? file.name.split('.').pop() : 'xlsx'
+      const path = `carteira/${uploadRow.id}.${ext}`
+      const { error: storageErr } = await supabase.storage.from('planilhas-upload').upload(path, file, { upsert: true })
+      if (!storageErr) {
+        await supabase.from('carteira_uploads').update({ arquivo_path: path }).eq('id', uploadRow.id)
+      } else {
+        console.error('[import-planilha-geral] falha ao salvar arquivo original:', storageErr.message)
+      }
+    } else {
+      console.error('[import-planilha-geral] falha ao registrar histórico:', uploadErr?.message)
     }
 
     // Dry-run: mede o que a reconciliação MUDARIA, sem aplicar. É o preview que

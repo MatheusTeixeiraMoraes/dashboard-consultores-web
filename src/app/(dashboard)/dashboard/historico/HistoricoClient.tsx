@@ -12,6 +12,7 @@ const PILAR_LABEL: Record<string, string> = {
   aderencia: 'Aderência',
   awareness: 'Awareness',
   produtividade: 'Produtividade',
+  carteira: 'Oportunidades',
 }
 
 const PILAR_COLOR: Record<string, string> = {
@@ -21,15 +22,24 @@ const PILAR_COLOR: Record<string, string> = {
   aderencia: 'var(--color-pilar-aderencia)',
   awareness: 'var(--color-pilar-awareness)',
   produtividade: 'var(--color-pilar-produtividade)',
+  carteira: 'var(--color-primary)',
 }
 
-interface UploadRow {
+export interface UploadRow {
   id: string
+  /** 'pilar' = uma das 6 planilhas de score; 'carteira' = Planilha Ação
+   *  Oportunidades — sem Excluir, porque apagar a linha não desfaz o que já
+   *  foi reconciliado em `clientes`. */
+  tipo: 'pilar' | 'carteira'
   pilar_key: string
   filename: string
+  /** Caminho no bucket `planilhas-upload`. null = enviado antes deste
+   *  recurso existir — arquivo original não foi guardado, sem como recuperar. */
+  arquivo_path: string | null
   data_referencia: string
   record_count: number
-  uploaded_by: string
+  /** Só carteira: acionáveis, que não cabe no "Registros" (clientes). */
+  extra?: string
   created_at: string
   uploader_nome: string
 }
@@ -51,6 +61,29 @@ export default function HistoricoClient({ rows: initialRows, role }: { rows: Upl
   const [rows, setRows] = useState(initialRows)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [baixando, setBaixando] = useState<string | null>(null)
+  const [erroBaixa, setErroBaixa] = useState<string | null>(null)
+
+  async function handleDownload(row: UploadRow) {
+    if (!row.arquivo_path) return
+    setBaixando(row.id)
+    setErroBaixa(null)
+    const supabase = createClient()
+    const { data, error } = await supabase.storage
+      .from('planilhas-upload')
+      .createSignedUrl(row.arquivo_path, 60, { download: row.filename })
+    setBaixando(null)
+    if (error || !data) {
+      setErroBaixa(row.id)
+      return
+    }
+    // Content-Disposition: attachment já vem do signed URL (download: filename),
+    // então um <a> clicado programaticamente baixa sem navegar pra outra página
+    // — mesmo padrão de exportarCsv() em Carteira/Hexa Recife.
+    const a = document.createElement('a')
+    a.href = data.signedUrl
+    a.click()
+  }
 
   async function handleDelete(id: string) {
     setDeleting(id)
@@ -61,6 +94,11 @@ export default function HistoricoClient({ rows: initialRows, role }: { rows: Upl
     const { error } = await supabase.from('score_uploads').delete().eq('id', id)
 
     if (!error) {
+      // Some da lista mesmo se o storage falhar: a linha já foi apagada, e um
+      // arquivo órfão no bucket não é motivo pra travar a exclusão.
+      if (alvo?.arquivo_path) {
+        await supabase.storage.from('planilhas-upload').remove([alvo.arquivo_path])
+      }
       setRows(prev => prev.filter(r => r.id !== id))
       if (alvo) {
         registrarEvento({
@@ -83,6 +121,7 @@ export default function HistoricoClient({ rows: initialRows, role }: { rows: Upl
         <p className="text-sm text-ink-muted mt-0.5">
           {rows.length} {rows.length === 1 ? 'envio registrado' : 'envios registrados'}
           {role === 'admin' && ' · Apenas administradores podem excluir'}
+          {' · Envios anteriores a este recurso não têm arquivo original pra baixar'}
         </p>
       </div>
 
@@ -102,9 +141,7 @@ export default function HistoricoClient({ rows: initialRows, role }: { rows: Upl
                 <th className="text-center px-4 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider">Registros</th>
                 <th className="text-left px-4 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider">Enviado por</th>
                 <th className="text-left px-4 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider">Data Ref.</th>
-                {role === 'admin' && (
-                  <th className="text-center px-4 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider">Ação</th>
-                )}
+                <th className="text-center px-4 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider">Ação</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -131,40 +168,59 @@ export default function HistoricoClient({ rows: initialRows, role }: { rows: Upl
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className="text-sm font-semibold text-ink">{row.record_count}</span>
+                      {row.extra && <p className="text-[11px] text-ink-faint">{row.extra}</p>}
                     </td>
                     <td className="px-4 py-3 text-sm text-ink-dim">{row.uploader_nome}</td>
                     <td className="px-4 py-3 text-sm text-ink-muted whitespace-nowrap">
                       {formatDateBR(row.created_at)}
                     </td>
-                    {role === 'admin' && (
-                      <td className="px-4 py-3 text-center">
-                        {isConfirming ? (
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => handleDelete(row.id)}
-                              disabled={isDeleting}
-                              className="text-xs font-semibold text-white bg-bad hover:bg-bad-dk disabled:opacity-60 px-2.5 py-1 rounded-lg transition-colors"
-                            >
-                              {isDeleting ? 'Excluindo...' : 'Confirmar'}
-                            </button>
-                            <button
-                              onClick={() => setConfirmId(null)}
-                              disabled={isDeleting}
-                              className="text-xs font-medium text-ink-muted hover:text-ink-dim px-2 py-1 rounded-lg transition-colors"
-                            >
-                              Cancelar
-                            </button>
-                          </div>
-                        ) : (
+                    <td className="px-4 py-3 text-center">
+                      {isConfirming ? (
+                        <div className="flex items-center justify-center gap-2">
                           <button
-                            onClick={() => setConfirmId(row.id)}
-                            className="text-xs font-medium text-bad hover:bg-bad-bg px-2.5 py-1 rounded-lg transition-colors"
+                            onClick={() => handleDelete(row.id)}
+                            disabled={isDeleting}
+                            className="text-xs font-semibold text-white bg-bad hover:bg-bad-dk disabled:opacity-60 px-2.5 py-1 rounded-lg transition-colors"
                           >
-                            Excluir
+                            {isDeleting ? 'Excluindo...' : 'Confirmar'}
                           </button>
-                        )}
-                      </td>
-                    )}
+                          <button
+                            onClick={() => setConfirmId(null)}
+                            disabled={isDeleting}
+                            className="text-xs font-medium text-ink-muted hover:text-ink-dim px-2 py-1 rounded-lg transition-colors"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center gap-2">
+                          {row.arquivo_path ? (
+                            <button
+                              onClick={() => handleDownload(row)}
+                              disabled={baixando === row.id}
+                              className="text-xs font-medium text-primary hover:bg-primary/10 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-60"
+                            >
+                              {baixando === row.id ? 'Gerando...' : 'Baixar'}
+                            </button>
+                          ) : (
+                            <span className="text-xs text-ink-faint" title="Enviado antes deste recurso existir">
+                              Indisponível
+                            </span>
+                          )}
+                          {role === 'admin' && row.tipo === 'pilar' && (
+                            <button
+                              onClick={() => setConfirmId(row.id)}
+                              className="text-xs font-medium text-bad hover:bg-bad-bg px-2.5 py-1 rounded-lg transition-colors"
+                            >
+                              Excluir
+                            </button>
+                          )}
+                          {erroBaixa === row.id && (
+                            <span className="text-[11px] text-bad">Falha ao gerar link</span>
+                          )}
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 )
               })}

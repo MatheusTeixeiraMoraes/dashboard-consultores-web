@@ -171,6 +171,18 @@ export default function UploadClient({ uploadedBy }: { uploadedBy: string }) {
       return
     }
 
+    // Arquivo original, pra download em Histórico. Não bloqueia o upload se
+    // falhar — os dados já parseados são o que importa de verdade; o arquivo
+    // em si é um extra. arquivo_path fica null e a linha some sem quebrar nada.
+    const ext = file.name.includes('.') ? file.name.split('.').pop() : 'xlsx'
+    const path = `score/${pilarKey}/${upload.id}.${ext}`
+    const { error: storageErr } = await supabase.storage.from('planilhas-upload').upload(path, file, { upsert: true })
+    if (!storageErr) {
+      await supabase.from('score_uploads').update({ arquivo_path: path }).eq('id', upload.id)
+    } else {
+      console.error('[upload] falha ao salvar arquivo original:', storageErr.message)
+    }
+
     registrarEvento({
       tipo: 'score_upload_criado',
       alvoTipo: 'score_upload',
@@ -212,7 +224,7 @@ export default function UploadClient({ uploadedBy }: { uploadedBy: string }) {
       {/* A Planilha Geral nao e um pilar de score: alimenta Campanhas e vive em
           tabela separada. Fica acima para nao se perder no meio dos 6 pilares. */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        <ImportPlanilhaGeral data={date} />
+        <ImportPlanilhaGeral data={date} uploadedBy={uploadedBy} />
       </div>
 
       <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider mb-3">Planilhas de pontuação</p>
