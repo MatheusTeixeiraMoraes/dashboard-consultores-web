@@ -27,10 +27,11 @@ interface Props {
   pilaresConfig: PilarConfigMin[]
   profileNome: string
   idCarteira: string
+  carteiraSize?: number
 }
 
 export default function MeuScoreClient({
-  resultados, dateDisplay, dataReferencia, pilaresConfig, profileNome, idCarteira,
+  resultados, dateDisplay, dataReferencia, pilaresConfig, profileNome, idCarteira, carteiraSize,
 }: Props) {
   const porPilar = Object.fromEntries(resultados.map(r => [r.pilar_key, r]))
   const total = Math.min(
@@ -87,6 +88,7 @@ export default function MeuScoreClient({
           resultados={resultados}
           pilaresConfig={pilaresConfig}
           dataReferencia={dataReferencia}
+          carteiraSize={carteiraSize}
         />
 
         <EvolucaoScore idCarteira={idCarteira} minPontos={2} />

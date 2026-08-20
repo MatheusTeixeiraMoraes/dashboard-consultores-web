@@ -12,6 +12,7 @@ const EvolucaoScore = dynamic(() => import('@/components/dashboard/EvolucaoScore
 })
 import { PILAR_KEYS } from '@/lib/pilares'
 import { SCORE_MAX, SCORE_META_MINIMA, scoreStatus } from '@/lib/types'
+import { normalizarNome } from '@/lib/convites'
 
 const STATUS = {
   acima:    { label: `Acima da meta mínima (${SCORE_META_MINIMA.toFixed(1).replace('.', ',')} pts)`, text: 'var(--color-good)' },
@@ -29,9 +30,12 @@ interface Props {
   dateDisplay: string
   dataReferencia: string
   pilaresConfig: PilarConfigMin[]
+  carteiraPorConsultor: Record<string, number>
 }
 
-export default function ConsultorClient({ resultados, dateDisplay, dataReferencia, pilaresConfig }: Props) {
+export default function ConsultorClient({
+  resultados, dateDisplay, dataReferencia, pilaresConfig, carteiraPorConsultor,
+}: Props) {
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
@@ -62,6 +66,7 @@ export default function ConsultorClient({ resultados, dateDisplay, dataReferenci
   }, [doConsultor, selectedId])
 
   const nomeSelecionado = selectedId ? consultores.find(c => c.id === selectedId)?.nome : null
+  const carteiraSize = nomeSelecionado ? carteiraPorConsultor[normalizarNome(nomeSelecionado)] : undefined
   const st = total !== null ? STATUS[scoreStatus(total)] : null
 
   return (
@@ -152,6 +157,7 @@ export default function ConsultorClient({ resultados, dateDisplay, dataReferenci
                 resultados={doConsultor}
                 pilaresConfig={pilaresConfig}
                 dataReferencia={dataReferencia}
+                carteiraSize={carteiraSize}
               />
 
               <EvolucaoScore idCarteira={selectedId} minPontos={2} />

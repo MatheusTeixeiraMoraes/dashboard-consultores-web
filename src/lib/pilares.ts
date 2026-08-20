@@ -242,3 +242,32 @@ export function fmtMeta(meta: number, unidade: string): string {
 export function calcFaltam(valor: number, meta: number, tipoComp: string): number {
   return tipoComp === 'le' ? valor - meta : meta - valor
 }
+
+/**
+ * Acionáveis mudou de regra (19/08/2026): deixou de ser "% de tarefa
+ * revertida" contra uma meta fixa e virou uma QUANTIDADE fixa de tarefas
+ * revertidas, que varia pelo tamanho da carteira do consultor. O
+ * `score_planilha` que o MP manda já reflete a regra nova (nunca é
+ * recalculado aqui) — o que ficou desatualizado foi só a comparação de meta
+ * que a tela fazia com `pillar_config.meta` (22,4%, da regra antiga).
+ *
+ * Faixas por número de clientes na carteira (a partir de). Fonte: rubrica
+ * enviada pelo usuário em 20/08/2026 — se o MP mudar os números de novo, é
+ * só ajustar esta tabela.
+ */
+const FAIXAS_META_ACIONAVEIS: [minCarteira: number, metaTarefas: number][] = [
+  [1, 6],
+  [101, 8],
+  [201, 10],
+  [301, 12],
+  [401, 15],
+  [501, 15],
+]
+
+export function metaAcionaveis(carteiraSize: number): number {
+  let meta = FAIXAS_META_ACIONAVEIS[0][1]
+  for (const [min, valor] of FAIXAS_META_ACIONAVEIS) {
+    if (carteiraSize >= min) meta = valor
+  }
+  return meta
+}

@@ -1,6 +1,6 @@
 'use client'
 
-import { PILARES, GRUPOS, fmtValor, fmtMeta, calcFaltam } from '@/lib/pilares'
+import { PILARES, GRUPOS, fmtValor, fmtMeta, calcFaltam, metaAcionaveis } from '@/lib/pilares'
 import type { PilarKey } from '@/lib/types'
 
 /**
@@ -44,9 +44,13 @@ interface Props {
   resultados: ResultadoPilar[]
   pilaresConfig: PilarConfigMin[]
   dataReferencia: string
+  /** Clientes ativos na carteira do consultor — só usado por Acionáveis, cuja
+   *  meta agora é uma quantidade fixa que varia por esse tamanho. undefined =
+   *  tamanho desconhecido, cai no comportamento antigo (meta de pillar_config). */
+  carteiraSize?: number
 }
 
-export default function PilaresDetalhe({ resultados, pilaresConfig, dataReferencia }: Props) {
+export default function PilaresDetalhe({ resultados, pilaresConfig, dataReferencia, carteiraSize }: Props) {
   const porPilar = Object.fromEntries(resultados.map(r => [r.pilar_key, r]))
   const cfgPorPilar = Object.fromEntries(pilaresConfig.map(p => [p.pilar_key, p]))
   const refLabel = formatRefDate(dataReferencia)
@@ -77,6 +81,7 @@ export default function PilaresDetalhe({ resultados, pilaresConfig, dataReferenc
                   resultado={porPilar[key]}
                   config={cfgPorPilar[key]}
                   refLabel={refLabel}
+                  carteiraSize={carteiraSize}
                 />
               ))}
             </div>
@@ -88,12 +93,13 @@ export default function PilaresDetalhe({ resultados, pilaresConfig, dataReferenc
 }
 
 function PilarCard({
-  pilarKey, resultado, config, refLabel,
+  pilarKey, resultado, config, refLabel, carteiraSize,
 }: {
   pilarKey: PilarKey
   resultado?: ResultadoPilar
   config?: PilarConfigMin
   refLabel: string
+  carteiraSize?: number
 }) {
   const spec = PILARES[pilarKey]
   const { color } = spec
@@ -125,15 +131,32 @@ function PilarCard({
   }
 
   const metricas = resultado.metricas ?? {}
-  const unidadeSufixo = config.unidade === '%' ? '%' : ''
+
+  // Acionáveis (19/08/2026 em diante): meta deixou de ser percentual e virou
+  // quantidade fixa de tarefas revertidas, que varia pelo tamanho da carteira
+  // — um número global de pillar_config não dá conta disso. Com o tamanho da
+  // carteira em mãos, a comparação usa a quantidade real (metricas['Total
+  // Acionáveis Revertido']) contra a faixa certa; sem ele, cai no
+  // comportamento antigo (só pra não quebrar se o dado não vier).
+  const usarMetaTarefas = pilarKey === 'acionaveis' && carteiraSize != null
+
+  const unidadeSufixo = usarMetaTarefas ? '' : (config.unidade === '%' ? '%' : '')
+
+  const revertido = Number(metricas['Total Acionáveis Revertido'] ?? 0)
+  const metaTarefas = usarMetaTarefas ? metaAcionaveis(carteiraSize!) : null
 
   // faltam > 0 = ainda não bateu. Negativo = passou da meta.
-  const faltam = calcFaltam(resultado.valor_metrica, config.meta, config.tipo_comp)
+  const faltam = usarMetaTarefas
+    ? metaTarefas! - revertido
+    : calcFaltam(resultado.valor_metrica, config.meta, config.tipo_comp)
   const bateuMeta = faltam <= 0
   const excedente = Math.abs(faltam)
 
   const valorSpec = spec.cols.find(c => c.col === spec.valorCol)
-  const valorFmt = fmtValor(valorSpec?.type ?? 'decimal', resultado.valor_metrica)
+  const valorFmt = usarMetaTarefas
+    ? fmtValor('int', revertido)
+    : fmtValor(valorSpec?.type ?? 'decimal', resultado.valor_metrica)
+  const metaFmt = usarMetaTarefas ? String(metaTarefas) : fmtMeta(config.meta, config.unidade)
 
   return (
     <div className="glass rounded-2xl border border-line overflow-hidden" style={{ borderLeft: `3px solid ${color}` }}>
@@ -145,17 +168,21 @@ function PilarCard({
           <div className="flex items-baseline gap-2 flex-wrap">
             <span className="text-2xl font-bold text-ink">{valorFmt}</span>
             <span className="text-xs text-ink-muted">
-              meta: <span className="font-semibold">{fmtMeta(config.meta, config.unidade)}</span>
+              meta: <span className="font-semibold">{metaFmt}</span>
+              {usarMetaTarefas && ' tarefas'}
             </span>
           </div>
+          {usarMetaTarefas && (
+            <p className="text-[11px] text-ink-faint mt-0.5">carteira: {carteiraSize} clientes</p>
+          )}
           {bateuMeta ? (
             <p className="text-[11px] text-good font-medium mt-1">
               ✓ Meta atingida
-              {excedente >= 0.05 && ` — ${excedente.toFixed(1).replace('.', ',')}${unidadeSufixo} acima`}
+              {excedente >= 0.05 && ` — ${excedente.toFixed(usarMetaTarefas ? 0 : 1).replace('.', ',')}${unidadeSufixo} acima`}
             </p>
           ) : (
             <p className="text-[11px] text-bad font-medium mt-1">
-              ✗ Faltam {faltam.toFixed(1).replace('.', ',')}{unidadeSufixo} para a meta
+              ✗ Faltam {faltam.toFixed(usarMetaTarefas ? 0 : 1).replace('.', ',')}{unidadeSufixo} para a meta
             </p>
           )}
         </div>
@@ -165,10 +192,12 @@ function PilarCard({
           <span className="text-ink-muted font-medium">{refLabel}</span>
         </div>
 
-        {/* Demais colunas da planilha, na ordem do contrato.
-            A métrica principal já aparece grande acima, então sai da lista. */}
+        {/* Demais colunas da planilha, na ordem do contrato. A métrica
+            principal já aparece grande acima, então sai da lista — exceto
+            quando o número grande deixou de ser ela (acionáveis com meta por
+            tarefas), caso em que a % continua valendo a pena mostrar aqui. */}
         {spec.cols
-          .filter(c => c.col !== spec.valorCol)
+          .filter(c => usarMetaTarefas ? false : c.col !== spec.valorCol)
           .map(c => (
             <div key={c.col} className="flex items-center justify-between gap-2 border-t border-card-2 pt-1.5">
               <span className="text-[11px] text-ink-muted leading-tight">{c.label}:</span>

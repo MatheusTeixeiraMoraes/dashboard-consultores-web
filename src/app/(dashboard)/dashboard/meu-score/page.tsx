@@ -53,16 +53,31 @@ export default async function MeuScorePage() {
     )
   }
 
+  // Tamanho da carteira pra meta de Acionáveis (metaAcionaveis em lib/pilares.ts):
+  // é `mp_carteira` — a Planilha Ação Oportunidades, fonte real que o MP usa —
+  // e NÃO `clientes` (a tabela do app, que só tem uma fração disso: validado
+  // contra os scores reais, `clientes` subestimava a carteira de um consultor
+  // em 5x). RLS já restringe `mp_carteira` ao que é deste consultor.
+  const { data: ultimoSnapshot } = await supabase
+    .from('mp_carteira')
+    .select('data_referencia')
+    .order('data_referencia', { ascending: false })
+    .limit(1)
+  const dataCarteira = ultimoSnapshot?.[0]?.data_referencia
+
   // `data_referencia` já vem gravada em cada linha de resultado (mesmo valor
   // do upload que a gerou) — filtrar direto por ela poupa a ida extra de buscar
   // os uploadIds do dia só para usar em `upload_id in (...)`.
-  const [{ data: pilaresConfig }, { data: resultados }] = await Promise.all([
+  const [{ data: pilaresConfig }, { data: resultados }, { count: carteiraSize }] = await Promise.all([
     supabase.from('pillar_config').select('pilar_key, pontos_max, meta, tipo_comp, unidade'),
     supabase
       .from('score_consultor_resultados')
       .select('id_carteira, consultor_nome, pilar_key, score_planilha, metricas, valor_metrica')
       .eq('data_referencia', latestDate)
       .eq('id_carteira', profile.id_carteira),
+    dataCarteira
+      ? supabase.from('mp_carteira').select('*', { count: 'exact', head: true }).eq('data_referencia', dataCarteira)
+      : Promise.resolve({ count: null }),
   ])
 
   const dateDisplay = new Date(latestDate + 'T12:00:00').toLocaleDateString('pt-BR', {
@@ -77,6 +92,7 @@ export default async function MeuScorePage() {
       pilaresConfig={pilaresConfig ?? []}
       profileNome={profile.nome || profile.email}
       idCarteira={profile.id_carteira}
+      carteiraSize={carteiraSize ?? undefined}
     />
   )
 }
