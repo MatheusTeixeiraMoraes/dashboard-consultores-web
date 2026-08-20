@@ -16,6 +16,7 @@ const ROTULO_EVENTO: Record<string, string> = {
   usuario_ativo_alterado: 'alterou o acesso do usuário',
   usuario_senha_redefinida: 'redefiniu a senha via convite',
   meta_alterada: 'alterou a meta',
+  peso_pilar_alterado: 'alterou o peso',
   delegacao_iniciada: 'entrou na conta de',
   delegacao_encerrada: 'voltou da conta de',
   rota_criada: 'criou a rota',
@@ -42,6 +43,7 @@ const COR_EVENTO: Record<string, string> = {
   usuario_ativo_alterado: 'bg-warn-fill',
   usuario_senha_redefinida: 'bg-primary',
   meta_alterada: 'bg-primary',
+  peso_pilar_alterado: 'bg-primary',
   delegacao_iniciada: 'bg-warn-fill',
   delegacao_encerrada: 'bg-ink-faint',
   rota_criada: 'bg-good-fill',
@@ -78,7 +80,7 @@ function diasAtras(n: number) {
 /** Resume `detalhes` numa linha curta, sem expor json cru na tela. */
 function resumoDetalhes(tipo: string, detalhes: Record<string, unknown> | null): string | null {
   if (!detalhes) return null
-  if (tipo === 'meta_alterada' && 'de' in detalhes && 'para' in detalhes) {
+  if ((tipo === 'meta_alterada' || tipo === 'peso_pilar_alterado') && 'de' in detalhes && 'para' in detalhes) {
     return `${detalhes.de} → ${detalhes.para}`
   }
   if (tipo === 'usuario_ativo_alterado' && 'ativo' in detalhes) {

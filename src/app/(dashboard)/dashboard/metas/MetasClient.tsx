@@ -19,14 +19,22 @@ export default function MetasClient({ pilares, profileId }: { pilares: PillarCon
   const [values, setValues] = useState<Record<string, string>>(
     Object.fromEntries(pilares.map(p => [p.pilar_key, String(p.meta)]))
   )
+  const [pesos, setPesos] = useState<Record<string, string>>(
+    Object.fromEntries(pilares.map(p => [p.pilar_key, String(p.pontos_max)]))
+  )
   const [saving, setSaving] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
   const [erro, setErro] = useState<Record<string, string>>({})
 
   async function handleSave(pilar: PillarConfig) {
     const novaMeta = parseFloat(values[pilar.pilar_key])
+    const novoPeso = parseFloat(pesos[pilar.pilar_key])
     if (isNaN(novaMeta)) {
-      setErro(prev => ({ ...prev, [pilar.pilar_key]: 'Informe um número válido.' }))
+      setErro(prev => ({ ...prev, [pilar.pilar_key]: 'Informe um número válido para a meta.' }))
+      return
+    }
+    if (isNaN(novoPeso) || novoPeso <= 0) {
+      setErro(prev => ({ ...prev, [pilar.pilar_key]: 'Informe um peso válido (maior que zero).' }))
       return
     }
 
@@ -36,6 +44,7 @@ export default function MetasClient({ pilares, profileId }: { pilares: PillarCon
     const supabase = createClient()
     const { error } = await supabase.from('pillar_config').update({
       meta: novaMeta,
+      pontos_max: novoPeso,
       updated_at: new Date().toISOString(),
       updated_by: profileId,
     }).eq('pilar_key', pilar.pilar_key)
@@ -47,13 +56,26 @@ export default function MetasClient({ pilares, profileId }: { pilares: PillarCon
       return
     }
 
-    registrarEvento({
-      tipo: 'meta_alterada',
-      alvoTipo: 'meta',
-      alvoId: pilar.pilar_key,
-      alvoDescricao: pilar.label,
-      detalhes: { de: pilar.meta, para: novaMeta, unidade: pilar.unidade },
-    })
+    // Dois eventos distintos, cada um só quando o campo de fato mudou — assim
+    // trocar só a meta não gera ruído dizendo que o peso "mudou" de X pra X.
+    if (novaMeta !== pilar.meta) {
+      registrarEvento({
+        tipo: 'meta_alterada',
+        alvoTipo: 'meta',
+        alvoId: pilar.pilar_key,
+        alvoDescricao: pilar.label,
+        detalhes: { de: pilar.meta, para: novaMeta, unidade: pilar.unidade },
+      })
+    }
+    if (novoPeso !== pilar.pontos_max) {
+      registrarEvento({
+        tipo: 'peso_pilar_alterado',
+        alvoTipo: 'meta',
+        alvoId: pilar.pilar_key,
+        alvoDescricao: pilar.label,
+        detalhes: { de: pilar.pontos_max, para: novoPeso },
+      })
+    }
 
     setSaved(pilar.pilar_key)
     setTimeout(() => setSaved(null), 2000)
@@ -93,7 +115,6 @@ export default function MetasClient({ pilares, profileId }: { pilares: PillarCon
                     <div className="flex items-start justify-between mb-4">
                       <div>
                         <p className="text-sm font-semibold text-ink">{pilar.label}</p>
-                        <p className="text-xs text-ink-muted mt-0.5">Peso: {pilar.pontos_max} pts</p>
                       </div>
                       <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"
                         style={{ background: `${CAT_COLOR[cat]}15`, color: CAT_COLOR[cat] }}>
@@ -121,6 +142,24 @@ export default function MetasClient({ pilares, profileId }: { pilares: PillarCon
                             className="flex-1 min-w-0 border border-field-line rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary"
                           />
                           <span className="text-sm text-ink-muted w-4 flex-shrink-0">{sufixoUnidade(pilar.unidade)}</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-ink-muted mb-1 block">
+                          Peso{' '}
+                          <span className="text-ink-faint">(quanto este pilar vale na nota final)</span>
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0.1"
+                            value={pesos[pilar.pilar_key]}
+                            onChange={e => setPesos(prev => ({ ...prev, [pilar.pilar_key]: e.target.value }))}
+                            className="flex-1 min-w-0 border border-field-line rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary"
+                          />
+                          <span className="text-sm text-ink-muted w-4 flex-shrink-0">pts</span>
                         </div>
                       </div>
 
