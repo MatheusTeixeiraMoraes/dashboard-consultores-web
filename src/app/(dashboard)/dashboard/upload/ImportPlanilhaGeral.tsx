@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   lerPlanilhaGeral, acionaveisDesconhecidos, ErroPlanilha, type Lido,
 } from '@/lib/planilha-geral'
+import { registrarEvento } from '@/lib/atividade'
 
 const LOTE = 500   // mesmo lote do import da carteira
 
@@ -112,7 +113,19 @@ export default function ImportPlanilhaGeral({ data }: { data: string }) {
     // forcar só quando o piso bloqueou e o humano confirmou olhando o preview.
     const { data: diff, error } = await supabase.rpc('reconciliar_carteira', { p_data: data, p_aplicar: true, p_forcar: forcar })
     if (error) { setE(s => ({ ...s, status: 'erro', msg: `Erro ao aplicar: ${error.message}` })); return }
-    setE(s => ({ ...s, status: 'ok', diff: diff as Diff }))
+    const d = diff as Diff
+    // A ação mais impactante do import: muda dono de cliente, cria e esconde
+    // linhas de verdade — diferente do snapshot em si, que é só prévia.
+    registrarEvento({
+      tipo: 'carteira_reconciliada',
+      alvoTipo: 'carteira',
+      alvoDescricao: `Planilha Ação Oportunidades · ${data}`,
+      detalhes: {
+        data_referencia: data, forcado: forcar,
+        novos: d.stubs, transferidos: d.reatribuidos, escondidos: d.ocultados, reativados: d.reativados,
+      },
+    })
+    setE(s => ({ ...s, status: 'ok', diff: d }))
     router.refresh()
   }
 

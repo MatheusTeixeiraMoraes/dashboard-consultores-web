@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import ImportPlanilhaGeral from './ImportPlanilhaGeral'
+import { registrarEvento } from '@/lib/atividade'
 import type { PilarKey } from '@/lib/types'
 import {
   PILARES as PILAR_SPECS, PILAR_KEYS, COL_CARTEIRA, COL_NOME,
@@ -169,6 +170,14 @@ export default function UploadClient({ uploadedBy }: { uploadedBy: string }) {
       setStateFor(pilarKey, { status: 'error', message: 'Erro ao salvar resultados: ' + recErr.message })
       return
     }
+
+    registrarEvento({
+      tipo: 'score_upload_criado',
+      alvoTipo: 'score_upload',
+      alvoId: upload.id,
+      alvoDescricao: `${PILAR_SPECS[pilarKey].label} · ${formatDateBR(date)}`,
+      detalhes: { pilar_key: pilarKey, data_referencia: date, record_count: rows.length, substituiu: (existing?.length ?? 0) > 0 },
+    })
 
     setStateFor(pilarKey, { status: 'ok', count: rows.length })
     if (inputRefs.current[pilarKey]) inputRefs.current[pilarKey]!.value = ''

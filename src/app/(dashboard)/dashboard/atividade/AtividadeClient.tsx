@@ -25,7 +25,9 @@ const ROTULO_EVENTO: Record<string, string> = {
   convite_gerado: 'gerou link de acesso para',
   convite_revogado: 'revogou o link de acesso de',
   convite_excluido: 'excluiu o link de acesso de',
+  score_upload_criado: 'enviou a planilha',
   score_upload_excluido: 'excluiu o envio de planilha',
+  carteira_reconciliada: 'importou a carteira',
 }
 
 const COR_EVENTO: Record<string, string> = {
@@ -49,7 +51,9 @@ const COR_EVENTO: Record<string, string> = {
   convite_gerado: 'bg-good-fill',
   convite_revogado: 'bg-warn-fill',
   convite_excluido: 'bg-bad-fill',
+  score_upload_criado: 'bg-good-fill',
   score_upload_excluido: 'bg-bad-fill',
+  carteira_reconciliada: 'bg-warn-fill',
 }
 
 function formatarDataHora(iso: string) {
@@ -100,6 +104,18 @@ function resumoDetalhes(tipo: string, detalhes: Record<string, unknown> | null):
   }
   if (tipo === 'convite_gerado' && 'role' in detalhes) {
     return `papel: ${detalhes.role}`
+  }
+  if (tipo === 'score_upload_criado' && 'record_count' in detalhes) {
+    const subst = detalhes.substituiu ? ' · substituiu envio anterior' : ''
+    return `${detalhes.record_count} linha(s)${subst}`
+  }
+  if (tipo === 'carteira_reconciliada') {
+    const partes: string[] = []
+    if (typeof detalhes.novos === 'number' && detalhes.novos > 0) partes.push(`${detalhes.novos} novos`)
+    if (typeof detalhes.transferidos === 'number' && detalhes.transferidos > 0) partes.push(`${detalhes.transferidos} transferidos`)
+    if (typeof detalhes.escondidos === 'number' && detalhes.escondidos > 0) partes.push(`${detalhes.escondidos} escondidos`)
+    if (typeof detalhes.reativados === 'number' && detalhes.reativados > 0) partes.push(`${detalhes.reativados} reativados`)
+    return partes.length ? partes.join(' · ') : null
   }
   return null
 }
