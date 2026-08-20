@@ -6,6 +6,7 @@ import type { UserRole } from '@/lib/types'
 import {
   hashToken, estadoDoConvite, MOTIVO, emailValido, normalizarNome, SENHA_MIN,
 } from '@/lib/convites'
+import { registrarEvento } from '@/lib/atividade'
 
 /**
  * Aceite do convite. Rota PÚBLICA: roda sem sessão, para quem só tem o link.
@@ -168,6 +169,29 @@ export async function aceitarConvite(dados: {
     }
 
     await admin.from('convites_acesso').update({ usado_por: userId }).eq('id', convite.id)
+
+    // Rota PÚBLICA, sem sessão — `registrarEvento` não tem quem resolver via
+    // `getProfile()`, então o ator vem por `atorOverride`: a própria conta que
+    // acabou de ser criada/atualizada aqui, já validada pelas travas acima.
+    await registrarEvento(
+      existente
+        ? {
+            tipo: 'usuario_senha_redefinida',
+            alvoTipo: 'usuario',
+            alvoId: existente.id,
+            alvoDescricao: existente.nome,
+            detalhes: { via: 'convite' },
+            atorOverride: { id: existente.id, nome: existente.nome, email },
+          }
+        : {
+            tipo: 'usuario_criado',
+            alvoTipo: 'usuario',
+            alvoId: userId,
+            alvoDescricao: convite.consultor_nome,
+            detalhes: { via: 'convite', role: convite.role },
+            atorOverride: { id: userId, nome: convite.consultor_nome, email },
+          },
+    )
 
     return { ok: true, email }
   } catch (err) {

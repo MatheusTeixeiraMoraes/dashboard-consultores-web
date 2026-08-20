@@ -8,6 +8,7 @@ import { canManageUsers } from '@/lib/types'
 import { createClient } from '@/lib/supabase/server'
 import { buscarTudo } from '@/lib/supabase/buscar-tudo'
 import { gerarToken, hashToken, expiraEm, normalizarNome, DIAS_VALIDADE_PADRAO } from '@/lib/convites'
+import { registrarEvento } from '@/lib/atividade'
 import type { Profile, UserRole } from '@/lib/types'
 
 /** Um consultor como as PLANILHAS o conhecem — a lista de onde sai o convite. */
@@ -157,6 +158,13 @@ export async function gerarLinkAcesso(dados: {
 
     if (error) return { ok: false, error: error.message }
 
+    registrarEvento({
+      tipo: 'convite_gerado',
+      alvoTipo: 'convite',
+      alvoDescricao: nome,
+      detalhes: { role: dados.role, dias },
+    })
+
     revalidatePath('/dashboard/usuarios')
     return { ok: true, token, expira_em: validade.toISOString() }
   } catch (err) {
@@ -189,8 +197,12 @@ export async function excluirLink(id: string): Promise<{ ok: boolean; error?: st
     if (await escritaBloqueadaPeloDemo()) return { ok: false, error: MSG_BLOQUEIO_DEMO }
 
     const admin = createAdminClient()
+    // Busca o nome ANTES de apagar: depois a linha não existe mais pra descrever o evento.
+    const { data: alvo } = await admin.from('convites_acesso').select('consultor_nome').eq('id', id).maybeSingle()
     const { error } = await admin.from('convites_acesso').delete().eq('id', id)
     if (error) return { ok: false, error: error.message }
+
+    registrarEvento({ tipo: 'convite_excluido', alvoTipo: 'convite', alvoId: id, alvoDescricao: alvo?.consultor_nome })
 
     revalidatePath('/dashboard/usuarios')
     return { ok: true }
@@ -211,13 +223,19 @@ export async function revogarLink(id: string): Promise<{ ok: boolean; error?: st
     const admin = createAdminClient()
     // `revogado_em is null` deixa a ação idempotente: clicar duas vezes não
     // reescreve a data e não vira erro.
-    const { error } = await admin
+    const { data: revogado, error } = await admin
       .from('convites_acesso')
       .update({ revogado_em: new Date().toISOString() })
       .eq('id', id)
       .is('revogado_em', null)
+      .select('consultor_nome')
+      .maybeSingle()
 
     if (error) return { ok: false, error: error.message }
+
+    if (revogado) {
+      registrarEvento({ tipo: 'convite_revogado', alvoTipo: 'convite', alvoId: id, alvoDescricao: revogado.consultor_nome })
+    }
 
     revalidatePath('/dashboard/usuarios')
     return { ok: true }

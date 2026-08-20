@@ -9,6 +9,7 @@ import {
   type ClienteGeo, type GrupoRota,
 } from '@/lib/planejar-rotas'
 import { fmtDinheiroCurto, type HexaCliente } from '@/lib/hexa-recife'
+import { registrarEvento } from '@/lib/atividade'
 
 /** Acima disto, um dia de visitas deixa de ser realista. */
 const PARADAS_CONFORTAVEIS = 10
@@ -155,6 +156,14 @@ export default function PlanejarRotas({ clientes, meuNome }: Props) {
       feitas++
       setCriadas(feitas)
       if (feitas < plano.length) await sleep(1100)
+    }
+
+    if (feitas > 0) {
+      registrarEvento({
+        tipo: 'rota_criada',
+        alvoTipo: 'rota',
+        detalhes: { quantidade: feitas, origem: 'hexa_recife' },
+      })
     }
 
     setFase('ok')

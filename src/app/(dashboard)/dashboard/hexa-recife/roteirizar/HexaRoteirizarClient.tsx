@@ -7,6 +7,7 @@ import MultiFiltro from '@/components/MultiFiltro'
 import { enderecoExibivel } from '@/lib/texto'
 import { otimizarRota, geocodar, linksGoogleMaps, type Ponto, type ClienteSelecionado } from '@/lib/geo'
 import { receberDoPainelHexa, fmtDinheiro, fmtDinheiroCurto, type HexaCliente } from '@/lib/hexa-recife'
+import { registrarEvento } from '@/lib/atividade'
 
 const MAX_STOPS = 100   // teto do OSRM /trip público, igual ao Roteirizar da carteira
 const POR_PAGINA = 24
@@ -211,6 +212,12 @@ export default function HexaRoteirizarClient({
     })
     setSalvando(false)
     if (error) { setErro(error.message); return }
+    registrarEvento({
+      tipo: 'rota_criada',
+      alvoTipo: 'rota',
+      alvoDescricao: nomeRota.trim(),
+      detalhes: { paradas: stops.length, origem: 'hexa_recife' },
+    })
     router.push('/dashboard/agenda')
   }
 

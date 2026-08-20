@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { registrarEvento } from '@/lib/atividade'
 import type { UserRole } from '@/lib/types'
 
 const PILAR_LABEL: Record<string, string> = {
@@ -54,12 +55,22 @@ export default function HistoricoClient({ rows: initialRows, role }: { rows: Upl
   async function handleDelete(id: string) {
     setDeleting(id)
     const supabase = createClient()
+    const alvo = rows.find(r => r.id === id)
 
     await supabase.from('score_consultor_resultados').delete().eq('upload_id', id)
     const { error } = await supabase.from('score_uploads').delete().eq('id', id)
 
     if (!error) {
       setRows(prev => prev.filter(r => r.id !== id))
+      if (alvo) {
+        registrarEvento({
+          tipo: 'score_upload_excluido',
+          alvoTipo: 'score_upload',
+          alvoId: id,
+          alvoDescricao: `${PILAR_LABEL[alvo.pilar_key] ?? alvo.pilar_key} · ${formatDateBR(alvo.data_referencia)}`,
+          detalhes: { pilar_key: alvo.pilar_key, data_referencia: alvo.data_referencia, record_count: alvo.record_count },
+        })
+      }
     }
     setDeleting(null)
     setConfirmId(null)

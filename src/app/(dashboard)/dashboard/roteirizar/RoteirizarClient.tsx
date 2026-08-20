@@ -10,6 +10,7 @@ import {
   type Ponto, type ClienteSelecionado,
 } from '@/lib/geo'
 import type { ClienteRadar } from '../radar/page'
+import { registrarEvento } from '@/lib/atividade'
 
 const MAX_STOPS = 100      // OSRM /trip público aguenta ~100 pontos rápido
 const POR_PAGINA = 24      // cards por página na grade de seleção
@@ -224,6 +225,12 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
     })
     setSalvando(false)
     if (error) { setErro(error.message); return }
+    registrarEvento({
+      tipo: 'rota_criada',
+      alvoTipo: 'rota',
+      alvoDescricao: nomeRota.trim(),
+      detalhes: { paradas: stops.length },
+    })
     router.push('/dashboard/agenda')
   }
 

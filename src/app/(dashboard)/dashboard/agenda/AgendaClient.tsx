@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { otimizarRota, linksGoogleMaps, type Ponto } from '@/lib/geo'
 import { precisaIdentificar } from '@/lib/texto'
+import { registrarEvento } from '@/lib/atividade'
 import type { Rota } from './page'
 
 function linksMapsDaRota(r: Rota): string[] {
@@ -128,6 +129,7 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
     const supabase = createClient()
     const { error } = await supabase.from('rotas').update({ nome_rota: nomeEdit.trim(), updated_at: new Date().toISOString() }).eq('id', id)
     if (error) { setErro(error.message); return }
+    registrarEvento({ tipo: 'rota_editada', alvoTipo: 'rota', alvoId: id, alvoDescricao: nomeEdit.trim(), detalhes: { campo: 'nome' } })
     setEditando(null)
     router.refresh()
   }
@@ -151,14 +153,23 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
       .update({ data_visita: data || null, updated_at: new Date().toISOString() })
       .eq('id', id)
     if (error) { setErro(error.message); return }
+    registrarEvento({
+      tipo: 'rota_agendada',
+      alvoTipo: 'rota',
+      alvoId: id,
+      alvoDescricao: rotas.find(r => r.id === id)?.nome_rota,
+      detalhes: { data: data || null },
+    })
     setEditandoData(null)
     router.refresh()
   }
 
   async function excluir(id: string) {
     const supabase = createClient()
+    const nome = rotas.find(r => r.id === id)?.nome_rota
     const { error } = await supabase.from('rotas').delete().eq('id', id)
     if (error) { setErro(error.message); return }
+    registrarEvento({ tipo: 'rota_excluida', alvoTipo: 'rota', alvoId: id, alvoDescricao: nome })
     setConfirmar(null)
     router.refresh()
   }
@@ -189,6 +200,7 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
         updated_at: new Date().toISOString(),
       }).eq('id', r.id)
       if (error) { setErro(error.message); return }
+      registrarEvento({ tipo: 'rota_editada', alvoTipo: 'rota', alvoId: r.id, alvoDescricao: r.nome_rota, detalhes: { campo: 'trajeto' } })
       router.refresh()
     } catch (e) {
       setErro((e as Error).message)

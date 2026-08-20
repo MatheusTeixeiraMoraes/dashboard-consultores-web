@@ -140,7 +140,7 @@ const NAV: NavItem[] = [
   // Administração
   { href: '/dashboard/upload',    label: 'Upar Planilha',    roles: ['admin','dono'],              secao: 'Administração', icon: <IconUpload /> },
   { href: '/dashboard/historico', label: 'Histórico',        roles: ['admin','dono'],              secao: 'Administração', icon: <IconClock /> },
-  { href: '/dashboard/atividade', label: 'Atividade',        roles: ['admin','dono'],              secao: 'Administração', icon: <IconLista /> },
+  { href: '/dashboard/atividade', label: 'Atividade',        roles: ['admin'],                     secao: 'Administração', icon: <IconLista /> },
   { href: '/dashboard/metas',     label: 'Configurar Metas', roles: ['admin','dono'],              secao: 'Administração', icon: <IconSettings /> },
   // Líder entra aqui só pra "Entrar na conta" de consultor — a tela e o
   // server action (delegacao.ts) já escondem/bloqueiam o resto (criar

@@ -880,6 +880,15 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
         inseridos += data?.length ?? 0
         setImportState({ status: 'saving', inseridos })
       }
+      // Import por planilha é o outro jeito de "cliente ser adicionado" — sem
+      // isto o log de atividade só via o cadastro manual (um de cada vez).
+      if (inseridos > 0) {
+        registrarEvento({
+          tipo: 'clientes_importados',
+          alvoTipo: 'cliente',
+          detalhes: { quantidade: inseridos, ignorados: linhas.length - inseridos },
+        })
+      }
       setImportState({ status: 'ok', inseridos, ignorados: linhas.length - inseridos })
       router.refresh()
     } catch (e) {

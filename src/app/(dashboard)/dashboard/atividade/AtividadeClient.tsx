@@ -9,13 +9,23 @@ const ROTULO_EVENTO: Record<string, string> = {
   cliente_criado: 'cadastrou o cliente',
   cliente_editado: 'editou o cliente',
   cliente_removido_carteira: 'removeu da carteira o cliente',
+  clientes_importados: 'importou clientes por planilha',
   usuario_criado: 'criou o usuário',
   usuario_excluido: 'excluiu o usuário',
   usuario_editado: 'editou o usuário',
   usuario_ativo_alterado: 'alterou o acesso do usuário',
+  usuario_senha_redefinida: 'redefiniu a senha via convite',
   meta_alterada: 'alterou a meta',
   delegacao_iniciada: 'entrou na conta de',
   delegacao_encerrada: 'voltou da conta de',
+  rota_criada: 'criou a rota',
+  rota_editada: 'editou a rota',
+  rota_agendada: 'agendou a rota',
+  rota_excluida: 'excluiu a rota',
+  convite_gerado: 'gerou link de acesso para',
+  convite_revogado: 'revogou o link de acesso de',
+  convite_excluido: 'excluiu o link de acesso de',
+  score_upload_excluido: 'excluiu o envio de planilha',
 }
 
 const COR_EVENTO: Record<string, string> = {
@@ -23,13 +33,23 @@ const COR_EVENTO: Record<string, string> = {
   cliente_criado: 'bg-good-fill',
   cliente_editado: 'bg-primary',
   cliente_removido_carteira: 'bg-warn-fill',
+  clientes_importados: 'bg-good-fill',
   usuario_criado: 'bg-good-fill',
   usuario_excluido: 'bg-bad-fill',
   usuario_editado: 'bg-primary',
   usuario_ativo_alterado: 'bg-warn-fill',
+  usuario_senha_redefinida: 'bg-primary',
   meta_alterada: 'bg-primary',
   delegacao_iniciada: 'bg-warn-fill',
   delegacao_encerrada: 'bg-ink-faint',
+  rota_criada: 'bg-good-fill',
+  rota_editada: 'bg-primary',
+  rota_agendada: 'bg-primary',
+  rota_excluida: 'bg-bad-fill',
+  convite_gerado: 'bg-good-fill',
+  convite_revogado: 'bg-warn-fill',
+  convite_excluido: 'bg-bad-fill',
+  score_upload_excluido: 'bg-bad-fill',
 }
 
 function formatarDataHora(iso: string) {
@@ -58,6 +78,28 @@ function resumoDetalhes(tipo: string, detalhes: Record<string, unknown> | null):
       partes.push(`nome: ${n.de} → ${n.para}`)
     }
     return partes.length ? partes.join(' · ') : null
+  }
+  if (tipo === 'clientes_importados' && 'quantidade' in detalhes) {
+    const ignorados = typeof detalhes.ignorados === 'number' && detalhes.ignorados > 0 ? ` · ${detalhes.ignorados} ignorado(s)` : ''
+    return `${detalhes.quantidade} cliente(s)${ignorados}`
+  }
+  if (tipo === 'rota_criada' && 'quantidade' in detalhes) {
+    return `${detalhes.quantidade} rota(s)`
+  }
+  if (tipo === 'rota_criada' && 'paradas' in detalhes) {
+    return `${detalhes.paradas} parada(s)`
+  }
+  if (tipo === 'rota_agendada') {
+    return detalhes.data ? `para ${String(detalhes.data)}` : 'removida do calendário'
+  }
+  if (tipo === 'rota_editada' && 'campo' in detalhes) {
+    return detalhes.campo === 'trajeto' ? 'trajeto recalculado' : 'nome alterado'
+  }
+  if ((tipo === 'usuario_criado' || tipo === 'usuario_senha_redefinida') && detalhes.via === 'convite') {
+    return 'via link de convite'
+  }
+  if (tipo === 'convite_gerado' && 'role' in detalhes) {
+    return `papel: ${detalhes.role}`
   }
   return null
 }

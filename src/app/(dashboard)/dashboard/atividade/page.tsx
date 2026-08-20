@@ -24,7 +24,8 @@ const LIMITE = 200
 
 export default async function AtividadePage() {
   const profile = await getProfile()
-  if (!profile || (profile.role !== 'admin' && profile.role !== 'dono')) {
+  // Só admin — decisão explícita: nem dono vê o log de atividade.
+  if (!profile || profile.role !== 'admin') {
     redirect('/dashboard')
   }
 
