@@ -123,9 +123,17 @@ function resumoDetalhes(tipo: string, detalhes: Record<string, unknown> | null):
 export default function AtividadeClient({ eventos }: { eventos: EventoAtividade[] }) {
   const [busca, setBusca] = useState('')
   const [fTipos, setFTipos] = useState<Set<string>>(new Set())
+  const [fAtores, setFAtores] = useState<Set<string>>(new Set())
 
   const tiposPresentes = useMemo(
     () => [...new Set(eventos.map(e => e.tipo))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [eventos],
+  )
+
+  // Nome já congelado na linha (sobrevive a perfil apagado) — mesma fonte
+  // usada pra exibir quem fez a ação, não precisa de join com `profiles`.
+  const atoresPresentes = useMemo(
+    () => [...new Set(eventos.map(e => e.ator_nome))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
     [eventos],
   )
 
@@ -133,9 +141,10 @@ export default function AtividadeClient({ eventos }: { eventos: EventoAtividade[
     const q = busca.trim().toLowerCase()
     return eventos.filter(e =>
       (fTipos.size === 0 || fTipos.has(e.tipo)) &&
+      (fAtores.size === 0 || fAtores.has(e.ator_nome)) &&
       (!q || e.ator_nome.toLowerCase().includes(q) || (e.alvo_descricao ?? '').toLowerCase().includes(q)),
     )
-  }, [eventos, busca, fTipos])
+  }, [eventos, busca, fTipos, fAtores])
 
   return (
     <div className="pb-20">
@@ -157,7 +166,13 @@ export default function AtividadeClient({ eventos }: { eventos: EventoAtividade[
             className="w-full text-sm bg-field border border-field-line rounded-lg pl-8 pr-3 py-1.5 text-ink placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <MultiFiltro
+            label="Consultor"
+            opcoes={atoresPresentes}
+            sel={fAtores}
+            onChange={setFAtores}
+          />
           <MultiFiltro
             label="Tipo"
             opcoes={tiposPresentes.map(t => ROTULO_EVENTO[t] ?? t)}
