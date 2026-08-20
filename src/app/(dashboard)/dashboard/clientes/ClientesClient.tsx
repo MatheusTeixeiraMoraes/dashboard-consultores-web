@@ -256,7 +256,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
 
     const latNum = paraNum(form.lat), lngNum = paraNum(form.lng)
     if ((form.lat.trim() && latNum === null) || (form.lng.trim() && lngNum === null)) {
-      return setErro('Latitude/Longitude inválidas.')
+      return setErro('Coordenadas inválidas.')
     }
 
     const payload = {
@@ -774,15 +774,24 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                 <input value={form.endereco_completo} onChange={e => set('endereco_completo')(e.target.value)} className={inputCls} placeholder="Rua, número, cidade" />
               </Campo>
               <div className="flex items-end gap-2">
-                <div className="grid grid-cols-2 gap-3 flex-1">
-                  <Campo label="Latitude"><input value={form.lat} onChange={e => set('lat')(e.target.value)} className={inputCls} placeholder="-23.55" /></Campo>
-                  <Campo label="Longitude"><input value={form.lng} onChange={e => set('lng')(e.target.value)} className={inputCls} placeholder="-46.63" /></Campo>
+                <div className="flex-1">
+                  <Campo label="Coordenadas">
+                    <input
+                      value={form.lat || form.lng ? `${form.lat}, ${form.lng}` : ''}
+                      onChange={e => {
+                        const [lat = '', lng = ''] = e.target.value.split(',').map(s => s.trim())
+                        setForm(f => ({ ...f, lat, lng }))
+                      }}
+                      className={inputCls}
+                      placeholder="-23.55, -46.63"
+                    />
+                  </Campo>
                 </div>
                 <button onClick={geocodarForm} disabled={geoForm} className="border border-good/40 text-good text-xs font-semibold px-3 py-2 rounded-xl whitespace-nowrap disabled:opacity-50">
                   {geoForm ? '…' : 'Buscar do endereço'}
                 </button>
               </div>
-              <p className="text-[11px] text-ink-faint">Sem lat/lng o cliente não aparece no Radar. Use &quot;Buscar do endereço&quot; para geocodificar.</p>
+              <p className="text-[11px] text-ink-faint">Sem coordenadas o cliente não aparece no Radar. Copie do Google Maps (formato &quot;lat, lng&quot;) ou use &quot;Buscar do endereço&quot;.</p>
               {erro && <p className="text-xs text-bad bg-bad-bg rounded-lg px-3 py-2">{erro}</p>}
             </div>
             <div className="px-5 py-4 border-t border-line flex justify-end gap-2">
