@@ -11,7 +11,16 @@ export default async function MetasPage() {
   }
 
   const supabase = await createClient()
-  const { data } = await supabase.from('pillar_config').select('*').order('categoria').order('pontos_max', { ascending: false })
+  const [{ data }, { data: faixasAcionaveis }] = await Promise.all([
+    supabase.from('pillar_config').select('*').order('categoria').order('pontos_max', { ascending: false }),
+    supabase.from('metas_acionaveis_faixas').select('id, min_carteira, meta_tarefas').order('min_carteira'),
+  ])
 
-  return <MetasClient pilares={data as PillarConfig[]} profileId={profile.id} />
+  return (
+    <MetasClient
+      pilares={data as PillarConfig[]}
+      profileId={profile.id}
+      faixasAcionaveis={faixasAcionaveis ?? []}
+    />
+  )
 }

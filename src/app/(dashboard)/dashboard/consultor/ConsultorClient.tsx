@@ -10,7 +10,7 @@ const EvolucaoScore = dynamic(() => import('@/components/dashboard/EvolucaoScore
   ssr: false,
   loading: () => null,
 })
-import { PILAR_KEYS } from '@/lib/pilares'
+import { PILAR_KEYS, type FaixaAcionaveis } from '@/lib/pilares'
 import { SCORE_MAX, SCORE_META_MINIMA, scoreStatus } from '@/lib/types'
 import { normalizarNome } from '@/lib/convites'
 
@@ -31,10 +31,11 @@ interface Props {
   dataReferencia: string
   pilaresConfig: PilarConfigMin[]
   carteiraPorConsultor: Record<string, number>
+  faixasAcionaveis: FaixaAcionaveis[]
 }
 
 export default function ConsultorClient({
-  resultados, dateDisplay, dataReferencia, pilaresConfig, carteiraPorConsultor,
+  resultados, dateDisplay, dataReferencia, pilaresConfig, carteiraPorConsultor, faixasAcionaveis,
 }: Props) {
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -158,6 +159,7 @@ export default function ConsultorClient({
                 pilaresConfig={pilaresConfig}
                 dataReferencia={dataReferencia}
                 carteiraSize={carteiraSize}
+                faixasAcionaveis={faixasAcionaveis}
               />
 
               <EvolucaoScore idCarteira={selectedId} minPontos={2} />

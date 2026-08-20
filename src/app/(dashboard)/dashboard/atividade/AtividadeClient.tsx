@@ -17,6 +17,7 @@ const ROTULO_EVENTO: Record<string, string> = {
   usuario_senha_redefinida: 'redefiniu a senha via convite',
   meta_alterada: 'alterou a meta',
   peso_pilar_alterado: 'alterou o peso',
+  meta_acionaveis_faixas_alterada: 'alterou as faixas de meta de',
   delegacao_iniciada: 'entrou na conta de',
   delegacao_encerrada: 'voltou da conta de',
   rota_criada: 'criou a rota',
@@ -44,6 +45,7 @@ const COR_EVENTO: Record<string, string> = {
   usuario_senha_redefinida: 'bg-primary',
   meta_alterada: 'bg-primary',
   peso_pilar_alterado: 'bg-primary',
+  meta_acionaveis_faixas_alterada: 'bg-primary',
   delegacao_iniciada: 'bg-warn-fill',
   delegacao_encerrada: 'bg-ink-faint',
   rota_criada: 'bg-good-fill',
@@ -131,6 +133,10 @@ function resumoDetalhes(tipo: string, detalhes: Record<string, unknown> | null):
     if (typeof detalhes.escondidos === 'number' && detalhes.escondidos > 0) partes.push(`${detalhes.escondidos} escondidos`)
     if (typeof detalhes.reativados === 'number' && detalhes.reativados > 0) partes.push(`${detalhes.reativados} reativados`)
     return partes.length ? partes.join(' · ') : null
+  }
+  if (tipo === 'meta_acionaveis_faixas_alterada' && Array.isArray(detalhes.faixas)) {
+    const faixas = detalhes.faixas as { min_carteira: number; meta_tarefas: number }[]
+    return faixas.map(f => `${f.min_carteira}+ → ${f.meta_tarefas}`).join(' · ')
   }
   return null
 }

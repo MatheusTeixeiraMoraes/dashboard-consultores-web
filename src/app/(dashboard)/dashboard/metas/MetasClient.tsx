@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { PillarConfig } from '@/lib/types'
+import type { FaixaAcionaveis } from '@/lib/pilares'
 import { registrarEvento } from '@/lib/atividade'
 
 const CAT_LABEL: Record<string, string> = { atuacao: 'Atuação', resultado: 'Resultado' }
@@ -14,7 +15,13 @@ function sufixoUnidade(unidade: string) {
   return unidade === '%' ? '%' : ''
 }
 
-export default function MetasClient({ pilares, profileId }: { pilares: PillarConfig[]; profileId: string }) {
+interface FaixaEdit { min_carteira: string; meta_tarefas: string }
+
+export default function MetasClient({ pilares, profileId, faixasAcionaveis }: {
+  pilares: PillarConfig[]
+  profileId: string
+  faixasAcionaveis: FaixaAcionaveis[]
+}) {
   const router = useRouter()
   const [values, setValues] = useState<Record<string, string>>(
     Object.fromEntries(pilares.map(p => [p.pilar_key, String(p.meta)]))
@@ -25,6 +32,15 @@ export default function MetasClient({ pilares, profileId }: { pilares: PillarCon
   const [saving, setSaving] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
   const [erro, setErro] = useState<Record<string, string>>({})
+
+  const [faixas, setFaixas] = useState<FaixaEdit[]>(
+    [...faixasAcionaveis]
+      .sort((a, b) => a.min_carteira - b.min_carteira)
+      .map(f => ({ min_carteira: String(f.min_carteira), meta_tarefas: String(f.meta_tarefas) })),
+  )
+  const [savingFaixas, setSavingFaixas] = useState(false)
+  const [savedFaixas, setSavedFaixas] = useState(false)
+  const [erroFaixas, setErroFaixas] = useState('')
 
   async function handleSave(pilar: PillarConfig) {
     const novaMeta = parseFloat(values[pilar.pilar_key])
@@ -82,6 +98,73 @@ export default function MetasClient({ pilares, profileId }: { pilares: PillarCon
     router.refresh()
   }
 
+  function adicionarFaixa() {
+    setFaixas(prev => [...prev, { min_carteira: '', meta_tarefas: '' }])
+  }
+
+  function removerFaixa(i: number) {
+    // Sempre pelo menos 1 faixa: sem nenhuma, metaAcionaveis() cai no
+    // fallback fixo de 6 tarefas pra todo mundo, que é pior que qualquer faixa.
+    if (faixas.length <= 1) return
+    setFaixas(prev => prev.filter((_, idx) => idx !== i))
+  }
+
+  function atualizarFaixa(i: number, campo: keyof FaixaEdit, valor: string) {
+    setFaixas(prev => prev.map((f, idx) => idx === i ? { ...f, [campo]: valor } : f))
+  }
+
+  async function salvarFaixas() {
+    const parsed = faixas.map(f => ({
+      min_carteira: parseInt(f.min_carteira, 10),
+      meta_tarefas: parseInt(f.meta_tarefas, 10),
+    }))
+
+    if (parsed.some(f => isNaN(f.min_carteira) || f.min_carteira <= 0 || isNaN(f.meta_tarefas) || f.meta_tarefas <= 0)) {
+      setErroFaixas('Todas as faixas precisam de números válidos e maiores que zero.')
+      return
+    }
+    const minsUnicos = new Set(parsed.map(f => f.min_carteira))
+    if (minsUnicos.size !== parsed.length) {
+      setErroFaixas('Não repita o mesmo "a partir de" em duas faixas.')
+      return
+    }
+
+    setSavingFaixas(true)
+    setErroFaixas('')
+
+    const supabase = createClient()
+    // Sem PK estável do lado do cliente pra fazer upsert linha-a-linha (o
+    // admin pode ter adicionado/removido faixas) — substitui tudo de uma vez.
+    // Tabela de config de baixo tráfego, lida só ao carregar estas telas: o
+    // instante entre apagar e inserir não é problema real aqui.
+    const { error: delErr } = await supabase.from('metas_acionaveis_faixas').delete().gte('min_carteira', 0)
+    if (delErr) {
+      setSavingFaixas(false)
+      setErroFaixas(delErr.message)
+      return
+    }
+    const { error: insErr } = await supabase.from('metas_acionaveis_faixas').insert(
+      parsed.map(f => ({ ...f, updated_by: profileId })),
+    )
+    setSavingFaixas(false)
+    if (insErr) {
+      setErroFaixas(insErr.message)
+      return
+    }
+
+    registrarEvento({
+      tipo: 'meta_acionaveis_faixas_alterada',
+      alvoTipo: 'meta',
+      alvoId: 'acionaveis',
+      alvoDescricao: 'Acionáveis Comerciais',
+      detalhes: { faixas: parsed },
+    })
+
+    setSavedFaixas(true)
+    setTimeout(() => setSavedFaixas(false), 2000)
+    router.refresh()
+  }
+
   const grupos = ['atuacao', 'resultado'] as const
 
   return (
@@ -128,18 +211,14 @@ export default function MetasClient({ pilares, profileId }: { pilares: PillarCon
                         // Virou tudo-ou-nada — quantidade fixa de tarefas revertidas,
                         // que varia pelo tamanho da carteira de cada consultor. Não tem
                         // UM número global que valha pra todo mundo, então o campo de
-                        // meta editável (que ainda seria só percentual) some daqui —
-                        // mostrando ele editável de novo enganaria como o print que
-                        // motivou esta mudança. A meta real aparece calculada por
-                        // consultor em /dashboard/consultor e /dashboard/meu-score.
+                        // meta editável (que ainda seria só percentual) some daqui — a
+                        // configuração de verdade é a seção "Faixas de meta" no fim
+                        // desta página.
                         <div className="bg-card-2 rounded-xl p-3">
                           <p className="text-xs text-ink-dim font-medium mb-1">Meta: quantidade fixa por carteira</p>
                           <p className="text-[11px] text-ink-muted leading-relaxed">
-                            Não é mais percentual — cada consultor precisa reverter uma
-                            quantidade de tarefas que varia pelo tamanho da carteira
-                            dele (tudo ou nada, sem meio termo). Veja o valor calculado
-                            de cada um em <strong className="text-ink">Consultor</strong> ou{' '}
-                            <strong className="text-ink">Meu Desempenho</strong>.
+                            Ajuste as faixas na seção <strong className="text-ink">Faixas de meta —
+                            Acionáveis Comerciais</strong>, no fim desta página.
                           </p>
                         </div>
                       ) : (
@@ -208,6 +287,68 @@ export default function MetasClient({ pilares, profileId }: { pilares: PillarCon
             </div>
           )
         })}
+      </div>
+
+      {/* Faixas de Acionáveis: o MP manda uma quantidade nova todo mês — sem
+          isto, cada mudança exigia editar código e fazer deploy. */}
+      <div className="glass rounded-2xl border border-line p-5 mt-6">
+        <div className="mb-4">
+          <h2 className="text-sm font-semibold text-ink">Faixas de meta — Acionáveis Comerciais</h2>
+          <p className="text-xs text-ink-muted mt-0.5">
+            A partir de quantos clientes na carteira, quantas tarefas revertidas valem a meta
+            cheia (tudo ou nada — sem meio termo). Vale pra todo mundo.
+          </p>
+        </div>
+
+        <div className="space-y-2 mb-4">
+          {faixas.map((f, i) => (
+            <div key={i} className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-ink-muted flex-shrink-0">A partir de</span>
+              <input
+                type="number" min="1" value={f.min_carteira}
+                onChange={e => atualizarFaixa(i, 'min_carteira', e.target.value)}
+                className="w-20 border border-field-line rounded-lg px-2 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <span className="text-xs text-ink-muted flex-shrink-0">clientes → meta:</span>
+              <input
+                type="number" min="1" value={f.meta_tarefas}
+                onChange={e => atualizarFaixa(i, 'meta_tarefas', e.target.value)}
+                className="w-20 border border-field-line rounded-lg px-2 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <span className="text-xs text-ink-muted flex-shrink-0">tarefas revertidas</span>
+              <button
+                onClick={() => removerFaixa(i)}
+                disabled={faixas.length <= 1}
+                className="ml-auto text-xs font-medium text-bad hover:bg-bad-bg px-2 py-1 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Remover
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={adicionarFaixa}
+          className="text-xs font-medium text-primary hover:text-primary-dk transition-colors mb-4"
+        >
+          + Adicionar faixa
+        </button>
+
+        {erroFaixas && (
+          <p className="text-[11px] text-bad bg-bad-bg rounded-lg px-2.5 py-1.5 mb-3">{erroFaixas}</p>
+        )}
+
+        <button
+          onClick={salvarFaixas}
+          disabled={savingFaixas}
+          className={`w-full sm:w-auto px-6 py-2 rounded-xl text-sm font-medium transition-colors ${
+            savedFaixas
+              ? 'bg-good-bg text-good border border-good/30'
+              : 'bg-primary hover:bg-primary-dk text-white disabled:opacity-60'
+          }`}
+        >
+          {savingFaixas ? 'Salvando...' : savedFaixas ? '✓ Salvo' : 'Salvar faixas'}
+        </button>
       </div>
     </div>
   )

@@ -243,6 +243,13 @@ export function calcFaltam(valor: number, meta: number, tipoComp: string): numbe
   return tipoComp === 'le' ? valor - meta : meta - valor
 }
 
+/** Uma linha da tabela `metas_acionaveis_faixas` — a partir de quantos
+ *  clientes na carteira, quantas tarefas revertidas valem a meta cheia. */
+export interface FaixaAcionaveis {
+  min_carteira: number
+  meta_tarefas: number
+}
+
 /**
  * Acionáveis mudou de regra (19/08/2026): deixou de ser "% de tarefa
  * revertida" contra uma meta fixa e virou uma QUANTIDADE fixa de tarefas
@@ -251,23 +258,17 @@ export function calcFaltam(valor: number, meta: number, tipoComp: string): numbe
  * recalculado aqui) — o que ficou desatualizado foi só a comparação de meta
  * que a tela fazia com `pillar_config.meta` (22,4%, da regra antiga).
  *
- * Faixas por número de clientes na carteira (a partir de). Fonte: rubrica
- * enviada pelo usuário em 20/08/2026 — se o MP mudar os números de novo, é
- * só ajustar esta tabela.
+ * As faixas em si moram em `metas_acionaveis_faixas` (editável em
+ * /dashboard/metas) — o MP manda uma quantidade nova todo mês, então não dá
+ * pra deixar hardcoded aqui feito antes. `faixas` vazio (banco fora do ar,
+ * ou tabela ainda sem seed) cai num fallback conservador de 6 tarefas fixas,
+ * pra nunca travar a tela por falta de config.
  */
-const FAIXAS_META_ACIONAVEIS: [minCarteira: number, metaTarefas: number][] = [
-  [1, 6],
-  [101, 8],
-  [201, 10],
-  [301, 12],
-  [401, 15],
-  [501, 15],
-]
-
-export function metaAcionaveis(carteiraSize: number): number {
-  let meta = FAIXAS_META_ACIONAVEIS[0][1]
-  for (const [min, valor] of FAIXAS_META_ACIONAVEIS) {
-    if (carteiraSize >= min) meta = valor
+export function metaAcionaveis(carteiraSize: number, faixas: FaixaAcionaveis[]): number {
+  if (faixas.length === 0) return 6
+  let meta = faixas[0].meta_tarefas
+  for (const f of [...faixas].sort((a, b) => a.min_carteira - b.min_carteira)) {
+    if (carteiraSize >= f.min_carteira) meta = f.meta_tarefas
   }
   return meta
 }

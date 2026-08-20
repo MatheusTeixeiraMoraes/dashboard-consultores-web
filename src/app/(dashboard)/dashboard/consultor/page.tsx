@@ -50,7 +50,7 @@ export default async function ConsultorPage() {
   // `data_referencia` já vem gravada em cada linha de resultado (mesmo valor
   // do upload que a gerou) — filtrar direto por ela poupa a ida extra de buscar
   // os uploadIds do dia só para usar em `upload_id in (...)`.
-  const [{ data: pilaresConfig }, { data: resultados }, carteiraLinhas] = await Promise.all([
+  const [{ data: pilaresConfig }, { data: resultados }, carteiraLinhas, { data: faixasAcionaveis }] = await Promise.all([
     supabase.from('pillar_config').select('pilar_key, pontos_max, meta, tipo_comp, unidade'),
     supabase
       .from('score_consultor_resultados')
@@ -63,6 +63,7 @@ export default async function ConsultorPage() {
           supabase.from('mp_carteira').select('consultor_nome', opcoes).eq('data_referencia', dataCarteira).range(de, ate),
         )
       : Promise.resolve([]),
+    supabase.from('metas_acionaveis_faixas').select('min_carteira, meta_tarefas'),
   ])
 
   const carteiraPorConsultor: Record<string, number> = {}
@@ -82,6 +83,7 @@ export default async function ConsultorPage() {
       dataReferencia={latestDate}
       pilaresConfig={pilaresConfig ?? []}
       carteiraPorConsultor={carteiraPorConsultor}
+      faixasAcionaveis={faixasAcionaveis ?? []}
     />
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { PILARES, GRUPOS, fmtValor, fmtMeta, calcFaltam, metaAcionaveis } from '@/lib/pilares'
+import { PILARES, GRUPOS, fmtValor, fmtMeta, calcFaltam, metaAcionaveis, type FaixaAcionaveis } from '@/lib/pilares'
 import type { PilarKey } from '@/lib/types'
 
 /**
@@ -48,9 +48,11 @@ interface Props {
    *  meta agora é uma quantidade fixa que varia por esse tamanho. undefined =
    *  tamanho desconhecido, cai no comportamento antigo (meta de pillar_config). */
   carteiraSize?: number
+  /** Faixas de metas_acionaveis_faixas (editáveis em /dashboard/metas). */
+  faixasAcionaveis: FaixaAcionaveis[]
 }
 
-export default function PilaresDetalhe({ resultados, pilaresConfig, dataReferencia, carteiraSize }: Props) {
+export default function PilaresDetalhe({ resultados, pilaresConfig, dataReferencia, carteiraSize, faixasAcionaveis }: Props) {
   const porPilar = Object.fromEntries(resultados.map(r => [r.pilar_key, r]))
   const cfgPorPilar = Object.fromEntries(pilaresConfig.map(p => [p.pilar_key, p]))
   const refLabel = formatRefDate(dataReferencia)
@@ -82,6 +84,7 @@ export default function PilaresDetalhe({ resultados, pilaresConfig, dataReferenc
                   config={cfgPorPilar[key]}
                   refLabel={refLabel}
                   carteiraSize={carteiraSize}
+                  faixasAcionaveis={faixasAcionaveis}
                 />
               ))}
             </div>
@@ -93,13 +96,14 @@ export default function PilaresDetalhe({ resultados, pilaresConfig, dataReferenc
 }
 
 function PilarCard({
-  pilarKey, resultado, config, refLabel, carteiraSize,
+  pilarKey, resultado, config, refLabel, carteiraSize, faixasAcionaveis,
 }: {
   pilarKey: PilarKey
   resultado?: ResultadoPilar
   config?: PilarConfigMin
   refLabel: string
   carteiraSize?: number
+  faixasAcionaveis: FaixaAcionaveis[]
 }) {
   const spec = PILARES[pilarKey]
   const { color } = spec
@@ -143,7 +147,7 @@ function PilarCard({
   const unidadeSufixo = usarMetaTarefas ? '' : (config.unidade === '%' ? '%' : '')
 
   const revertido = Number(metricas['Total Acionáveis Revertido'] ?? 0)
-  const metaTarefas = usarMetaTarefas ? metaAcionaveis(carteiraSize!) : null
+  const metaTarefas = usarMetaTarefas ? metaAcionaveis(carteiraSize!, faixasAcionaveis) : null
 
   // faltam > 0 = ainda não bateu. Negativo = passou da meta.
   const faltam = usarMetaTarefas

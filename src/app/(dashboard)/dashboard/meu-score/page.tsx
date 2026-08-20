@@ -68,7 +68,7 @@ export default async function MeuScorePage() {
   // `data_referencia` já vem gravada em cada linha de resultado (mesmo valor
   // do upload que a gerou) — filtrar direto por ela poupa a ida extra de buscar
   // os uploadIds do dia só para usar em `upload_id in (...)`.
-  const [{ data: pilaresConfig }, { data: resultados }, { count: carteiraSize }] = await Promise.all([
+  const [{ data: pilaresConfig }, { data: resultados }, { count: carteiraSize }, { data: faixasAcionaveis }] = await Promise.all([
     supabase.from('pillar_config').select('pilar_key, pontos_max, meta, tipo_comp, unidade'),
     supabase
       .from('score_consultor_resultados')
@@ -78,6 +78,7 @@ export default async function MeuScorePage() {
     dataCarteira
       ? supabase.from('mp_carteira').select('*', { count: 'exact', head: true }).eq('data_referencia', dataCarteira)
       : Promise.resolve({ count: null }),
+    supabase.from('metas_acionaveis_faixas').select('min_carteira, meta_tarefas'),
   ])
 
   const dateDisplay = new Date(latestDate + 'T12:00:00').toLocaleDateString('pt-BR', {
@@ -93,6 +94,7 @@ export default async function MeuScorePage() {
       profileNome={profile.nome || profile.email}
       idCarteira={profile.id_carteira}
       carteiraSize={carteiraSize ?? undefined}
+      faixasAcionaveis={faixasAcionaveis ?? []}
     />
   )
 }

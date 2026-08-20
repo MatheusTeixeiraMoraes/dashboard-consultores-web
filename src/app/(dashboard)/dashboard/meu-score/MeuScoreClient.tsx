@@ -1,6 +1,7 @@
 'use client'
 
 import PilaresDetalhe, { type ResultadoPilar, type PilarConfigMin } from '@/components/dashboard/PilaresDetalhe'
+import type { FaixaAcionaveis } from '@/lib/pilares'
 import dynamic from 'next/dynamic'
 
 /* Import dinâmico só para tirar o recharts (~338 KB) do pacote inicial desta
@@ -28,10 +29,11 @@ interface Props {
   profileNome: string
   idCarteira: string
   carteiraSize?: number
+  faixasAcionaveis: FaixaAcionaveis[]
 }
 
 export default function MeuScoreClient({
-  resultados, dateDisplay, dataReferencia, pilaresConfig, profileNome, idCarteira, carteiraSize,
+  resultados, dateDisplay, dataReferencia, pilaresConfig, profileNome, idCarteira, carteiraSize, faixasAcionaveis,
 }: Props) {
   const porPilar = Object.fromEntries(resultados.map(r => [r.pilar_key, r]))
   const total = Math.min(
@@ -89,6 +91,7 @@ export default function MeuScoreClient({
           pilaresConfig={pilaresConfig}
           dataReferencia={dataReferencia}
           carteiraSize={carteiraSize}
+          faixasAcionaveis={faixasAcionaveis}
         />
 
         <EvolucaoScore idCarteira={idCarteira} minPontos={2} />
