@@ -113,7 +113,11 @@ export default async function AreaPage() {
                     {spec.nota && <p className="text-[10px] text-ink-faint">{spec.nota}</p>}
                     {cfg && (
                       <p className="text-[11px] text-ink-faint mt-0.5">
-                        Meta: <span className="font-semibold text-ink-muted">{fmtMeta(cfg.meta, cfg.unidade)}</span>
+                        {pilar === 'acionaveis' ? (
+                          <>Meta: <span className="font-semibold text-ink-muted">tarefas fixas por carteira</span></>
+                        ) : (
+                          <>Meta: <span className="font-semibold text-ink-muted">{fmtMeta(cfg.meta, cfg.unidade)}</span></>
+                        )}
                       </p>
                     )}
                   </div>

@@ -292,7 +292,11 @@ export default function GeralClient({ ranking, dateDisplay, dataCarteiraBR, meta
                       const mc = metaMap[p]
                       return (
                         <span key={p}
-                          title={mc ? `${PILAR_LABEL[p]} · meta ${fmtMeta(mc.meta, mc.unidade)}` : PILAR_LABEL[p]}
+                          title={
+                            p === 'acionaveis'
+                              ? `${PILAR_LABEL[p]} · meta: tarefas fixas por carteira`
+                              : mc ? `${PILAR_LABEL[p]} · meta ${fmtMeta(mc.meta, mc.unidade)}` : PILAR_LABEL[p]
+                          }
                           className="inline-flex items-center gap-1.5 text-xs bg-card-2 border border-line rounded-lg px-2.5 py-1.5">
                           <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: PILAR_COLOR[p] }} />
                           <span className="text-ink-muted">{PILAR_LABEL[p]}</span>

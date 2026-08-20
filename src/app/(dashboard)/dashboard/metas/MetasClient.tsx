@@ -123,27 +123,48 @@ export default function MetasClient({ pilares, profileId }: { pilares: PillarCon
                     </div>
 
                     <div className="space-y-3">
-                      <div>
-                        <label className="text-xs text-ink-muted mb-1 block">
-                          Meta atual{' '}
-                          <span className="text-ink-faint">
-                            (atinge com {pilar.tipo_comp === 'le' ? '≤' : '≥'})
-                          </span>
-                        </label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={values[pilar.pilar_key]}
-                            onChange={e => setValues(prev => ({ ...prev, [pilar.pilar_key]: e.target.value }))}
-                            /* min-w-0: input tem largura intrínseca (~20 caracteres) e
-                               min-width:auto, então `flex-1` não o encolhe — era ele
-                               que empurrava a página pro lado em tela estreita. */
-                            className="flex-1 min-w-0 border border-field-line rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary"
-                          />
-                          <span className="text-sm text-ink-muted w-4 flex-shrink-0">{sufixoUnidade(pilar.unidade)}</span>
+                      {pilar.pilar_key === 'acionaveis' ? (
+                        // Acionáveis (19/08/2026 em diante): deixou de ser percentual.
+                        // Virou tudo-ou-nada — quantidade fixa de tarefas revertidas,
+                        // que varia pelo tamanho da carteira de cada consultor. Não tem
+                        // UM número global que valha pra todo mundo, então o campo de
+                        // meta editável (que ainda seria só percentual) some daqui —
+                        // mostrando ele editável de novo enganaria como o print que
+                        // motivou esta mudança. A meta real aparece calculada por
+                        // consultor em /dashboard/consultor e /dashboard/meu-score.
+                        <div className="bg-card-2 rounded-xl p-3">
+                          <p className="text-xs text-ink-dim font-medium mb-1">Meta: quantidade fixa por carteira</p>
+                          <p className="text-[11px] text-ink-muted leading-relaxed">
+                            Não é mais percentual — cada consultor precisa reverter uma
+                            quantidade de tarefas que varia pelo tamanho da carteira
+                            dele (tudo ou nada, sem meio termo). Veja o valor calculado
+                            de cada um em <strong className="text-ink">Consultor</strong> ou{' '}
+                            <strong className="text-ink">Meu Desempenho</strong>.
+                          </p>
                         </div>
-                      </div>
+                      ) : (
+                        <div>
+                          <label className="text-xs text-ink-muted mb-1 block">
+                            Meta atual{' '}
+                            <span className="text-ink-faint">
+                              (atinge com {pilar.tipo_comp === 'le' ? '≤' : '≥'})
+                            </span>
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={values[pilar.pilar_key]}
+                              onChange={e => setValues(prev => ({ ...prev, [pilar.pilar_key]: e.target.value }))}
+                              /* min-w-0: input tem largura intrínseca (~20 caracteres) e
+                                 min-width:auto, então `flex-1` não o encolhe — era ele
+                                 que empurrava a página pro lado em tela estreita. */
+                              className="flex-1 min-w-0 border border-field-line rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                            <span className="text-sm text-ink-muted w-4 flex-shrink-0">{sufixoUnidade(pilar.unidade)}</span>
+                          </div>
+                        </div>
+                      )}
 
                       <div>
                         <label className="text-xs text-ink-muted mb-1 block">
