@@ -32,9 +32,22 @@ export default function PinMapa({ lat, lng, onChange }: Props) {
       const inicial: [number, number] = temPonto ? [lat, lng] : CENTRO_BRASIL
       const map = L.map(div, { zoomControl: false }).setView(inicial, temPonto ? 16 : 4)
       L.control.zoom({ position: 'bottomright' }).addTo(map)
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+
+      // Mesmas duas bases do Radar: satélite (Esri, padrão) e mapa claro
+      // (CARTO), alternáveis pelo seletor no canto — dá mais acertividade
+      // pra fixar o alfinete em cima da fachada/quadra real.
+      const esri = (servico: string, opts: object = {}) =>
+        L.tileLayer(`https://server.arcgisonline.com/ArcGIS/rest/services/${servico}/MapServer/tile/{z}/{y}/{x}`, { maxZoom: 19, ...opts })
+      const claro = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '© OpenStreetMap © CARTO', maxZoom: 19,
-      }).addTo(map)
+      })
+      const satelite = L.layerGroup([
+        esri('World_Imagery', { attribution: 'Imagery © Esri, Maxar, Earthstar Geographics' }),
+        esri('Reference/World_Transportation'),
+        esri('Reference/World_Boundaries_and_Places'),
+      ])
+      satelite.addTo(map)
+      L.control.layers({ 'Satélite': satelite, 'Mapa': claro }, undefined, { position: 'topright' }).addTo(map)
 
       // Ícone próprio em SVG — o marker padrão do Leaflet quebra sob bundler
       // (caminho de imagem relativo não resolve).
@@ -85,5 +98,5 @@ export default function PinMapa({ lat, lng, onChange }: Props) {
     map.setView([lat, lng], Math.max(map.getZoom(), 15))
   }, [lat, lng])
 
-  return <div ref={divRef} className="h-64 rounded-xl border border-line overflow-hidden relative z-0 cursor-crosshair" />
+  return <div ref={divRef} className="h-80 rounded-xl border border-line overflow-hidden relative z-0 cursor-crosshair" />
 }

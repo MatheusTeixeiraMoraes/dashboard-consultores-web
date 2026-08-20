@@ -15,7 +15,7 @@ import { registrarEvento } from '@/lib/atividade'
 
 const PinMapa = dynamic(() => import('./PinMapa'), {
   ssr: false,
-  loading: () => <div className="h-64 rounded-xl border border-line bg-card-2 flex items-center justify-center text-xs text-ink-faint">Carregando mapa…</div>,
+  loading: () => <div className="h-80 rounded-xl border border-line bg-card-2 flex items-center justify-center text-xs text-ink-faint">Carregando mapa…</div>,
 })
 
 const POR_PAGINA = 48        // múltiplo de 2 e 3: fecha a última fila do grid
