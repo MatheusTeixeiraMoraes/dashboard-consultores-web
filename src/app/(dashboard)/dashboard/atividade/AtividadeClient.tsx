@@ -62,6 +62,19 @@ function formatarDataHora(iso: string) {
   })
 }
 
+// yyyy-mm-dd em horário LOCAL — comparar isto com o <input type="date"> exige
+// não usar toISOString (que é UTC e viraria o dia perto da meia-noite).
+function dataLocal(iso: string) {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function diasAtras(n: number) {
+  const d = new Date()
+  d.setDate(d.getDate() - n)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 /** Resume `detalhes` numa linha curta, sem expor json cru na tela. */
 function resumoDetalhes(tipo: string, detalhes: Record<string, unknown> | null): string | null {
   if (!detalhes) return null
@@ -124,6 +137,8 @@ export default function AtividadeClient({ eventos }: { eventos: EventoAtividade[
   const [busca, setBusca] = useState('')
   const [fTipos, setFTipos] = useState<Set<string>>(new Set())
   const [fAtores, setFAtores] = useState<Set<string>>(new Set())
+  const [dataInicio, setDataInicio] = useState('')
+  const [dataFim, setDataFim] = useState('')
 
   const tiposPresentes = useMemo(
     () => [...new Set(eventos.map(e => e.tipo))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
@@ -139,12 +154,15 @@ export default function AtividadeClient({ eventos }: { eventos: EventoAtividade[
 
   const filtrados = useMemo(() => {
     const q = busca.trim().toLowerCase()
-    return eventos.filter(e =>
-      (fTipos.size === 0 || fTipos.has(e.tipo)) &&
-      (fAtores.size === 0 || fAtores.has(e.ator_nome)) &&
-      (!q || e.ator_nome.toLowerCase().includes(q) || (e.alvo_descricao ?? '').toLowerCase().includes(q)),
-    )
-  }, [eventos, busca, fTipos, fAtores])
+    return eventos.filter(e => {
+      const dia = dataLocal(e.criado_em)
+      return (fTipos.size === 0 || fTipos.has(e.tipo)) &&
+        (fAtores.size === 0 || fAtores.has(e.ator_nome)) &&
+        (!dataInicio || dia >= dataInicio) &&
+        (!dataFim || dia <= dataFim) &&
+        (!q || e.ator_nome.toLowerCase().includes(q) || (e.alvo_descricao ?? '').toLowerCase().includes(q))
+    })
+  }, [eventos, busca, fTipos, fAtores, dataInicio, dataFim])
 
   return (
     <div className="pb-20">
@@ -166,7 +184,41 @@ export default function AtividadeClient({ eventos }: { eventos: EventoAtividade[
             className="w-full text-sm bg-field border border-field-line rounded-lg pl-8 pr-3 py-1.5 text-ink placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 text-xs bg-field border border-field-line rounded-lg px-2 py-1.5">
+            <span className="text-ink-faint">De</span>
+            <input
+              type="date" value={dataInicio} max={dataFim || undefined}
+              onChange={e => setDataInicio(e.target.value)}
+              className="bg-transparent text-ink focus:outline-none"
+            />
+            <span className="text-ink-faint">até</span>
+            <input
+              type="date" value={dataFim} min={dataInicio || undefined}
+              onChange={e => setDataFim(e.target.value)}
+              className="bg-transparent text-ink focus:outline-none"
+            />
+            {(dataInicio || dataFim) && (
+              <button
+                onClick={() => { setDataInicio(''); setDataFim('') }}
+                title="Limpar período"
+                className="text-ink-faint hover:text-ink transition-colors"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            {[7, 15, 30].map(dias => (
+              <button
+                key={dias}
+                onClick={() => { setDataInicio(diasAtras(dias)); setDataFim(diasAtras(0)) }}
+                className="text-xs font-medium text-ink-dim border border-line hover:bg-card-2 px-2 py-1.5 rounded-lg transition-colors"
+              >
+                {dias}d
+              </button>
+            ))}
+          </div>
           <MultiFiltro
             label="Consultor"
             opcoes={atoresPresentes}
