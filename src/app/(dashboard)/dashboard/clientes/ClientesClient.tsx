@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
 import MultiFiltro from '@/components/MultiFiltro'
 import { BotaoWhatsApp, BotaoMapa, urlWhatsApp } from '@/components/BotaoContato'
@@ -11,6 +12,11 @@ import { tituloCaso, tipoDoc, precisaIdentificar } from '@/lib/texto'
 import type { Cliente, UserRole } from '@/lib/types'
 import type { FichaMP } from './page'
 import { registrarEvento } from '@/lib/atividade'
+
+const PinMapa = dynamic(() => import('./PinMapa'), {
+  ssr: false,
+  loading: () => <div className="h-64 rounded-xl border border-line bg-card-2 flex items-center justify-center text-xs text-ink-faint">Carregando mapa…</div>,
+})
 
 const POR_PAGINA = 48        // múltiplo de 2 e 3: fecha a última fila do grid
 const LOTE_IMPORT = 500
@@ -132,6 +138,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   // Geocodificação
   const [geoLinha, setGeoLinha] = useState<string | null>(null)
   const [geoForm, setGeoForm] = useState(false)
+  const [mapaAberto, setMapaAberto] = useState(false)
   const [bulk, setBulk] = useState<{ running: boolean; done: number; ok: number; total: number } | null>(null)
   const bulkStop = useRef(false)
 
@@ -224,12 +231,14 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
     setEditando(null)
     setForm({ ...VAZIO, consultor_nome: podeGerir ? '' : meuNome })
     setErro('')
+    setMapaAberto(false)
     setModalAberto(true)
   }
   function abrirEdicao(c: Cliente) {
     setEditando(c)
     setForm(paraForm(c))
     setErro('')
+    setMapaAberto(false)
     setModalAberto(true)
   }
   const set = (campo: keyof FormState) => (v: string) => setForm(f => ({ ...f, [campo]: v }))
@@ -773,8 +782,8 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
               <Campo label="Endereço completo">
                 <input value={form.endereco_completo} onChange={e => set('endereco_completo')(e.target.value)} className={inputCls} placeholder="Rua, número, cidade" />
               </Campo>
-              <div className="flex items-end gap-2">
-                <div className="flex-1">
+              <div className="flex items-end gap-2 flex-wrap">
+                <div className="flex-1 min-w-[180px]">
                   <Campo label="Coordenadas">
                     <input
                       value={form.lat || form.lng ? `${form.lat}, ${form.lng}` : ''}
@@ -790,8 +799,21 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                 <button onClick={geocodarForm} disabled={geoForm} className="border border-good/40 text-good text-xs font-semibold px-3 py-2 rounded-xl whitespace-nowrap disabled:opacity-50">
                   {geoForm ? '…' : 'Buscar do endereço'}
                 </button>
+                <button type="button" onClick={() => setMapaAberto(v => !v)} className="border border-primary/40 text-primary text-xs font-semibold px-3 py-2 rounded-xl whitespace-nowrap">
+                  {mapaAberto ? 'Ocultar mapa' : 'Ver no mapa'}
+                </button>
               </div>
-              <p className="text-[11px] text-ink-faint">Sem coordenadas o cliente não aparece no Radar. Copie do Google Maps (formato &quot;lat, lng&quot;) ou use &quot;Buscar do endereço&quot;.</p>
+              {mapaAberto && (
+                <div className="space-y-1">
+                  <PinMapa
+                    lat={paraNum(form.lat)}
+                    lng={paraNum(form.lng)}
+                    onChange={(lat, lng) => setForm(f => ({ ...f, lat: lat.toFixed(6), lng: lng.toFixed(6) }))}
+                  />
+                  <p className="text-[11px] text-ink-faint">Arraste o alfinete ou clique no mapa para ajustar a posição exata.</p>
+                </div>
+              )}
+              <p className="text-[11px] text-ink-faint">Sem coordenadas o cliente não aparece no Radar. Copie do Google Maps (formato &quot;lat, lng&quot;), use &quot;Buscar do endereço&quot; ou ajuste no mapa.</p>
               {erro && <p className="text-xs text-bad bg-bad-bg rounded-lg px-3 py-2">{erro}</p>}
             </div>
             <div className="px-5 py-4 border-t border-line flex justify-end gap-2">
