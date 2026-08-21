@@ -10,6 +10,7 @@ const ROTULO_EVENTO: Record<string, string> = {
   cliente_editado: 'editou o cliente',
   cliente_removido_carteira: 'removeu da carteira o cliente',
   clientes_importados: 'importou clientes por planilha',
+  clientes_editados_em_massa: 'geocodificou clientes em massa',
   usuario_criado: 'criou o usuário',
   usuario_excluido: 'excluiu o usuário',
   usuario_editado: 'editou o usuário',
@@ -38,6 +39,7 @@ const COR_EVENTO: Record<string, string> = {
   cliente_editado: 'bg-primary',
   cliente_removido_carteira: 'bg-warn-fill',
   clientes_importados: 'bg-good-fill',
+  clientes_editados_em_massa: 'bg-primary',
   usuario_criado: 'bg-good-fill',
   usuario_excluido: 'bg-bad-fill',
   usuario_editado: 'bg-primary',
@@ -103,6 +105,12 @@ function resumoDetalhes(tipo: string, detalhes: Record<string, unknown> | null):
   if (tipo === 'clientes_importados' && 'quantidade' in detalhes) {
     const ignorados = typeof detalhes.ignorados === 'number' && detalhes.ignorados > 0 ? ` · ${detalhes.ignorados} ignorado(s)` : ''
     return `${detalhes.quantidade} cliente(s)${ignorados}`
+  }
+  if (tipo === 'clientes_editados_em_massa' && 'quantidade' in detalhes) {
+    return `${detalhes.quantidade} cliente(s)`
+  }
+  if (tipo === 'cliente_editado' && detalhes.via === 'geocodificacao') {
+    return 'via geocodificação'
   }
   if (tipo === 'rota_criada' && 'quantidade' in detalhes) {
     return `${detalhes.quantidade} rota(s)`

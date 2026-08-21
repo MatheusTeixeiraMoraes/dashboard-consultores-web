@@ -366,6 +366,13 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
     const { data, error } = await supabase.from('clientes').update({ lat: p.lat, lng: p.lng, updated_at: new Date().toISOString() }).eq('id', c.id).select('id')
     if (error) { setErro(error.message); return }
     if (!data || data.length === 0) { setErro(`"${c.seller_nome || c.seller_id}" saiu da sua carteira. Recarregue a página.`); return }
+    registrarEvento({
+      tipo: 'cliente_editado',
+      alvoTipo: 'cliente',
+      alvoId: c.seller_id,
+      alvoDescricao: c.seller_nome || c.seller_id,
+      detalhes: { via: 'geocodificacao' },
+    })
     router.refresh()
   }
 
@@ -394,6 +401,13 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
       await sleep(1100)
     }
     setBulk({ running: false, done, ok, total: alvo.length })
+    if (ok > 0) {
+      registrarEvento({
+        tipo: 'clientes_editados_em_massa',
+        alvoTipo: 'cliente',
+        detalhes: { via: 'geocodificacao_em_massa', quantidade: ok },
+      })
+    }
     router.refresh()
   }
 
