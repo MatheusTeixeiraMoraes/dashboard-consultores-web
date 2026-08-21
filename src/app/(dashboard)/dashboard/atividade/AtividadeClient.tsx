@@ -112,6 +112,9 @@ function resumoDetalhes(tipo: string, detalhes: Record<string, unknown> | null):
   if (tipo === 'cliente_editado' && detalhes.via === 'geocodificacao') {
     return 'via geocodificação'
   }
+  if (tipo === 'cliente_editado' && detalhes.via === 'reconstruido') {
+    return 'reconstruído (log ainda não existia — não dá pra saber o que mudou)'
+  }
   if (tipo === 'rota_criada' && 'quantidade' in detalhes) {
     return `${detalhes.quantidade} rota(s)`
   }
