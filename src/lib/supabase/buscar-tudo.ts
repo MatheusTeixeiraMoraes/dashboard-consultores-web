@@ -21,6 +21,38 @@ type Consulta<T> = (
   ate: number,
 ) => PromiseLike<Resposta<T>>
 
+const TENTATIVAS = 3
+const ESPERA_BASE_MS = 400
+
+function esperar(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+/** Descreve o erro pro log do servidor mesmo quando `.message` vem vazio —
+ *  já aconteceu em produção (instabilidade de rede: o erro que a lib do
+ *  Supabase devolve às vezes não tem mensagem nenhuma, só o objeto cru). */
+function descreverErro(error: { message: string }): string {
+  return error.message || JSON.stringify(error) || 'erro sem detalhe'
+}
+
+/**
+ * Repete em caso de falha antes de desistir — instabilidade de rede
+ * momentânea (o que a tela de erro já promete pro usuário) costuma sumir na
+ * segunda tentativa. Sem isto, qualquer soluço breve na conexão com o banco
+ * virava tela de erro cheia, mesmo quando uma nova tentativa teria resolvido
+ * sozinha. Espera crescente (400ms, 800ms) — nem trava a resposta por muito
+ * tempo, nem bate no banco de novo instantaneamente.
+ */
+async function comRetentativa<T>(fn: () => PromiseLike<Resposta<T>>): Promise<Resposta<T>> {
+  let ultima: Resposta<T>
+  for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
+    ultima = await fn()
+    if (!ultima.error) return ultima
+    if (tentativa < TENTATIVAS) await esperar(ESPERA_BASE_MS * tentativa)
+  }
+  return ultima!
+}
+
 /**
  * Traz TODAS as linhas de uma consulta que passa de 1000, em paralelo.
  *
@@ -33,25 +65,25 @@ type Consulta<T> = (
  * Conta primeiro (a resposta é só um header, ~230ms) e aí dispara as páginas
  * todas de uma vez: o custo passa a ser o da página mais lenta, não a soma.
  *
- * Erro sobe como exceção, de propósito. Engolir e devolver lista vazia faria a
- * tela dizer "Nenhum cliente ainda" quando o banco só falhou — mentira pior que
- * um erro na cara.
+ * Erro sobe como exceção, de propósito, DEPOIS de esgotar as tentativas.
+ * Engolir e devolver lista vazia faria a tela dizer "Nenhum cliente ainda"
+ * quando o banco só falhou — mentira pior que um erro na cara.
  *
  * ponytail: carrega a carteira inteira pro navegador, que filtra e pagina lá.
  * Se a base passar de ~10 mil, migrar busca/paginação pro servidor.
  */
 export async function buscarTudo<T>(consulta: Consulta<T>): Promise<T[]> {
-  const { count, error } = await consulta({ count: 'exact', head: true }, 0, 0)
-  if (error) throw new Error(`Falha ao contar as linhas: ${error.message}`)
+  const { count, error } = await comRetentativa(() => consulta({ count: 'exact', head: true }, 0, 0))
+  if (error) throw new Error(`Falha ao contar as linhas: ${descreverErro(error)}`)
   if (!count) return []
 
   const paginas = Math.ceil(count / PAGINA)
   const partes = await Promise.all(
-    Array.from({ length: paginas }, (_, i) => consulta({}, i * PAGINA, (i + 1) * PAGINA - 1)),
+    Array.from({ length: paginas }, (_, i) => comRetentativa(() => consulta({}, i * PAGINA, (i + 1) * PAGINA - 1))),
   )
 
   const falha = partes.find(p => p.error)
-  if (falha) throw new Error(`Falha ao buscar as linhas: ${falha.error!.message}`)
+  if (falha) throw new Error(`Falha ao buscar as linhas: ${descreverErro(falha.error!)}`)
 
   return partes.flatMap(p => p.data ?? [])
 }
