@@ -221,6 +221,19 @@ export default function MetasClient({ pilares, profileId, faixasAcionaveis }: {
                             Acionáveis Comerciais</strong>, no fim desta página.
                           </p>
                         </div>
+                      ) : pilar.pilar_key === 'tpv' ? (
+                        // TPV (20/08/2026 em diante): a meta não é mais um % fixo — o MP
+                        // manda o objetivo exato em R$ de cada consultor na coluna
+                        // "Objetivo TPV Total Atual" da própria planilha. Não tem valor
+                        // manual pra ajustar aqui.
+                        <div className="bg-card-2 rounded-xl p-3">
+                          <p className="text-xs text-ink-dim font-medium mb-1">Meta: objetivo por consultor</p>
+                          <p className="text-[11px] text-ink-muted leading-relaxed">
+                            Vem pronta na coluna <strong className="text-ink">Objetivo TPV Total Atual</strong>{' '}
+                            da planilha, upada em <strong className="text-ink">Upar Planilha</strong> — não há
+                            valor manual pra ajustar aqui.
+                          </p>
+                        </div>
                       ) : (
                         <div>
                           <label className="text-xs text-ink-muted mb-1 block">

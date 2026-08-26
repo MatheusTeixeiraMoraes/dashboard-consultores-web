@@ -98,14 +98,17 @@ export const PILARES: Record<PilarKey, PilarSpec> = {
     scoreCol: 'SCORE tpv',
     valorCol: 'Variação de TPV versus mês passado',
     maiorMelhor: true,
-    // 95,1% = fez 95,1% do TPV do mês passado. A meta (106%) é sobre essa mesma base.
-    nota: 'mês passado = 100%',
+    // Meta (20/08/2026 em diante): deixou de ser um % fixo digitado à mão em
+    // pillar_config e virou o valor exato que o MP já manda por consultor na
+    // coluna "Objetivo TPV Total Atual" — ver usarObjetivoTPV em PilaresDetalhe.tsx.
+    nota: 'meta = objetivo definido pelo MP',
     cols: [
       { col: 'TPV Total mês atual',                 label: 'TPV total mês atual',      type: 'currency' },
       { col: 'TPV Total mês passado',               label: 'TPV total mês passado',    type: 'currency' },
       { col: 'TPV médio mês atual',                 label: 'TPV médio mês atual',      type: 'currency' },
       { col: 'TPV médio mês passado',               label: 'TPV médio mês passado',    type: 'currency' },
       { col: 'Variação de TPV versus mês passado',  label: 'Variação vs mês passado',  type: 'percent' },
+      { col: 'Objetivo TPV Total Atual',             label: 'Objetivo TPV (mês atual)', type: 'currency' },
     ],
   },
 

@@ -144,14 +144,25 @@ function PilarCard({
   // comportamento antigo (só pra não quebrar se o dado não vier).
   const usarMetaTarefas = pilarKey === 'acionaveis' && carteiraSize != null
 
+  // TPV (20/08/2026 em diante): a meta deixou de ser um % fixo em
+  // pillar_config e virou o valor exato que o MP já manda por consultor, na
+  // coluna "Objetivo TPV Total Atual" — comparação passa a ser R$ contra R$,
+  // sem % nenhum envolvido (a coluna já vem pronta, não recalculamos nada).
+  const usarObjetivoTPV = pilarKey === 'tpv'
+
   const unidadeSufixo = usarMetaTarefas ? '' : (config.unidade === '%' ? '%' : '')
 
   const revertido = Number(metricas['Total Acionáveis Revertido'] ?? 0)
   const metaTarefas = usarMetaTarefas ? metaAcionaveis(carteiraSize!, faixasAcionaveis) : null
 
+  const tpvAtual = Number(metricas['TPV Total mês atual'] ?? 0)
+  const objetivoTPV = Number(metricas['Objetivo TPV Total Atual'] ?? 0)
+
   // faltam > 0 = ainda não bateu. Negativo = passou da meta.
   const faltam = usarMetaTarefas
     ? metaTarefas! - revertido
+    : usarObjetivoTPV
+    ? objetivoTPV - tpvAtual
     : calcFaltam(resultado.valor_metrica, config.meta, config.tipo_comp)
   const bateuMeta = faltam <= 0
   const excedente = Math.abs(faltam)
@@ -159,8 +170,21 @@ function PilarCard({
   const valorSpec = spec.cols.find(c => c.col === spec.valorCol)
   const valorFmt = usarMetaTarefas
     ? fmtValor('int', revertido)
+    : usarObjetivoTPV
+    ? fmtValor('currency', tpvAtual)
     : fmtValor(valorSpec?.type ?? 'decimal', resultado.valor_metrica)
-  const metaFmt = usarMetaTarefas ? String(metaTarefas) : fmtMeta(config.meta, config.unidade)
+  const metaFmt = usarMetaTarefas
+    ? String(metaTarefas)
+    : usarObjetivoTPV
+    ? fmtValor('currency', objetivoTPV)
+    : fmtMeta(config.meta, config.unidade)
+
+  // TPV mede em R$: "faltam"/"acima" saem formatados como moeda (fmtValor já
+  // cuida do "R$"), em vez do sufixo de % usado pelos demais pilares.
+  const deltaFmt = (v: number) =>
+    usarMetaTarefas ? v.toFixed(0).replace('.', ',')
+    : usarObjetivoTPV ? fmtValor('currency', v)
+    : `${v.toFixed(1).replace('.', ',')}${unidadeSufixo}`
 
   return (
     <div className="glass rounded-2xl border border-line overflow-hidden" style={{ borderLeft: `3px solid ${color}` }}>
@@ -182,11 +206,11 @@ function PilarCard({
           {bateuMeta ? (
             <p className="text-[11px] text-good font-medium mt-1">
               ✓ Meta atingida
-              {excedente >= 0.05 && ` — ${excedente.toFixed(usarMetaTarefas ? 0 : 1).replace('.', ',')}${unidadeSufixo} acima`}
+              {excedente >= 0.05 && ` — ${deltaFmt(excedente)} acima`}
             </p>
           ) : (
             <p className="text-[11px] text-bad font-medium mt-1">
-              ✗ Faltam {faltam.toFixed(usarMetaTarefas ? 0 : 1).replace('.', ',')}{unidadeSufixo} para a meta
+              ✗ Faltam {deltaFmt(faltam)} para a meta
             </p>
           )}
         </div>
@@ -201,7 +225,7 @@ function PilarCard({
             quando o número grande deixou de ser ela (acionáveis com meta por
             tarefas), caso em que a % continua valendo a pena mostrar aqui. */}
         {spec.cols
-          .filter(c => usarMetaTarefas ? false : c.col !== spec.valorCol)
+          .filter(c => usarMetaTarefas ? false : c.col !== (usarObjetivoTPV ? 'TPV Total mês atual' : spec.valorCol))
           .map(c => (
             <div key={c.col} className="flex items-center justify-between gap-2 border-t border-card-2 pt-1.5">
               <span className="text-[11px] text-ink-muted leading-tight">{c.label}:</span>

@@ -115,6 +115,8 @@ export default async function AreaPage() {
                       <p className="text-[11px] text-ink-faint mt-0.5">
                         {pilar === 'acionaveis' ? (
                           <>Meta: <span className="font-semibold text-ink-muted">tarefas fixas por carteira</span></>
+                        ) : pilar === 'tpv' ? (
+                          <>Meta: <span className="font-semibold text-ink-muted">objetivo por consultor</span></>
                         ) : (
                           <>Meta: <span className="font-semibold text-ink-muted">{fmtMeta(cfg.meta, cfg.unidade)}</span></>
                         )}
