@@ -156,7 +156,12 @@ function PilarCard({
   const metaTarefas = usarMetaTarefas ? metaAcionaveis(carteiraSize!, faixasAcionaveis) : null
 
   const tpvAtual = Number(metricas['TPV Total mês atual'] ?? 0)
-  const objetivoTPV = Number(metricas['Objetivo TPV Total Atual'] ?? 0)
+  const objetivoRaw = metricas['Objetivo TPV Total Atual']
+  // '' ou ausente = planilha antiga (upada antes desta coluna existir) ou
+  // célula em branco pra este consultor específico — nos dois casos, R$0 NÃO
+  // é um objetivo de verdade, então não pode contar como "meta batida".
+  const temObjetivoTPV = objetivoRaw != null && objetivoRaw !== '' && Number(objetivoRaw) > 0
+  const objetivoTPV = Number(objetivoRaw ?? 0)
 
   // faltam > 0 = ainda não bateu. Negativo = passou da meta.
   const faltam = usarMetaTarefas
@@ -176,7 +181,7 @@ function PilarCard({
   const metaFmt = usarMetaTarefas
     ? String(metaTarefas)
     : usarObjetivoTPV
-    ? fmtValor('currency', objetivoTPV)
+    ? (temObjetivoTPV ? fmtValor('currency', objetivoTPV) : '—')
     : fmtMeta(config.meta, config.unidade)
 
   // TPV mede em R$: "faltam"/"acima" saem formatados como moeda (fmtValor já
@@ -203,7 +208,11 @@ function PilarCard({
           {usarMetaTarefas && (
             <p className="text-[11px] text-ink-faint mt-0.5">carteira: {carteiraSize} clientes</p>
           )}
-          {bateuMeta ? (
+          {usarObjetivoTPV && !temObjetivoTPV ? (
+            <p className="text-[11px] text-ink-faint font-medium mt-1">
+              Objetivo ainda não informado nesta planilha
+            </p>
+          ) : bateuMeta ? (
             <p className="text-[11px] text-good font-medium mt-1">
               ✓ Meta atingida
               {excedente >= 0.05 && ` — ${deltaFmt(excedente)} acima`}
