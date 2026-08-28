@@ -86,7 +86,8 @@ async function comRetentativa<T>(fn: () => PromiseLike<Resposta<T>>): Promise<Re
  *   4 idas em fila ................. 3.146 ms
  *   contar + todas em paralelo ..... 1.210 ms   <- este
  *   1a página + resto em paralelo .. 1.712 ms
- * Conta primeiro (a resposta é só um header, ~230ms) e aí dispara as páginas
+ * Conta primeiro (a resposta era só um header, ~230ms — agora traz 1 linha
+ * real também, ver nota sobre `head: true` abaixo) e aí dispara as páginas
  * todas de uma vez: o custo passa a ser o da página mais lenta, não a soma.
  *
  * Erro sobe como exceção, de propósito, DEPOIS de esgotar as tentativas.
@@ -97,7 +98,14 @@ async function comRetentativa<T>(fn: () => PromiseLike<Resposta<T>>): Promise<Re
  * Se a base passar de ~10 mil, migrar busca/paginação pro servidor.
  */
 export async function buscarTudo<T>(consulta: Consulta<T>): Promise<T[]> {
-  const contagem = await comRetentativa(() => consulta({ count: 'exact', head: true }, 0, 0))
+  // SEM `head: true` de propósito, apesar do custo ser pra pegar só a
+  // contagem: requisição HEAD nunca tem corpo, nem no sucesso nem no erro —
+  // e sem corpo, um erro real do Postgres (RLS, timeout, o que for) chega
+  // aqui como `{ message: '' }`, sem detalhe nenhum pra investigar. Erro
+  // repetido em produção, sempre vazio, forçou essa troca: o custo extra é
+  // 1 linha de dado real (a primeira página já ia trazer de qualquer jeito),
+  // e em troca, um erro vem com mensagem/código de verdade.
+  const contagem = await comRetentativa(() => consulta({ count: 'exact' }, 0, 0))
   if (contagem.error) {
     throw new Error(`Falha ao contar as linhas: ${descreverErro(contagem.error, contagem.status, contagem.statusText)}`)
   }
