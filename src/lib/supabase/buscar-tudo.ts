@@ -21,8 +21,8 @@ type Consulta<T> = (
   ate: number,
 ) => PromiseLike<Resposta<T>>
 
-const TENTATIVAS = 3
-const ESPERA_BASE_MS = 400
+const TENTATIVAS = 5
+const ESPERA_BASE_MS = 500
 
 function esperar(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -37,11 +37,20 @@ function descreverErro(error: { message: string }): string {
 
 /**
  * Repete em caso de falha antes de desistir — instabilidade de rede
- * momentânea (o que a tela de erro já promete pro usuário) costuma sumir na
- * segunda tentativa. Sem isto, qualquer soluço breve na conexão com o banco
- * virava tela de erro cheia, mesmo quando uma nova tentativa teria resolvido
- * sozinha. Espera crescente (400ms, 800ms) — nem trava a resposta por muito
- * tempo, nem bate no banco de novo instantaneamente.
+ * momentânea (o que a tela de erro já promete pro usuário) costuma sumir
+ * numa próxima tentativa. Sem isto, qualquer soluço breve na conexão com o
+ * banco virava tela de erro cheia, mesmo quando uma nova tentativa teria
+ * resolvido sozinha.
+ *
+ * Subiu de 3 pra 5 tentativas (e a espera, de até 1,2s pra até 5s de janela
+ * total) depois de um caso real em que 3 não bastaram: aconteceu com mais
+ * frequência acessando via "entrar na conta de" um consultor — a tela de
+ * Clientes é a mais pesada do app (~11 idas em paralelo por abertura, entre
+ * contagens e páginas), e sob uso concorrente (vários gestores checando
+ * consultores ao mesmo tempo, por exemplo) a instabilidade pode durar mais
+ * que um soluço de sub-segundo. Espera crescente (500ms, 1s, 1,5s, 2s) —
+ * nem trava a resposta por tempo demais, nem bate no banco de novo cedo
+ * demais enquanto a contenção ainda não passou.
  */
 async function comRetentativa<T>(fn: () => PromiseLike<Resposta<T>>): Promise<Resposta<T>> {
   let ultima: Resposta<T>
