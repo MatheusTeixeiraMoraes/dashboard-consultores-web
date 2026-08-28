@@ -8,6 +8,10 @@ interface Resposta<T> {
   data: T[] | null
   count: number | null
   error: { message: string } | null
+  /** A lib do Supabase sempre devolve isto — ver descreverErro() sobre por que
+   *  captar agora é o que faltava pra diagnosticar de verdade. */
+  status?: number
+  statusText?: string
 }
 
 /**
@@ -28,11 +32,22 @@ function esperar(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-/** Descreve o erro pro log do servidor mesmo quando `.message` vem vazio —
- *  já aconteceu em produção (instabilidade de rede: o erro que a lib do
- *  Supabase devolve às vezes não tem mensagem nenhuma, só o objeto cru). */
-function descreverErro(error: { message: string }): string {
-  return error.message || JSON.stringify(error) || 'erro sem detalhe'
+/**
+ * Descreve o erro pro log do servidor mesmo quando `.message` vem vazio.
+ *
+ * Achado em produção (lendo o código-fonte de @supabase/postgrest-js): pra
+ * `head: true` (a contagem), a resposta HTTP NUNCA tem corpo — nem no
+ * sucesso, nem no erro, é assim que HEAD funciona. Quando o servidor devolve
+ * um status de erro, a lib tenta ler o corpo (vazio), falha o JSON.parse e
+ * cai num fallback que descarta o status: `error = { message: '' }`. Por
+ * isso a mensagem sempre vinha vazia, sempre do mesmo jeito — não era
+ * aleatório, era estrutural. `status`/`statusText` sobrevivem nesse fallback
+ * e são o único jeito de saber o que realmente aconteceu (503 = banco
+ * sobrecarregado, 500 = erro interno, 429 = limite de requisições, etc.).
+ */
+function descreverErro(error: { message: string }, status?: number, statusText?: string): string {
+  const detalhe = error.message || JSON.stringify(error) || 'erro sem detalhe'
+  return status ? `HTTP ${status}${statusText ? ' ' + statusText : ''} — ${detalhe}` : detalhe
 }
 
 /**
@@ -82,17 +97,19 @@ async function comRetentativa<T>(fn: () => PromiseLike<Resposta<T>>): Promise<Re
  * Se a base passar de ~10 mil, migrar busca/paginação pro servidor.
  */
 export async function buscarTudo<T>(consulta: Consulta<T>): Promise<T[]> {
-  const { count, error } = await comRetentativa(() => consulta({ count: 'exact', head: true }, 0, 0))
-  if (error) throw new Error(`Falha ao contar as linhas: ${descreverErro(error)}`)
-  if (!count) return []
+  const contagem = await comRetentativa(() => consulta({ count: 'exact', head: true }, 0, 0))
+  if (contagem.error) {
+    throw new Error(`Falha ao contar as linhas: ${descreverErro(contagem.error, contagem.status, contagem.statusText)}`)
+  }
+  if (!contagem.count) return []
 
-  const paginas = Math.ceil(count / PAGINA)
+  const paginas = Math.ceil(contagem.count / PAGINA)
   const partes = await Promise.all(
     Array.from({ length: paginas }, (_, i) => comRetentativa(() => consulta({}, i * PAGINA, (i + 1) * PAGINA - 1))),
   )
 
   const falha = partes.find(p => p.error)
-  if (falha) throw new Error(`Falha ao buscar as linhas: ${descreverErro(falha.error!)}`)
+  if (falha) throw new Error(`Falha ao buscar as linhas: ${descreverErro(falha.error!, falha.status, falha.statusText)}`)
 
   return partes.flatMap(p => p.data ?? [])
 }
