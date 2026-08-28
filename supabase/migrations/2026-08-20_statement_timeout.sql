@@ -1,0 +1,27 @@
+-- ============================================================
+-- Aumenta o tempo limite de consulta (statement_timeout) do papel
+-- `authenticated` — o que toda sessão logada (admin, dono, líder,
+-- consultor, inclusive delegada) usa pra falar com o banco via API.
+--
+-- Contexto: usuário via "Não consegui carregar esta tela" repetidamente em
+-- Acionáveis, sempre numa sessão delegada como consultor. Log confirmou HTTP
+-- 500 do PostgREST — nem 1 das 5 tentativas com espera (~5s) teve sucesso,
+-- o que descarta soluço de rede pontual e aponta pra query sendo
+-- efetivamente cancelada.
+--
+-- A política de RLS de consultor faz uma varredura completa da tabela
+-- (mp_carteira, mp_acionaveis, clientes) — é intencional, documentado em
+-- 2026-07-31_rls_sem_funcao_opaca.sql: com duas políticas permissivas
+-- (admin OU consultor) o Postgres não consegue restringir a varredura a um
+-- índice em nenhum dos dois braços do OR. Sob uso concorrente, essa
+-- varredura pode passar do tempo limite padrão e ser cancelada — sintoma
+-- clássico de statement_timeout, que o PostgREST devolve como 500.
+--
+-- Isto NÃO resolve a causa (a varredura continua completa) — dá mais
+-- folga pra ela terminar antes de ser cancelada. Se voltar a acontecer
+-- mesmo com isto, o problema é outro (ex.: limite de conexões do plano).
+--
+-- Idempotente.
+-- ============================================================
+
+alter role authenticated set statement_timeout = '30s';
