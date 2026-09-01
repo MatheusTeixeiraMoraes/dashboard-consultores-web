@@ -136,22 +136,37 @@ export default function UploadClient({ uploadedBy }: { uploadedBy: string }) {
     setStateFor(pilarKey, { status: 'saving' })
     const supabase = createClient()
 
-    // Upsert: remove upload anterior do mesmo pilar+data (evita duplicatas)
-    const { data: existing } = await supabase
-      .from('score_uploads')
-      .select('id')
-      .eq('pilar_key', pilarKey)
-      .eq('data_referencia', date)
-    if (existing && existing.length > 0) {
-      const ids = existing.map((u: { id: string }) => u.id)
-      await supabase.from('score_consultor_resultados').delete().in('upload_id', ids)
-      await supabase.from('score_uploads').delete().in('id', ids)
-    }
+    // Upsert: remove upload anterior do mesmo pilar+data (evita duplicatas).
+    // Select + delete + insert não é atômico — duas pessoas (ou duas abas)
+    // enviando o mesmo pilar+data quase ao mesmo tempo podem se cruzar: uma
+    // insere entre o select e o insert da outra, que então esbarra na
+    // constraint. Se isso acontecer, refaz o select+delete (agora vendo a
+    // linha que acabou de entrar) e tenta o insert de novo.
+    let existiaAntes = false
+    let upload: { id: string } | null = null
+    let uploadErr: { message: string; code?: string } | null = null
+    for (let tentativa = 0; tentativa < 2; tentativa++) {
+      const { data: existing } = await supabase
+        .from('score_uploads')
+        .select('id')
+        .eq('pilar_key', pilarKey)
+        .eq('data_referencia', date)
+      if (existing && existing.length > 0) {
+        existiaAntes = true
+        const ids = existing.map((u: { id: string }) => u.id)
+        await supabase.from('score_consultor_resultados').delete().in('upload_id', ids)
+        await supabase.from('score_uploads').delete().in('id', ids)
+      }
 
-    const { data: upload, error: uploadErr } = await supabase
-      .from('score_uploads')
-      .insert({ uploaded_by: uploadedBy, pilar_key: pilarKey, filename: file.name, data_referencia: date, record_count: rows.length })
-      .select('id').single()
+      const resultado = await supabase
+        .from('score_uploads')
+        .insert({ uploaded_by: uploadedBy, pilar_key: pilarKey, filename: file.name, data_referencia: date, record_count: rows.length })
+        .select('id').single()
+      upload = resultado.data
+      uploadErr = resultado.error
+
+      if (!uploadErr || uploadErr.code !== '23505') break
+    }
 
     if (uploadErr || !upload) {
       setStateFor(pilarKey, { status: 'error', message: 'Erro ao salvar: ' + uploadErr?.message })
@@ -193,7 +208,7 @@ export default function UploadClient({ uploadedBy }: { uploadedBy: string }) {
       alvoTipo: 'score_upload',
       alvoId: upload.id,
       alvoDescricao: `${PILAR_SPECS[pilarKey].label} · ${formatDateBR(date)}`,
-      detalhes: { pilar_key: pilarKey, data_referencia: date, record_count: rows.length, substituiu: (existing?.length ?? 0) > 0 },
+      detalhes: { pilar_key: pilarKey, data_referencia: date, record_count: rows.length, substituiu: existiaAntes },
     })
 
     setStateFor(pilarKey, { status: 'ok', count: rows.length })
