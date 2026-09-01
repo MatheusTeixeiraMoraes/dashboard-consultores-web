@@ -13,12 +13,12 @@ const EvolucaoScore = dynamic(() => import('@/components/dashboard/EvolucaoScore
   loading: () => null,
 })
 import { PILAR_KEYS } from '@/lib/pilares'
-import { SCORE_MAX, SCORE_META_MINIMA, scoreStatus } from '@/lib/types'
+import { SCORE_MAX, scoreStatus, type ScoreGeralFaixas } from '@/lib/types'
 
 const STATUS = {
-  acima:    { label: 'Acima da meta', bg: 'var(--color-good-bg)', text: 'var(--color-good)' },
-  na_linha: { label: 'Na linha',      bg: 'var(--color-warn-bg)', text: 'var(--color-warn)' },
-  critico:  { label: 'Crítico',       bg: 'var(--color-bad-bg)', text: 'var(--color-bad)' },
+  acima:    { label: 'Acima do objetivo', bg: 'var(--color-good-bg)', text: 'var(--color-good)' },
+  na_linha: { label: 'Alerta',            bg: 'var(--color-warn-bg)', text: 'var(--color-warn)' },
+  critico:  { label: 'Crítico',           bg: 'var(--color-bad-bg)', text: 'var(--color-bad)' },
 } as const
 
 interface Props {
@@ -30,17 +30,18 @@ interface Props {
   idCarteira: string
   carteiraSize?: number
   faixasAcionaveis: FaixaAcionaveis[]
+  faixas: ScoreGeralFaixas
 }
 
 export default function MeuScoreClient({
-  resultados, dateDisplay, dataReferencia, pilaresConfig, profileNome, idCarteira, carteiraSize, faixasAcionaveis,
+  resultados, dateDisplay, dataReferencia, pilaresConfig, profileNome, idCarteira, carteiraSize, faixasAcionaveis, faixas,
 }: Props) {
   const porPilar = Object.fromEntries(resultados.map(r => [r.pilar_key, r]))
   const total = Math.min(
     PILAR_KEYS.reduce((s, k) => s + (porPilar[k]?.score_planilha ?? 0), 0),
     SCORE_MAX,
   )
-  const st = STATUS[scoreStatus(total)]
+  const st = STATUS[scoreStatus(total, faixas)]
 
   return (
     <div>
@@ -69,7 +70,7 @@ export default function MeuScoreClient({
                 {st.label}
               </span>
               <p className="text-xs text-ink-faint">
-                Meta mínima: {SCORE_META_MINIMA.toFixed(1).replace('.', ',')} pts
+                Objetivo: {faixas.meta_objetivo.toFixed(1).replace('.', ',')} pts
               </p>
             </div>
           </div>
@@ -94,7 +95,7 @@ export default function MeuScoreClient({
           faixasAcionaveis={faixasAcionaveis}
         />
 
-        <EvolucaoScore idCarteira={idCarteira} minPontos={2} />
+        <EvolucaoScore idCarteira={idCarteira} minPontos={2} metaObjetivo={faixas.meta_objetivo} />
       </div>
     </div>
   )

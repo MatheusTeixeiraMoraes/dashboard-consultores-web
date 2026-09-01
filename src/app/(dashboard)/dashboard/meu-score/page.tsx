@@ -2,6 +2,7 @@ import { getProfile } from '@/lib/supabase/profile'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import MeuScoreClient from './MeuScoreClient'
+import { SCORE_GERAL_FAIXAS_PADRAO, type ScoreGeralFaixas } from '@/lib/types'
 
 export default async function MeuScorePage() {
   const profile = await getProfile()
@@ -68,7 +69,7 @@ export default async function MeuScorePage() {
   // `data_referencia` já vem gravada em cada linha de resultado (mesmo valor
   // do upload que a gerou) — filtrar direto por ela poupa a ida extra de buscar
   // os uploadIds do dia só para usar em `upload_id in (...)`.
-  const [{ data: pilaresConfig }, { data: resultados }, { count: carteiraSize }, { data: faixasAcionaveis }] = await Promise.all([
+  const [{ data: pilaresConfig }, { data: resultados }, { count: carteiraSize }, { data: faixasAcionaveis }, { data: faixasScore }] = await Promise.all([
     supabase.from('pillar_config').select('pilar_key, pontos_max, meta, tipo_comp, unidade'),
     supabase
       .from('score_consultor_resultados')
@@ -79,7 +80,9 @@ export default async function MeuScorePage() {
       ? supabase.from('mp_carteira').select('*', { count: 'exact', head: true }).eq('data_referencia', dataCarteira)
       : Promise.resolve({ count: null }),
     supabase.from('metas_acionaveis_faixas').select('min_carteira, meta_tarefas'),
+    supabase.from('score_geral_faixas').select('limite_critico, meta_objetivo').maybeSingle(),
   ])
+  const faixas: ScoreGeralFaixas = faixasScore ?? SCORE_GERAL_FAIXAS_PADRAO
 
   const dateDisplay = new Date(latestDate + 'T12:00:00').toLocaleDateString('pt-BR', {
     day: '2-digit', month: 'long', year: 'numeric',
@@ -95,6 +98,7 @@ export default async function MeuScorePage() {
       idCarteira={profile.id_carteira}
       carteiraSize={carteiraSize ?? undefined}
       faixasAcionaveis={faixasAcionaveis ?? []}
+      faixas={faixas}
     />
   )
 }

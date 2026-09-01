@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import ConsultorClient from './ConsultorClient'
 import { buscarTudo } from '@/lib/supabase/buscar-tudo'
 import { normalizarNome } from '@/lib/convites'
+import { SCORE_GERAL_FAIXAS_PADRAO, type ScoreGeralFaixas } from '@/lib/types'
 
 export default async function ConsultorPage() {
   const profile = await getProfile()
@@ -50,7 +51,7 @@ export default async function ConsultorPage() {
   // `data_referencia` já vem gravada em cada linha de resultado (mesmo valor
   // do upload que a gerou) — filtrar direto por ela poupa a ida extra de buscar
   // os uploadIds do dia só para usar em `upload_id in (...)`.
-  const [{ data: pilaresConfig }, { data: resultados }, carteiraLinhas, { data: faixasAcionaveis }] = await Promise.all([
+  const [{ data: pilaresConfig }, { data: resultados }, carteiraLinhas, { data: faixasAcionaveis }, { data: faixasScore }] = await Promise.all([
     supabase.from('pillar_config').select('pilar_key, pontos_max, meta, tipo_comp, unidade'),
     supabase
       .from('score_consultor_resultados')
@@ -64,7 +65,9 @@ export default async function ConsultorPage() {
         )
       : Promise.resolve([]),
     supabase.from('metas_acionaveis_faixas').select('min_carteira, meta_tarefas'),
+    supabase.from('score_geral_faixas').select('limite_critico, meta_objetivo').maybeSingle(),
   ])
+  const faixas: ScoreGeralFaixas = faixasScore ?? SCORE_GERAL_FAIXAS_PADRAO
 
   const carteiraPorConsultor: Record<string, number> = {}
   for (const c of carteiraLinhas) {
@@ -84,6 +87,7 @@ export default async function ConsultorPage() {
       pilaresConfig={pilaresConfig ?? []}
       carteiraPorConsultor={carteiraPorConsultor}
       faixasAcionaveis={faixasAcionaveis ?? []}
+      faixas={faixas}
     />
   )
 }

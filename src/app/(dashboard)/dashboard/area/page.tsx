@@ -6,8 +6,8 @@ import { PILARES, PILAR_KEYS, fmtValor, fmtMeta } from '@/lib/pilares'
 /**
  * O aproveitamento (score ÷ pontos_max) é o que dá pra comparar entre pilares:
  * o score cru não serve, porque cada pilar vale um teto diferente (Awareness vale
- * 1,5 pts; Net Churn vale 3). Comparar 1,5 com o corte de 4,5 do score TOTAL
- * pintaria Awareness de vermelho mesmo com nota cheia.
+ * 1,5 pts; Net Churn vale 3). Comparar 1,5 com o corte do score TOTAL (ver
+ * score_geral_faixas) pintaria Awareness de vermelho mesmo com nota cheia.
  */
 function statusStyle(score: number, pontosMax: number) {
   const aproveitamento = pontosMax > 0 ? score / pontosMax : 0

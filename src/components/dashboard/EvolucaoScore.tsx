@@ -6,7 +6,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine,
 } from 'recharts'
-import { SCORE_MAX, SCORE_META_MINIMA } from '@/lib/types'
+import { SCORE_MAX, SCORE_GERAL_FAIXAS_PADRAO } from '@/lib/types'
 
 /** Score de um consultor ao longo das datas de referência já carregadas. */
 
@@ -21,10 +21,13 @@ function formatRefDate(iso: string) {
 export default function EvolucaoScore({
   idCarteira,
   minPontos = 1,
+  metaObjetivo = SCORE_GERAL_FAIXAS_PADRAO.meta_objetivo,
 }: {
   idCarteira: string
   /** Abaixo disso o gráfico não aparece (uma linha só não é evolução). */
   minPontos?: number
+  /** Linha de referência do objetivo -- vem de `score_geral_faixas`, editável em /dashboard/metas. */
+  metaObjetivo?: number
 }) {
   const [data, setData] = useState<Ponto[]>([])
   const [loading, setLoading] = useState(true)
@@ -101,8 +104,8 @@ export default function EvolucaoScore({
               itemStyle={{ color: 'var(--color-ink-dim)' }}
             />
             <ReferenceLine
-              y={SCORE_META_MINIMA} stroke="var(--color-warn)" strokeDasharray="4 4"
-              label={{ value: 'meta mín.', position: 'insideTopRight', fontSize: 10, fill: 'var(--color-warn)' }}
+              y={metaObjetivo} stroke="var(--color-warn)" strokeDasharray="4 4"
+              label={{ value: 'objetivo', position: 'insideTopRight', fontSize: 10, fill: 'var(--color-warn)' }}
             />
             <Line
               type="monotone" dataKey="score" stroke="var(--color-good)" strokeWidth={2.5}

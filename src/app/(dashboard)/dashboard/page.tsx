@@ -4,6 +4,7 @@ import { buscarTudo } from '@/lib/supabase/buscar-tudo'
 import { precisaIdentificar } from '@/lib/texto'
 import { redirect } from 'next/navigation'
 import GeralClient from './GeralClient'
+import { SCORE_GERAL_FAIXAS_PADRAO, type ScoreGeralFaixas } from '@/lib/types'
 
 // Os nomes vêm de duas planilhas diferentes (pontuação × Ação Oportunidades),
 // então a junção ignora caixa/acento — mesma regra do cliente_e_meu no banco.
@@ -63,7 +64,7 @@ export default async function GeralPage() {
    * que já saiu da primeira onda. Antes essas quatro buscas rodavam em três ondas
    * em fila; nenhuma depende do resultado de outra, então cabem todas juntas. */
   type ResultadoRow = { id_carteira: string; consultor_nome: string; pilar_key: string; score_planilha: number }
-  const [{ data: pilaresConfig }, { data: resultadosData }, clientes, linhasCarteira] = await Promise.all([
+  const [{ data: pilaresConfig }, { data: resultadosData }, clientes, linhasCarteira, { data: faixasScore }] = await Promise.all([
     latestDate
       ? supabase.from('pillar_config').select('pilar_key, meta, unidade')
       : Promise.resolve({ data: [] as { pilar_key: string; meta: number; unidade: string }[] }),
@@ -87,7 +88,9 @@ export default async function GeralPage() {
             .range(de, ate),
         )
       : Promise.resolve([]),
+    supabase.from('score_geral_faixas').select('limite_critico, meta_objetivo').maybeSingle(),
   ])
+  const faixas: ScoreGeralFaixas = faixasScore ?? SCORE_GERAL_FAIXAS_PADRAO
 
   const metaMap: Record<string, { meta: number; unidade: string }> = Object.fromEntries(
     (pilaresConfig ?? []).map(p => [p.pilar_key, { meta: p.meta, unidade: p.unidade }])
@@ -155,6 +158,7 @@ export default async function GeralPage() {
       metaMap={metaMap}
       modoConsultor={profile.role === 'consultor'}
       meuNome={profile.nome || profile.email}
+      faixas={faixas}
     />
   )
 }

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getProfile } from '@/lib/supabase/profile'
 import { redirect } from 'next/navigation'
+import { SCORE_GERAL_FAIXAS_PADRAO, type ScoreGeralFaixas } from '@/lib/types'
 
 const PILARES = ['tpv', 'net_churn', 'acionaveis', 'aderencia', 'awareness', 'produtividade']
 const PILAR_LABEL: Record<string, string> = {
@@ -19,11 +20,13 @@ interface Consultor {
   scores: Record<string, number>
 }
 
-function AlertCard({ c }: { c: Consultor }) {
-  const isCritico = c.total < 3.0
+const fmtPts = (n: number) => n.toFixed(1).replace('.', ',')
+
+function AlertCard({ c, faixas }: { c: Consultor; faixas: ScoreGeralFaixas }) {
+  const isCritico = c.total < faixas.limite_critico
   const color = isCritico ? 'var(--color-bad)' : 'var(--color-warn)'
   const bg = isCritico ? 'var(--color-bad-bg)' : 'var(--color-warn-bg)'
-  const label = isCritico ? 'CRÍTICO' : 'NA LINHA'
+  const label = isCritico ? 'CRÍTICO' : 'ALERTA'
 
   return (
     <div className="glass rounded-2xl border border-line p-5" style={{ borderLeft: `3px solid ${color}` }}>
@@ -36,7 +39,7 @@ function AlertCard({ c }: { c: Consultor }) {
             </span>
           </div>
           <p className="text-xs text-ink-muted mt-0.5">
-            Carteira {c.id} · Score abaixo de {isCritico ? '3,0' : '4,5'} pts
+            Carteira {c.id} · Score abaixo de {fmtPts(isCritico ? faixas.limite_critico : faixas.meta_objetivo)} pts
           </p>
         </div>
         <span className="text-2xl font-bold" style={{ color }}>
@@ -93,7 +96,7 @@ export default async function AlertasPage() {
       <div>
         <div className="mb-6">
           <h1 className="text-xl font-bold text-ink">Alertas</h1>
-          <p className="text-sm text-ink-muted mt-0.5">Performance abaixo da meta mínima</p>
+          <p className="text-sm text-ink-muted mt-0.5">Performance abaixo do objetivo</p>
         </div>
         <div className="glass rounded-2xl border border-line p-12 text-center">
           <p className="font-semibold text-ink">Nenhum dado carregado ainda</p>
@@ -105,10 +108,14 @@ export default async function AlertasPage() {
   // `data_referencia` já vem gravada em cada linha de resultado (mesmo valor
   // do upload que a gerou) — filtrar direto por ela poupa a ida extra de buscar
   // os uploadIds do dia só para usar em `upload_id in (...)`.
-  const { data: resultados } = await supabase
-    .from('score_consultor_resultados')
-    .select('id_carteira, consultor_nome, pilar_key, score_planilha')
-    .eq('data_referencia', latestDate)
+  const [{ data: resultados }, { data: faixasScore }] = await Promise.all([
+    supabase
+      .from('score_consultor_resultados')
+      .select('id_carteira, consultor_nome, pilar_key, score_planilha')
+      .eq('data_referencia', latestDate),
+    supabase.from('score_geral_faixas').select('limite_critico, meta_objetivo').maybeSingle(),
+  ])
+  const faixas: ScoreGeralFaixas = faixasScore ?? SCORE_GERAL_FAIXAS_PADRAO
 
   const map = new Map<string, { nome: string; scores: Record<string, number>; total: number }>()
   for (const r of resultados ?? []) {
@@ -121,8 +128,8 @@ export default async function AlertasPage() {
   const todos: Consultor[] = Array.from(map.entries())
     .map(([id, c]) => ({ id, ...c, total: Math.min(c.total, 10) }))
 
-  const criticos = todos.filter(c => c.total < 3.0).sort((a, b) => a.total - b.total)
-  const naLinha = todos.filter(c => c.total >= 3.0 && c.total < 4.5).sort((a, b) => a.total - b.total)
+  const criticos = todos.filter(c => c.total < faixas.limite_critico).sort((a, b) => a.total - b.total)
+  const naLinha = todos.filter(c => c.total >= faixas.limite_critico && c.total < faixas.meta_objetivo).sort((a, b) => a.total - b.total)
 
   const dateDisplay = new Date(latestDate + 'T12:00:00').toLocaleDateString('pt-BR', {
     day: '2-digit', month: 'long', year: 'numeric',
@@ -132,7 +139,7 @@ export default async function AlertasPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-xl font-bold text-ink">Alertas</h1>
-        <p className="text-sm text-ink-muted mt-0.5">Performance abaixo da meta · {dateDisplay}</p>
+        <p className="text-sm text-ink-muted mt-0.5">Performance abaixo do objetivo · {dateDisplay}</p>
       </div>
 
       {criticos.length === 0 && naLinha.length === 0 ? (
@@ -143,7 +150,7 @@ export default async function AlertasPage() {
             </svg>
           </div>
           <p className="font-semibold text-good">Nenhum alerta!</p>
-          <p className="text-sm text-ink-muted mt-1">Toda a equipe está acima da meta mínima.</p>
+          <p className="text-sm text-ink-muted mt-1">Toda a equipe está acima do objetivo.</p>
         </div>
       ) : (
         <div className="space-y-7">
@@ -153,14 +160,14 @@ export default async function AlertasPage() {
                 <div className="w-2.5 h-2.5 rounded-full bg-bad" />
                 <h2 className="text-sm font-semibold text-ink">
                   Crítico
-                  <span className="ml-1.5 text-ink-muted font-normal">— score abaixo de 3,0 pts</span>
+                  <span className="ml-1.5 text-ink-muted font-normal">— score abaixo de {fmtPts(faixas.limite_critico)} pts</span>
                 </h2>
                 <span className="ml-auto text-xs font-bold text-bad bg-bad-bg px-2.5 py-0.5 rounded-full">
                   {criticos.length} consultor{criticos.length !== 1 ? 'es' : ''}
                 </span>
               </div>
               <div className="space-y-3">
-                {criticos.map(c => <AlertCard key={c.id} c={c} />)}
+                {criticos.map(c => <AlertCard key={c.id} c={c} faixas={faixas} />)}
               </div>
             </section>
           )}
@@ -170,15 +177,15 @@ export default async function AlertasPage() {
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-2.5 h-2.5 rounded-full bg-warn" />
                 <h2 className="text-sm font-semibold text-ink">
-                  Na linha
-                  <span className="ml-1.5 text-ink-muted font-normal">— score entre 3,0 e 4,5 pts</span>
+                  Alerta
+                  <span className="ml-1.5 text-ink-muted font-normal">— score entre {fmtPts(faixas.limite_critico)} e {fmtPts(faixas.meta_objetivo)} pts</span>
                 </h2>
                 <span className="ml-auto text-xs font-bold text-warn bg-warn-bg px-2.5 py-0.5 rounded-full">
                   {naLinha.length} consultor{naLinha.length !== 1 ? 'es' : ''}
                 </span>
               </div>
               <div className="space-y-3">
-                {naLinha.map(c => <AlertCard key={c.id} c={c} />)}
+                {naLinha.map(c => <AlertCard key={c.id} c={c} faixas={faixas} />)}
               </div>
             </section>
           )}

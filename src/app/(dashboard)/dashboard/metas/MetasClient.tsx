@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { PillarConfig } from '@/lib/types'
+import type { PillarConfig, ScoreGeralFaixas } from '@/lib/types'
 import type { FaixaAcionaveis } from '@/lib/pilares'
 import { registrarEvento } from '@/lib/atividade'
 
@@ -17,10 +17,11 @@ function sufixoUnidade(unidade: string) {
 
 interface FaixaEdit { min_carteira: string; meta_tarefas: string }
 
-export default function MetasClient({ pilares, profileId, faixasAcionaveis }: {
+export default function MetasClient({ pilares, profileId, faixasAcionaveis, faixasScoreGeral }: {
   pilares: PillarConfig[]
   profileId: string
   faixasAcionaveis: FaixaAcionaveis[]
+  faixasScoreGeral: ScoreGeralFaixas
 }) {
   const router = useRouter()
   const [values, setValues] = useState<Record<string, string>>(
@@ -41,6 +42,14 @@ export default function MetasClient({ pilares, profileId, faixasAcionaveis }: {
   const [savingFaixas, setSavingFaixas] = useState(false)
   const [savedFaixas, setSavedFaixas] = useState(false)
   const [erroFaixas, setErroFaixas] = useState('')
+
+  const [scoreFaixas, setScoreFaixas] = useState({
+    limite_critico: String(faixasScoreGeral.limite_critico),
+    meta_objetivo: String(faixasScoreGeral.meta_objetivo),
+  })
+  const [savingScore, setSavingScore] = useState(false)
+  const [savedScore, setSavedScore] = useState(false)
+  const [erroScore, setErroScore] = useState('')
 
   async function handleSave(pilar: PillarConfig) {
     const novaMeta = parseFloat(values[pilar.pilar_key])
@@ -162,6 +171,55 @@ export default function MetasClient({ pilares, profileId, faixasAcionaveis }: {
 
     setSavedFaixas(true)
     setTimeout(() => setSavedFaixas(false), 2000)
+    router.refresh()
+  }
+
+  async function salvarScoreFaixas() {
+    const limiteCritico = parseFloat(scoreFaixas.limite_critico)
+    const metaObjetivo = parseFloat(scoreFaixas.meta_objetivo)
+
+    if (isNaN(limiteCritico) || limiteCritico < 0) {
+      setErroScore('Informe um número válido (maior ou igual a zero) para o crítico.')
+      return
+    }
+    if (isNaN(metaObjetivo) || metaObjetivo <= limiteCritico) {
+      setErroScore('O objetivo precisa ser um número válido, maior que o crítico.')
+      return
+    }
+
+    setSavingScore(true)
+    setErroScore('')
+
+    const supabase = createClient()
+    const { error } = await supabase.from('score_geral_faixas').update({
+      limite_critico: limiteCritico,
+      meta_objetivo: metaObjetivo,
+      updated_at: new Date().toISOString(),
+      updated_by: profileId,
+    }).eq('id', 1)
+
+    setSavingScore(false)
+
+    if (error) {
+      setErroScore(error.message)
+      return
+    }
+
+    if (limiteCritico !== faixasScoreGeral.limite_critico || metaObjetivo !== faixasScoreGeral.meta_objetivo) {
+      registrarEvento({
+        tipo: 'score_geral_faixas_alterada',
+        alvoTipo: 'meta',
+        alvoId: 'score_geral',
+        alvoDescricao: 'Faixas do Score Geral',
+        detalhes: {
+          limite_critico: { de: faixasScoreGeral.limite_critico, para: limiteCritico },
+          meta_objetivo: { de: faixasScoreGeral.meta_objetivo, para: metaObjetivo },
+        },
+      })
+    }
+
+    setSavedScore(true)
+    setTimeout(() => setSavedScore(false), 2000)
     router.refresh()
   }
 
@@ -300,6 +358,72 @@ export default function MetasClient({ pilares, profileId, faixasAcionaveis }: {
             </div>
           )
         })}
+      </div>
+
+      {/* Faixas do Score Geral: crítico/alerta/objetivo mudam todo mês — sem
+          isto, cada mudança exigia editar código e fazer deploy. Vale pra
+          Visão Geral, Consultor, Meu Desempenho e Alertas. */}
+      <div className="glass rounded-2xl border border-line p-5 mt-6">
+        <div className="mb-4">
+          <h2 className="text-sm font-semibold text-ink">Faixas do Score Geral</h2>
+          <p className="text-xs text-ink-muted mt-0.5">
+            Os cortes que classificam o score total do consultor (soma dos 6 pilares, de 0 a 10)
+            em <strong className="text-bad">Crítico</strong>, <strong className="text-warn">Alerta</strong> e{' '}
+            <strong className="text-good">Acima do objetivo</strong>. Vale pra toda a equipe.
+          </p>
+        </div>
+
+        <div className="flex items-end gap-4 flex-wrap mb-4">
+          <div>
+            <label className="text-xs text-ink-muted mb-1 block">
+              Crítico <span className="text-ink-faint">(abaixo de)</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number" step="0.1" min="0"
+                value={scoreFaixas.limite_critico}
+                onChange={e => setScoreFaixas(prev => ({ ...prev, limite_critico: e.target.value }))}
+                className="w-24 border border-field-line rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <span className="text-sm text-ink-muted">pts</span>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-ink-muted mb-1 block">
+              Objetivo <span className="text-ink-faint">(neste valor ou acima)</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number" step="0.1" min="0"
+                value={scoreFaixas.meta_objetivo}
+                onChange={e => setScoreFaixas(prev => ({ ...prev, meta_objetivo: e.target.value }))}
+                className="w-24 border border-field-line rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <span className="text-sm text-ink-muted">pts</span>
+            </div>
+          </div>
+
+          <p className="text-xs text-ink-faint">
+            Entre os dois valores = Alerta.
+          </p>
+        </div>
+
+        {erroScore && (
+          <p className="text-[11px] text-bad bg-bad-bg rounded-lg px-2.5 py-1.5 mb-3">{erroScore}</p>
+        )}
+
+        <button
+          onClick={salvarScoreFaixas}
+          disabled={savingScore}
+          className={`w-full sm:w-auto px-6 py-2 rounded-xl text-sm font-medium transition-colors ${
+            savedScore
+              ? 'bg-good-bg text-good border border-good/30'
+              : 'bg-primary hover:bg-primary-dk text-white disabled:opacity-60'
+          }`}
+        >
+          {savingScore ? 'Salvando...' : savedScore ? '✓ Salvo' : 'Salvar faixas do score'}
+        </button>
       </div>
 
       {/* Faixas de Acionáveis: o MP manda uma quantidade nova todo mês — sem

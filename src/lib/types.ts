@@ -97,13 +97,25 @@ export interface Cliente {
 // Status visual baseado na nota
 export type ScoreStatus = 'acima' | 'na_linha' | 'critico'
 
-export function scoreStatus(score: number): ScoreStatus {
-  if (score >= 4.5) return 'acima'
-  if (score >= 3.0) return 'na_linha'
+/** Linha única da tabela `score_geral_faixas` -- os cortes que classificam o
+ *  score consolidado do consultor. Editável em /dashboard/metas porque o
+ *  valor muda todo mês (ver migration 2026-09-01_faixas_score_geral.sql). */
+export interface ScoreGeralFaixas {
+  limite_critico: number // abaixo disso = "Crítico"
+  meta_objetivo: number  // neste valor ou acima = "Acima do objetivo"
+}
+
+// Faixas vigentes em 01/09/2026 -- usado só como fallback se o banco não
+// responder (nunca deve travar a tela por falta de config), igual o
+// fallback de 6 tarefas em metaAcionaveis().
+export const SCORE_GERAL_FAIXAS_PADRAO: ScoreGeralFaixas = { limite_critico: 7.0, meta_objetivo: 8.0 }
+
+export function scoreStatus(score: number, faixas: ScoreGeralFaixas): ScoreStatus {
+  if (score >= faixas.meta_objetivo) return 'acima'
+  if (score >= faixas.limite_critico) return 'na_linha'
   return 'critico'
 }
 
-export const SCORE_META_MINIMA = 4.5
 export const SCORE_MAX = 10.0
 
 // Hierarquia de roles (índice maior = mais permissão)

@@ -11,14 +11,16 @@ const EvolucaoScore = dynamic(() => import('@/components/dashboard/EvolucaoScore
   loading: () => null,
 })
 import { PILAR_KEYS, type FaixaAcionaveis } from '@/lib/pilares'
-import { SCORE_MAX, SCORE_META_MINIMA, scoreStatus } from '@/lib/types'
+import { SCORE_MAX, scoreStatus, type ScoreGeralFaixas } from '@/lib/types'
 import { normalizarNome } from '@/lib/convites'
 
-const STATUS = {
-  acima:    { label: `Acima da meta mínima (${SCORE_META_MINIMA.toFixed(1).replace('.', ',')} pts)`, text: 'var(--color-good)' },
-  na_linha: { label: 'Na linha', text: 'var(--color-warn)' },
-  critico:  { label: 'Crítico',  text: 'var(--color-bad)' },
-} as const
+function statusMap(faixas: ScoreGeralFaixas) {
+  return {
+    acima:    { label: `Acima do objetivo (${faixas.meta_objetivo.toFixed(1).replace('.', ',')} pts)`, text: 'var(--color-good)' },
+    na_linha: { label: 'Alerta',  text: 'var(--color-warn)' },
+    critico:  { label: 'Crítico', text: 'var(--color-bad)' },
+  } as const
+}
 
 interface Resultado extends ResultadoPilar {
   id_carteira: string
@@ -32,10 +34,11 @@ interface Props {
   pilaresConfig: PilarConfigMin[]
   carteiraPorConsultor: Record<string, number>
   faixasAcionaveis: FaixaAcionaveis[]
+  faixas: ScoreGeralFaixas
 }
 
 export default function ConsultorClient({
-  resultados, dateDisplay, dataReferencia, pilaresConfig, carteiraPorConsultor, faixasAcionaveis,
+  resultados, dateDisplay, dataReferencia, pilaresConfig, carteiraPorConsultor, faixasAcionaveis, faixas,
 }: Props) {
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -68,7 +71,7 @@ export default function ConsultorClient({
 
   const nomeSelecionado = selectedId ? consultores.find(c => c.id === selectedId)?.nome : null
   const carteiraSize = nomeSelecionado ? carteiraPorConsultor[normalizarNome(nomeSelecionado)] : undefined
-  const st = total !== null ? STATUS[scoreStatus(total)] : null
+  const st = total !== null ? statusMap(faixas)[scoreStatus(total, faixas)] : null
 
   return (
     <div>
@@ -162,7 +165,7 @@ export default function ConsultorClient({
                 faixasAcionaveis={faixasAcionaveis}
               />
 
-              <EvolucaoScore idCarteira={selectedId} minPontos={2} />
+              <EvolucaoScore idCarteira={selectedId} minPontos={2} metaObjetivo={faixas.meta_objetivo} />
             </div>
           )}
         </div>

@@ -20,6 +20,7 @@ const DistribuicaoEquipe = dynamic(() => import('./DistribuicaoEquipe'), {
   loading: () => <div className="h-full" />,
 })
 import type { CarteiraResumo } from './page'
+import type { ScoreGeralFaixas } from '@/lib/types'
 
 const PILARES = ['tpv', 'net_churn', 'acionaveis', 'aderencia', 'awareness', 'produtividade']
 const PILAR_LABEL: Record<string, string> = {
@@ -38,9 +39,9 @@ const STATUS_COR: Record<string, string> = {
   INATIVO: 'var(--color-warn-fill)', CHURN: 'var(--color-bad-fill)',
 }
 
-function statusStyle(score: number) {
-  if (score >= 4.5) return { bg: 'var(--color-good-bg)', text: 'var(--color-good)' }
-  if (score >= 3.0) return { bg: 'var(--color-warn-bg)', text: 'var(--color-warn)' }
+function statusStyle(score: number, faixas: ScoreGeralFaixas) {
+  if (score >= faixas.meta_objetivo) return { bg: 'var(--color-good-bg)', text: 'var(--color-good)' }
+  if (score >= faixas.limite_critico) return { bg: 'var(--color-warn-bg)', text: 'var(--color-warn)' }
   return { bg: 'var(--color-bad-bg)', text: 'var(--color-bad)' }
 }
 
@@ -73,6 +74,7 @@ interface Props {
   metaMap: Record<string, { meta: number; unidade: string }>
   modoConsultor: boolean
   meuNome: string
+  faixas: ScoreGeralFaixas
 }
 
 function SummaryCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
@@ -121,23 +123,23 @@ function Stat({ rotulo, children }: { rotulo: string; children: React.ReactNode 
   )
 }
 
-export default function GeralClient({ ranking, dateDisplay, dataCarteiraBR, metaMap, modoConsultor, meuNome }: Props) {
+export default function GeralClient({ ranking, dateDisplay, dataCarteiraBR, metaMap, modoConsultor, meuNome, faixas }: Props) {
   const stats = useMemo(() => {
     const comScore = ranking.filter((c): c is ConsultorData & { total: number } => c.total !== null)
-    const acima = comScore.filter(c => c.total >= 4.5).length
-    const naLinha = comScore.filter(c => c.total >= 3.0 && c.total < 4.5).length
-    const critico = comScore.filter(c => c.total < 3.0).length
+    const acima = comScore.filter(c => c.total >= faixas.meta_objetivo).length
+    const naLinha = comScore.filter(c => c.total >= faixas.limite_critico && c.total < faixas.meta_objetivo).length
+    const critico = comScore.filter(c => c.total < faixas.limite_critico).length
     const media = comScore.length > 0 ? comScore.reduce((s, c) => s + c.total, 0) / comScore.length : 0
     // Totais de carteira — soma o que veio (no consultor, é só a dele).
     const clientes = ranking.reduce((s, c) => s + (c.carteira?.clientes ?? 0), 0)
     const pendentes = ranking.reduce((s, c) => s + (c.carteira?.pendentes ?? 0), 0)
     const tpv = ranking.reduce((s, c) => s + (c.carteira?.tpv ?? 0), 0)
     return { acima, naLinha, critico, media, nComScore: comScore.length, clientes, pendentes, tpv }
-  }, [ranking])
+  }, [ranking, faixas])
 
   const chartData = [
-    { name: 'Acima da meta', count: stats.acima, color: 'var(--color-good-fill)' },
-    { name: 'Na linha', count: stats.naLinha, color: 'var(--color-warn-fill)' },
+    { name: 'Acima do objetivo', count: stats.acima, color: 'var(--color-good-fill)' },
+    { name: 'Alerta', count: stats.naLinha, color: 'var(--color-warn-fill)' },
     { name: 'Crítico', count: stats.critico, color: 'var(--color-bad-fill)' },
   ]
 
@@ -162,7 +164,7 @@ export default function GeralClient({ ranking, dateDisplay, dataCarteiraBR, meta
             label="Meu score"
             value={meuScore !== null ? meuScore.toFixed(1).replace('.', ',') + ' pts' : '—'}
             sub="de 10,0 pts"
-            color={meuScore !== null ? statusStyle(meuScore).text : undefined}
+            color={meuScore !== null ? statusStyle(meuScore, faixas).text : undefined}
           />
         ) : (
           <SummaryCard label="Total equipe" value={String(ranking.length)} />
@@ -187,7 +189,7 @@ export default function GeralClient({ ranking, dateDisplay, dataCarteiraBR, meta
         {!modoConsultor && (
           <>
             <SummaryCard
-              label="Acima da meta"
+              label="Acima do objetivo"
               value={String(stats.acima)}
               sub={`${stats.nComScore > 0 ? Math.round(stats.acima / stats.nComScore * 100) : 0}% da equipe`}
               color="var(--color-good)"
@@ -225,7 +227,7 @@ export default function GeralClient({ ranking, dateDisplay, dataCarteiraBR, meta
       ) : (
         <div className="space-y-3">
           {ranking.map((c, i) => {
-            const st = c.total !== null ? statusStyle(c.total) : null
+            const st = c.total !== null ? statusStyle(c.total, faixas) : null
             const pos = c.total !== null ? i + 1 : null
             return (
               <div key={c.id ?? `carteira-${c.nome}`} className="glass rounded-2xl border border-line p-5 hover:border-primary/40 transition-colors">
