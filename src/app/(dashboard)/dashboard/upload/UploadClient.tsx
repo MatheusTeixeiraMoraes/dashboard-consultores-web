@@ -11,7 +11,12 @@ import {
 } from '@/lib/pilares'
 
 function today() {
-  return new Date().toISOString().split('T')[0]
+  // Data local, não UTC: toISOString() pularia pro dia seguinte em uploads
+  // feitos à noite no fuso de Brasília (UTC-3), já causou linha com data
+  // errada e duplicate key no reenvio do dia seguinte.
+  const d = new Date()
+  const tz = d.getTimezoneOffset() * 60000
+  return new Date(d.getTime() - tz).toISOString().split('T')[0]
 }
 
 interface ParsedRow {
