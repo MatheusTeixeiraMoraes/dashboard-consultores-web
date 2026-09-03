@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getProfile } from '@/lib/supabase/profile'
 import { buscarTudo } from '@/lib/supabase/buscar-tudo'
+import { carregarFichaMP } from '@/lib/supabase/ficha-mp'
 import { redirect } from 'next/navigation'
 import type { ClienteRadar } from '../radar/page'
 import RoteirizarClient from './RoteirizarClient'
@@ -11,16 +12,32 @@ export default async function RoteirizarPage() {
 
   const supabase = await createClient()
 
-  // Clientes geocodados da carteira (para adicionar paradas manualmente).
-  const clientes = await buscarTudo<ClienteRadar>((opcoes, de, ate) =>
-    supabase
-      .from('clientes')
-      .select('seller_id, seller_nome, seller_telefone, consultor_nome, cidade, bairro, endereco_completo, lat, lng', opcoes)
-      .eq('em_carteira', true)
-      .not('lat', 'is', null)
-      .not('lng', 'is', null)
-      .range(de, ate),
-  )
+  /* Carteira e ficha do MP em paralelo — uma não depende da outra, e em fila a
+   * tela pagaria a soma das duas (ver o mesmo raciocínio na página de Clientes). */
+  const [clientes, { dataMP, fichaTecnica }] = await Promise.all([
+    // Clientes geocodados da carteira (para adicionar paradas manualmente).
+    buscarTudo<ClienteRadar>((opcoes, de, ate) =>
+      supabase
+        .from('clientes')
+        .select('seller_id, seller_nome, seller_telefone, consultor_nome, cidade, bairro, endereco_completo, lat, lng', opcoes)
+        .eq('em_carteira', true)
+        .not('lat', 'is', null)
+        .not('lng', 'is', null)
+        .range(de, ate),
+    ),
 
-  return <RoteirizarClient clientes={clientes} meuNome={profile.nome || profile.email} />
+    // Situação, prioridade e segmento vêm daqui: são os eixos por onde o
+    // consultor escolhe quem visitar, e sem a ficha o Roteirizar só sabia
+    // filtrar por geografia.
+    carregarFichaMP(supabase),
+  ])
+
+  return (
+    <RoteirizarClient
+      clientes={clientes}
+      meuNome={profile.nome || profile.email}
+      fichaTecnica={fichaTecnica}
+      dataMP={dataMP}
+    />
+  )
 }

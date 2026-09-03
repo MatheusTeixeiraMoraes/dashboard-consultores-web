@@ -109,11 +109,13 @@ export default function AcionaveisClient({ dataReferencia, carteira, acoes, fich
     setSel(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
   }
 
-  /** Roteável = tem ficha na base de rotas E já foi identificado (não é INOVVA/sem
-   *  nome). Cliente pendente fica em Clientes até o consultor preencher. */
+  /** Roteável = tem ficha COM coordenada na base de rotas E já foi identificado
+   *  (não é INOVVA/sem nome). Cliente pendente ou sem GPS fica em Clientes até o
+   *  consultor preencher — o Roteirizar descartaria de qualquer jeito, e aqui o
+   *  botão pelo menos diz a verdade sobre quantos vão. */
   const roteavel = (c: CarteiraMP) => {
     const f = fichas[c.seller_id]
-    return !!f && !precisaIdentificar(f.nome, c.seller_id)
+    return !!f && f.temGps && !precisaIdentificar(f.nome, c.seller_id)
   }
 
   /** Manda a seleção para o Roteirizar — só quem tem GPS na base de rotas e já foi identificado. */
@@ -122,11 +124,11 @@ export default function AcionaveisClient({ dataReferencia, carteira, acoes, fich
     entregarAoRoteirizar(comLocal.map(c => ({
       seller_id: c.seller_id,
       seller_nome: fichas[c.seller_id]?.nome ?? c.seller_id,
-      lat: 0, lng: 0,     // o Roteirizar recarrega a coordenada da base de rotas
+      lat: 0, lng: 0,     // o Roteirizar relê a coordenada da base de rotas pelo seller_id
       telefone: fichas[c.seller_id]?.telefone ?? null,
       endereco: fichas[c.seller_id]?.local ?? '',
       cidade: '', bairro: '', consultor_nome: c.consultor_nome,
-    })))
+    })), 'acionaveis')
     router.push('/dashboard/roteirizar')
   }
 

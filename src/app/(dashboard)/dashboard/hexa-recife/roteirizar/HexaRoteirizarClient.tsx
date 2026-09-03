@@ -5,11 +5,10 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import MultiFiltro from '@/components/MultiFiltro'
 import { enderecoExibivel } from '@/lib/texto'
-import { otimizarRota, geocodar, linksGoogleMaps, PARTIDA_GPS, type Ponto, type PontoMaps, type ClienteSelecionado } from '@/lib/geo'
+import { otimizarRota, geocodar, linksGoogleMaps, PARTIDA_GPS, MAX_PARADAS_ROTA, type Ponto, type PontoMaps, type ClienteSelecionado } from '@/lib/geo'
 import { receberDoPainelHexa, fmtDinheiro, fmtDinheiroCurto, type HexaCliente } from '@/lib/hexa-recife'
 import { registrarEvento } from '@/lib/atividade'
 
-const MAX_STOPS = 100   // teto do OSRM /trip público, igual ao Roteirizar da carteira
 const POR_PAGINA = 24
 
 /**
@@ -77,15 +76,15 @@ export default function HexaRoteirizarClient({
     const ids = new Set(receberDoPainelHexa())
     if (ids.size === 0) return
     const encontrados = clientes.filter(c => ids.has(c.seller_id))
-    const escolhidos = encontrados.slice(0, MAX_STOPS)
+    const escolhidos = encontrados.slice(0, MAX_PARADAS_ROTA)
     if (escolhidos.length > 0) {
       setStops(escolhidos.map(paraParada))
       setDoPainel(escolhidos.length)
     }
     // Passar do teto do OSRM não pode acontecer calado: sem este aviso, o
     // consultor sairia com 100 paradas achando que leva as 145 selecionadas.
-    if (encontrados.length > MAX_STOPS) {
-      setErro(`O painel mandou ${encontrados.length} clientes e uma rota aceita ${MAX_STOPS}. Entraram os ${MAX_STOPS} de maior TPV — monte o resto numa segunda rota.`)
+    if (encontrados.length > MAX_PARADAS_ROTA) {
+      setErro(`O painel mandou ${encontrados.length} clientes e uma rota aceita ${MAX_PARADAS_ROTA}. Entraram os ${MAX_PARADAS_ROTA} de maior TPV — monte o resto numa segunda rota.`)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -124,7 +123,7 @@ export default function HexaRoteirizarClient({
     setResultado(null)
     setStops(prev => {
       if (prev.some(s => s.seller_id === c.seller_id)) return prev.filter(s => s.seller_id !== c.seller_id)
-      if (prev.length >= MAX_STOPS) { setErro(`Máximo de ${MAX_STOPS} clientes por rota.`); return prev }
+      if (prev.length >= MAX_PARADAS_ROTA) { setErro(`Máximo de ${MAX_PARADAS_ROTA} clientes por rota.`); return prev }
       return [...prev, paraParada(c)]
     })
   }
@@ -134,8 +133,8 @@ export default function HexaRoteirizarClient({
     setStops(prev => {
       const jaTem = new Set(prev.map(s => s.seller_id))
       const novos = filtrados.filter(c => !jaTem.has(c.seller_id)).map(paraParada)
-      if (prev.length + novos.length > MAX_STOPS) setErro(`Selecionei os primeiros ${MAX_STOPS} (limite por rota).`)
-      return [...prev, ...novos].slice(0, MAX_STOPS)
+      if (prev.length + novos.length > MAX_PARADAS_ROTA) setErro(`Selecionei os primeiros ${MAX_PARADAS_ROTA} (limite por rota).`)
+      return [...prev, ...novos].slice(0, MAX_PARADAS_ROTA)
     })
   }
 

@@ -82,3 +82,20 @@ export function tituloCaso(s: string): string {
     })
     .join(' ')
 }
+
+// --- Dinheiro ---
+//
+// Moram aqui (e não na lib de uma categoria) porque telas de carteira, de rota
+// e da Hexa mostram os mesmos valores no mesmo formato.
+
+/** "R$ 231.056,66" — mesmo formato da planilha de origem. */
+export function fmtDinheiro(n: number): string {
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 })
+}
+
+/** Compacto para KPI: R$ 8,4 mi / R$ 231,1 mil. */
+export function fmtDinheiroCurto(n: number): string {
+  if (Math.abs(n) >= 1_000_000) return `R$ ${(n / 1_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mi`
+  if (Math.abs(n) >= 1_000) return `R$ ${(n / 1_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mil`
+  return fmtDinheiro(n)
+}

@@ -11,7 +11,7 @@ import {
 } from '@/lib/hexa-recife'
 import type { UserRole } from '@/lib/types'
 import ImportHexa from './ImportHexa'
-import PlanejarRotas from './PlanejarRotas'
+import PlanoDeRotas, { type CandidatoRota } from '@/components/PlanoDeRotas'
 
 const POR_PAGINA = 25
 
@@ -104,6 +104,23 @@ export default function HexaPainelClient({ clientes, role, uploadedBy, meuNome, 
   const [selecao, setSelecao] = useState<Set<string>>(new Set())
 
   const resumo = useMemo(() => resumoHexa(clientes), [clientes])
+
+  /* A base da Hexa traduzida para o formato que o planejador de rotas entende.
+   * O planejador é compartilhado com a carteira, então não conhece `HexaCliente`
+   * — o nome do comércio, que só existe aqui, entra como reserva do nome. */
+  const candidatosRota: CandidatoRota[] = useMemo(
+    () => clientes.map(c => ({
+      seller_id: c.seller_id,
+      seller_nome: c.seller_nome || c.nome_comercio || c.seller_id,
+      lat: c.lat, lng: c.lng,
+      telefone: c.seller_telefone,
+      endereco: c.endereco_completo,
+      cidade: c.cidade, bairro: c.bairro,
+      consultor_nome: c.consultor_nome,
+      tpv: c.tpv,
+    })),
+    [clientes],
+  )
 
   const consultores = useMemo(() => resumo.porConsultor.map(f => f.nome), [resumo])
   const cidades = useMemo(() => resumo.porCidade.map(f => f.nome).sort(), [resumo])
@@ -279,7 +296,7 @@ export default function HexaPainelClient({ clientes, role, uploadedBy, meuNome, 
               .map(c => ({ id: c.id, endereco_completo: c.endereco_completo, cidade: c.cidade, bairro: c.bairro }))}
           />
         )}
-        <PlanejarRotas clientes={clientes} meuNome={meuNome} />
+        <PlanoDeRotas clientes={candidatosRota} meuNome={meuNome} origem="hexa_recife" />
       </div>
 
       {/* KPIs — sempre da base inteira que o usuário enxerga, não do filtro:

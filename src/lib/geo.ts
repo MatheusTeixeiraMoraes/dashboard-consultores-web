@@ -1,6 +1,9 @@
 // Geometria e integração Radar → Roteirizar.
 
-import { enderecoExibivel } from '@/lib/texto'
+// Caminho relativo COM extensão: é o que deixa `node src/lib/geo.test.mjs` importar
+// este módulo direto (o Node ESM não conhece o alias `@/` nem completa extensão).
+// Mesma convenção de hexa-recife.ts → pilares.ts.
+import { enderecoExibivel } from './texto.ts'
 
 export interface Ponto {
   lat: number
@@ -20,8 +23,20 @@ export function distanciaKm(a: Ponto, b: Ponto): number {
   return 2 * R_TERRA_KM * Math.asin(Math.sqrt(s))
 }
 
-// Um cliente selecionado no Radar, "entregue" ao Roteirizar via localStorage.
-// O Radar não escreve no banco — só passa a seleção adiante (regra da spec).
+/**
+ * Teto de paradas numa rota. É o limite prático do OSRM `/trip` público (o
+ * servidor de demonstração), e por tabela o teto de "Selecionar todos" nas
+ * telas que alimentam uma rota.
+ *
+ * Mora aqui porque três telas precisam do mesmo número: se ele mudar em uma e
+ * não nas outras, a seleção passa do que a rota aceita e o corte acontece
+ * calado, no meio do caminho.
+ */
+export const MAX_PARADAS_ROTA = 100
+
+// Um cliente selecionado em outra tela, "entregue" ao Roteirizar via
+// localStorage. Quem entrega não escreve no banco — só passa a seleção adiante
+// (regra da spec do Radar, hoje valendo para Clientes e Acionáveis também).
 export interface ClienteSelecionado {
   seller_id: string
   seller_nome: string
@@ -36,22 +51,55 @@ export interface ClienteSelecionado {
 
 export const CHAVE_RADAR_ROTA = 'radar_add_to_rota'
 
-export function entregarAoRoteirizar(clientes: ClienteSelecionado[]) {
-  localStorage.setItem(CHAVE_RADAR_ROTA, JSON.stringify(clientes))
+/** Qual tela mandou a seleção — o Roteirizar avisa quem chegou de onde. */
+export type OrigemSelecao = 'radar' | 'clientes' | 'acionaveis'
+
+export interface EntregaRota {
+  origem: OrigemSelecao
+  clientes: ClienteSelecionado[]
 }
 
-export function receberDoRadar(): ClienteSelecionado[] {
+/** Como cada origem é chamada no aviso da tela. */
+export const ROTULO_ORIGEM: Record<OrigemSelecao, string> = {
+  radar: 'do Radar',
+  clientes: 'de Clientes',
+  acionaveis: 'dos Acionáveis',
+}
+
+export function entregarAoRoteirizar(
+  clientes: ClienteSelecionado[],
+  origem: OrigemSelecao = 'radar',
+) {
+  const entrega: EntregaRota = { origem, clientes }
+  localStorage.setItem(CHAVE_RADAR_ROTA, JSON.stringify(entrega))
+}
+
+/**
+ * Lê a entrega pendente. Aceita o formato antigo (o array puro, sem origem)
+ * porque pode haver uma seleção guardada no navegador de quem abriu o Radar
+ * antes desta versão — descartá-la faria a pessoa perder a seleção sem
+ * entender por quê.
+ */
+export function receberSelecao(): EntregaRota {
   try {
     const raw = localStorage.getItem(CHAVE_RADAR_ROTA)
-    if (!raw) return []
-    const arr = JSON.parse(raw)
-    return Array.isArray(arr) ? arr : []
+    if (!raw) return { origem: 'radar', clientes: [] }
+    const dado = JSON.parse(raw)
+    if (Array.isArray(dado)) return { origem: 'radar', clientes: dado }
+    const clientes = Array.isArray(dado?.clientes) ? dado.clientes : []
+    // `hasOwnProperty` e não `in`: `in` também acha `constructor`/`toString` no
+    // protótipo, e aí ROTULO_ORIGEM[origem] devolveria uma função para a tela
+    // renderizar.
+    const conhecida = typeof dado?.origem === 'string'
+      && Object.prototype.hasOwnProperty.call(ROTULO_ORIGEM, dado.origem)
+    const origem: OrigemSelecao = conhecida ? dado.origem : 'radar'
+    return { origem, clientes }
   } catch {
-    return []
+    return { origem: 'radar', clientes: [] }
   }
 }
 
-export function limparEntregaDoRadar() {
+export function limparSelecao() {
   localStorage.removeItem(CHAVE_RADAR_ROTA)
 }
 

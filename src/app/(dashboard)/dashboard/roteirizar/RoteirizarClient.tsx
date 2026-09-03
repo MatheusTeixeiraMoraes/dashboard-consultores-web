@@ -6,13 +6,14 @@ import { createClient } from '@/lib/supabase/client'
 import MultiFiltro from '@/components/MultiFiltro'
 import { precisaIdentificar, enderecoExibivel } from '@/lib/texto'
 import {
-  otimizarRota, receberDoRadar, limparEntregaDoRadar, geocodar, linksGoogleMaps, PARTIDA_GPS,
-  type Ponto, type PontoMaps, type ClienteSelecionado,
+  otimizarRota, receberSelecao, limparSelecao, geocodar, linksGoogleMaps, PARTIDA_GPS,
+  MAX_PARADAS_ROTA, ROTULO_ORIGEM,
+  type Ponto, type PontoMaps, type ClienteSelecionado, type OrigemSelecao,
 } from '@/lib/geo'
+import { SITUACOES_MP, PRIORIDADES_MP, type FichaMP } from '@/lib/supabase/ficha-mp'
 import type { ClienteRadar } from '../radar/page'
 import { registrarEvento } from '@/lib/atividade'
 
-const MAX_STOPS = 100      // OSRM /trip público aguenta ~100 pontos rápido
 const POR_PAGINA = 24      // cards por página na grade de seleção
 
 // Janela de páginas com reticências: [0 … 4 5 6 … 14] (índices 0-based).
@@ -28,6 +29,8 @@ function janelaPaginas(atual: number, total: number): (number | '…')[] {
   }
   return out
 }
+
+const dataBR = (iso: string | null) => (iso ? iso.slice(0, 10).split('-').reverse().join('/') : null)
 
 function whatsappUrl(t: string | null) {
   const n = (t ?? '').replace(/\D/g, '')
@@ -45,9 +48,13 @@ function paraSelecionado(c: ClienteRadar): ClienteSelecionado {
 interface Props {
   clientes: ClienteRadar[]
   meuNome: string
+  /** Ficha da Planilha Geral, por seller_id. Vazio se a planilha não foi importada. */
+  fichaTecnica: Record<string, FichaMP>
+  /** Data do snapshot do MP — vira o rodapé "ficha de dd/mm". */
+  dataMP: string | null
 }
 
-export default function RoteirizarClient({ clientes, meuNome }: Props) {
+export default function RoteirizarClient({ clientes, meuNome, fichaTecnica, dataMP }: Props) {
   const router = useRouter()
 
   const [partLat, setPartLat] = useState('')
@@ -66,28 +73,72 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
   const [nomeRota, setNomeRota] = useState('')
   const [dataVisita, setDataVisita] = useState('')
   const [salvando, setSalvando] = useState(false)
-  const [preSelecionados, setPreSelecionados] = useState(0)
+  const [entrega, setEntrega] = useState<{ quantidade: number; origem: OrigemSelecao } | null>(null)
 
   // Filtros da grade — conjuntos vazios = sem filtro.
   const [fBusca, setFBusca] = useState('')
   const [fCidades, setFCidades] = useState<Set<string>>(new Set())
   const [fBairros, setFBairros] = useState<Set<string>>(new Set())
   const [fConsultores, setFConsultores] = useState<Set<string>>(new Set())
+  // Filtros da ficha do MP — só aparecem se a Planilha Geral foi importada.
+  const [fSituacao, setFSituacao] = useState<Set<string>>(new Set())
+  const [fQuartil, setFQuartil] = useState<Set<string>>(new Set())
+  const [fMcc, setFMcc] = useState<Set<string>>(new Set())
   const [pagina, setPagina] = useState(0)
 
-  // Recebe a seleção vinda do Radar — descartando qualquer pendente que tenha
-  // sobrado de uma entrega antiga (o Radar já não manda mais esses).
+  // Coordenada e ficha de cadastro por seller_id — a base desta tela é a fonte
+  // da verdade sobre onde o cliente fica.
+  const porSeller = useMemo(() => new Map(clientes.map(c => [c.seller_id, c])), [clientes])
+
+  /* Recebe a seleção entregue por outra tela (Radar, Clientes, Acionáveis),
+   * descartando quem ainda está pendente de identificação.
+   *
+   * A coordenada é RELIDA da base por seller_id em vez de aceitar a que veio no
+   * pacote: os Acionáveis entregam `lat: 0, lng: 0` de propósito (aquela tela
+   * não tem as coordenadas em mãos) e, sem esta releitura, a rota saía apontando
+   * para o ponto zero no Atlântico. Quem não existe na base de rotas fica de
+   * fora — sem coordenada não há parada.
+   */
   useEffect(() => {
-    const doRadar = receberDoRadar().filter(c => !precisaIdentificar(c.seller_nome, c.seller_id))
-    if (doRadar.length > 0) {
-      setStops(doRadar.slice(0, MAX_STOPS))
-      setPreSelecionados(doRadar.length)
-      limparEntregaDoRadar()
+    const { origem, clientes: recebidos } = receberSelecao()
+    if (recebidos.length === 0) return
+    limparSelecao()
+
+    const validos = recebidos
+      .filter(c => !precisaIdentificar(c.seller_nome, c.seller_id))
+      .map(c => {
+        const base = porSeller.get(c.seller_id)
+        return base ? paraSelecionado(base) : c
+      })
+      .filter(c => Number.isFinite(c.lat) && Number.isFinite(c.lng) && (c.lat !== 0 || c.lng !== 0))
+
+    // Quem sobrou pelo caminho é DITO, não sumido: a entrega já foi consumida
+    // do localStorage e não dá para tentar de novo. Sem este aviso, uma seleção
+    // de 12 clientes podia virar 7 paradas — ou nenhuma, numa tela em branco —
+    // sem nada na tela explicando o que aconteceu.
+    const perdidos = recebidos.length - validos.length
+    const avisos: string[] = []
+    if (perdidos > 0) {
+      avisos.push(
+        `${perdidos} dos ${recebidos.length} clientes ${ROTULO_ORIGEM[origem]} não ${perdidos === 1 ? 'entrou' : 'entraram'}: ` +
+        'sem coordenada na carteira ou ainda pendente de identificação. Resolva em Clientes e tente de novo.',
+      )
     }
+    if (validos.length > MAX_PARADAS_ROTA) {
+      avisos.push(`Uma rota aceita ${MAX_PARADAS_ROTA} paradas — entraram os ${MAX_PARADAS_ROTA} primeiros dos ${validos.length}. Monte o resto numa segunda rota.`)
+    }
+    if (avisos.length > 0) setErro(avisos.join(' '))
+    if (validos.length === 0) return
+
+    setStops(validos.slice(0, MAX_PARADAS_ROTA))
+    setEntrega({ quantidade: validos.length, origem })
+    // Roda uma vez, na montagem: `localStorage` não existe no servidor e a
+    // entrega é consumida (e apagada) de uma vez só.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Volta à primeira página quando o filtro muda (senão pararia numa página vazia).
-  useEffect(() => { setPagina(0) }, [fBusca, fCidades, fBairros, fConsultores])
+  useEffect(() => { setPagina(0) }, [fBusca, fCidades, fBairros, fConsultores, fSituacao, fQuartil, fMcc])
 
   const idsNaRota = useMemo(() => new Set(stops.map(s => s.seller_id)), [stops])
 
@@ -116,28 +167,42 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
     [roteaveis, fCidades],
   )
 
+  // Eixos da ficha do MP. Sem Planilha Geral importada, os três filtros somem
+  // em vez de virarem listas vazias que não filtram nada.
+  const temFicha = Object.keys(fichaTecnica).length > 0
+  const mccs = useMemo(
+    () => [...new Set(roteaveis.map(c => fichaTecnica[c.seller_id]?.mcc ?? '').filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [roteaveis, fichaTecnica],
+  )
+
   const filtrados = useMemo(() => {
     const q = fBusca.trim().toLowerCase()
     return roteaveis.filter(c =>
       (fCidades.size === 0 || fCidades.has(c.cidade)) &&
       (fBairros.size === 0 || fBairros.has(c.bairro)) &&
       (fConsultores.size === 0 || fConsultores.has(c.consultor_nome)) &&
+      (fSituacao.size === 0 || fSituacao.has(fichaTecnica[c.seller_id]?.status ?? '')) &&
+      (fQuartil.size === 0 || fQuartil.has(fichaTecnica[c.seller_id]?.quartil ?? '')) &&
+      (fMcc.size === 0 || fMcc.has(fichaTecnica[c.seller_id]?.mcc ?? '')) &&
       (!q || c.seller_id.toLowerCase().includes(q) || c.seller_nome.toLowerCase().includes(q))
     )
-  }, [roteaveis, fBusca, fCidades, fBairros, fConsultores])
+  }, [roteaveis, fBusca, fCidades, fBairros, fConsultores, fSituacao, fQuartil, fMcc, fichaTecnica])
 
-  const nFiltros = fCidades.size + fBairros.size + fConsultores.size + (fBusca.trim() ? 1 : 0)
+  const nFiltros = fCidades.size + fBairros.size + fConsultores.size
+    + fSituacao.size + fQuartil.size + fMcc.size + (fBusca.trim() ? 1 : 0)
   const temFiltro = nFiltros > 0
 
   function limparFiltros() {
     setFBusca(''); setFCidades(new Set()); setFBairros(new Set()); setFConsultores(new Set())
+    setFSituacao(new Set()); setFQuartil(new Set()); setFMcc(new Set())
   }
 
   function toggleStop(c: ClienteRadar) {
     setResultado(null)
     setStops(prev => prev.some(s => s.seller_id === c.seller_id)
       ? prev.filter(s => s.seller_id !== c.seller_id)
-      : (prev.length >= MAX_STOPS ? (setErro(`Máximo de ${MAX_STOPS} clientes por rota.`), prev) : [...prev, paraSelecionado(c)]))
+      : (prev.length >= MAX_PARADAS_ROTA ? (setErro(`Máximo de ${MAX_PARADAS_ROTA} clientes por rota.`), prev) : [...prev, paraSelecionado(c)]))
   }
 
   function selecionarTodos() {
@@ -145,8 +210,8 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
     setStops(prev => {
       const jaTem = new Set(prev.map(s => s.seller_id))
       const novos = filtrados.filter(c => !jaTem.has(c.seller_id)).map(paraSelecionado)
-      if (prev.length + novos.length > MAX_STOPS) setErro(`Selecionei os primeiros ${MAX_STOPS} (limite por rota).`)
-      return [...prev, ...novos].slice(0, MAX_STOPS)
+      if (prev.length + novos.length > MAX_PARADAS_ROTA) setErro(`Selecionei os primeiros ${MAX_PARADAS_ROTA} (limite por rota).`)
+      return [...prev, ...novos].slice(0, MAX_PARADAS_ROTA)
     })
   }
 
@@ -255,12 +320,15 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
     <div className="pb-4">
       <div className="mb-4">
         <h1 className="text-xl font-bold text-ink">Roteirizar</h1>
-        <p className="text-sm text-ink-muted mt-0.5">Selecione clientes, defina os pontos de referência e gere a melhor rota.</p>
+        <p className="text-sm text-ink-muted mt-0.5">
+          Selecione clientes, defina os pontos de referência e gere a melhor rota.
+          {dataMP && <> · ficha do MP de {dataBR(dataMP)}</>}
+        </p>
       </div>
 
-      {preSelecionados > 0 && (
+      {entrega && (
         <div className="mb-3 text-sm bg-good-bg text-good rounded-xl px-4 py-2.5">
-          {preSelecionados} cliente{preSelecionados !== 1 ? 's' : ''} vieram do Radar.
+          {entrega.quantidade} cliente{entrega.quantidade !== 1 ? 's' : ''} {entrega.quantidade !== 1 ? 'vieram' : 'veio'} {ROTULO_ORIGEM[entrega.origem]}.
         </div>
       )}
       {erro && <p className="text-xs text-bad bg-bad-bg rounded-lg px-3 py-2 mb-3">{erro}</p>}
@@ -397,6 +465,11 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
               )}
               <MultiFiltro label="Cidades" opcoes={cidades} sel={fCidades} onChange={setFCidades} />
               <MultiFiltro label="Bairros" opcoes={bairros} sel={fBairros} onChange={setFBairros} />
+              {temFicha && <>
+                <MultiFiltro label="Situação" opcoes={SITUACOES_MP} sel={fSituacao} onChange={setFSituacao} />
+                <MultiFiltro label="Prioridade" opcoes={PRIORIDADES_MP} sel={fQuartil} onChange={setFQuartil} />
+                <MultiFiltro label="Segmento" opcoes={mccs} sel={fMcc} onChange={setFMcc} />
+              </>}
               {temFiltro && (
                 <button onClick={limparFiltros} className="text-xs text-ink-muted hover:text-ink px-1.5">Limpar filtros</button>
               )}
@@ -415,6 +488,7 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
                     const sel = idsNaRota.has(c.seller_id)
                     const wa = whatsappUrl(c.seller_telefone)
                     const endereco = enderecoExibivel(c.endereco_completo)
+                    const ficha = fichaTecnica[c.seller_id]
                     return (
                       <button key={c.seller_id} onClick={() => toggleStop(c)}
                         className={`text-left rounded-xl border p-3 transition-colors ${sel ? 'border-primary bg-primary/15' : 'border-line hover:bg-card-2'}`}>
@@ -432,6 +506,24 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
                               : <p className="text-sm font-medium text-ink truncate mt-0.5">{c.seller_nome || '—'}</p>}
                             {endereco && <p className="text-[11px] text-ink-dim truncate mt-0.5" title={endereco}>{endereco}</p>}
                             <p className="text-[11px] text-ink-faint truncate">{c.bairro ? `${c.bairro}, ` : ''}{c.cidade}</p>
+                            {/* Prioridade e situação na cara do card: filtrar por
+                                P1 sem enxergar o P1 obrigaria a conferir em outra tela. */}
+                            {ficha && (ficha.quartil || ficha.status) && (
+                              <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                                {ficha.quartil && (
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/15 text-primary-lt">
+                                    {ficha.quartil}{ficha.prio != null && ` #${ficha.prio}`}
+                                  </span>
+                                )}
+                                {ficha.status && (
+                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                    ficha.status === 'CHURN' ? 'bg-bad-bg text-bad'
+                                    : ficha.status === 'INATIVO' ? 'bg-warn-bg text-warn' : 'bg-good-bg text-good'}`}>
+                                    {ficha.status}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </button>

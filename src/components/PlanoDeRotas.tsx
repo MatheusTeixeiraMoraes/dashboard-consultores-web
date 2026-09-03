@@ -8,7 +8,7 @@ import {
   planejarRotas, separarForaDeArea, distanciaAoCentroKm, nomeSugerido,
   type ClienteGeo, type GrupoRota,
 } from '@/lib/planejar-rotas'
-import { fmtDinheiroCurto, type HexaCliente } from '@/lib/hexa-recife'
+import { fmtDinheiroCurto } from '@/lib/texto'
 import { registrarEvento } from '@/lib/atividade'
 
 /** Acima disto, um dia de visitas deixa de ser realista. */
@@ -21,14 +21,46 @@ const PARADAS_CONFORTAVEIS = 10
  */
 const LIMITE_PARTIDA_KM = 50
 
+/**
+ * Cliente que pode virar parada. É o denominador comum entre as bases que
+ * alimentam o planejador — a carteira (`clientes` + ficha do MP) e a Hexa
+ * Recife (tabela própria) —, então quem chama traduz a sua base para isto e o
+ * componente não precisa conhecer nenhuma das duas.
+ */
+export interface CandidatoRota {
+  seller_id: string
+  seller_nome: string
+  lat: number | null
+  lng: number | null
+  telefone: string | null
+  endereco: string
+  cidade: string
+  bairro: string
+  consultor_nome: string
+  /** Só para dimensionar o grupo na prévia — pode faltar. */
+  tpv: number | null
+}
+
 interface Props {
-  clientes: HexaCliente[]
+  clientes: CandidatoRota[]
   meuNome: string
+  /** Vai para a coluna `origem` de `rotas` — é o que separa as agendas. */
+  origem: 'carteira' | 'hexa_recife'
+  /** Linha de apoio do título — diz de qual conjunto as rotas saem. */
+  descricao?: string
+  /** Chamado depois de criar as rotas (para fechar um modal, por exemplo). */
+  aoCriar?: (quantidade: number) => void
 }
 
 type Fase = 'idle' | 'planejado' | 'criando' | 'ok' | 'erro'
 
-export default function PlanejarRotas({ clientes, meuNome }: Props) {
+export default function PlanoDeRotas({
+  clientes,
+  meuNome,
+  origem,
+  descricao = 'Divide a base por região e cria uma rota por dia',
+  aoCriar,
+}: Props) {
   const router = useRouter()
 
   const [quantidade, setQuantidade] = useState(5)
@@ -56,11 +88,19 @@ export default function PlanejarRotas({ clientes, meuNome }: Props) {
   const { dentro, fora, centro } = useMemo(() => separarForaDeArea(geo), [geo])
   const semGps = clientes.length - geo.length
 
+  /* Quem está longe do centro fica fora por padrão (o caso que motivou o corte:
+   * um cliente em Natal inflava a rota de Recife em 700 km). Mas na carteira
+   * "longe" também pode ser verdade — consultor com clientes em outra cidade —,
+   * e aí forçar a exclusão esconderia gente que a pessoa escolheu a dedo. Então
+   * o corte é o padrão, e incluir de volta é uma decisão explícita dela. */
+  const [incluirDistantes, setIncluirDistantes] = useState(false)
+  const base = incluirDistantes ? geo : dentro
+
   const porId = useMemo(() => new Map(clientes.map(c => [c.seller_id, c])), [clientes])
 
   function planejar() {
     setErro(''); setCriadas(0)
-    const grupos = planejarRotas(dentro, { quantidade })
+    const grupos = planejarRotas(base, { quantidade })
     if (grupos.length === 0) { setErro('Nenhum cliente com coordenada para planejar.'); return }
     setPlano(grupos)
     setFase('planejado')
@@ -128,10 +168,10 @@ export default function PlanejarRotas({ clientes, meuNome }: Props) {
         const cli = porId.get(c.seller_id)
         return {
           seller_id: c.seller_id,
-          seller_nome: cli?.seller_nome || cli?.nome_comercio || c.seller_id,
+          seller_nome: cli?.seller_nome || c.seller_id,
           lat: c.lat, lng: c.lng,
-          telefone: cli?.seller_telefone ?? null,
-          endereco: cli?.endereco_completo ?? '',
+          telefone: cli?.telefone ?? null,
+          endereco: cli?.endereco ?? '',
           cidade: c.cidade, bairro: c.bairro,
           consultor_nome: c.consultor_nome,
         }
@@ -145,7 +185,7 @@ export default function PlanejarRotas({ clientes, meuNome }: Props) {
         partida_lat: largada.lat, partida_lng: largada.lng,
         chegada_endereco: null, chegada_lat: null, chegada_lng: null,
         stops, distancia_km: km, tempo_minutos: min,
-        origem: 'hexa_recife',
+        origem,
       })
       if (error) {
         setFase('erro')
@@ -162,17 +202,18 @@ export default function PlanejarRotas({ clientes, meuNome }: Props) {
       registrarEvento({
         tipo: 'rota_criada',
         alvoTipo: 'rota',
-        detalhes: { quantidade: feitas, origem: 'hexa_recife' },
+        detalhes: { quantidade: feitas, origem },
       })
     }
 
     setFase('ok')
     setProgresso('')
+    aoCriar?.(feitas)
     router.refresh()
   }
 
   const partidaLongeKm = partida ? distanciaAoCentroKm(partida, centro) : 0
-  const paradasPorRota = plano.length > 0 ? Math.round(dentro.length / plano.length) : Math.round(dentro.length / quantidade)
+  const paradasPorRota = plano.length > 0 ? Math.round(base.length / plano.length) : Math.round(base.length / quantidade)
   const muitasParadas = paradasPorRota > PARADAS_CONFORTAVEIS
 
   return (
@@ -186,12 +227,12 @@ export default function PlanejarRotas({ clientes, meuNome }: Props) {
         </span>
         <div>
           <p className="text-sm font-semibold text-ink">Planejar a semana</p>
-          <p className="text-[11px] text-ink-muted">Divide a base por região e cria uma rota por dia</p>
+          <p className="text-[11px] text-ink-muted">{descricao}</p>
         </div>
       </div>
 
       <p className="text-xs text-ink-muted my-3 leading-relaxed">
-        Agrupa os {dentro.length} clientes por proximidade — não por nome de bairro, que separaria
+        Agrupa os {base.length} clientes por proximidade — não por nome de bairro, que separaria
         vizinhos de ruas diferentes — e monta uma rota para cada grupo, já na melhor ordem de visita.
         As rotas nascem <b className="text-ink">sem data</b>: o dia você escolhe na Agenda.
       </p>
@@ -218,7 +259,7 @@ export default function PlanejarRotas({ clientes, meuNome }: Props) {
           {muitasParadas && (
             <p className="text-[11px] text-warn bg-warn-bg rounded-lg px-2.5 py-2">
               {paradasPorRota} visitas num dia é muito para trabalho de rua — o usual são 6 a 10.
-              Com {Math.ceil(dentro.length / PARADAS_CONFORTAVEIS)} rotas cada dia fica em ~{PARADAS_CONFORTAVEIS}.
+              Com {Math.ceil(base.length / PARADAS_CONFORTAVEIS)} rotas cada dia fica em ~{PARADAS_CONFORTAVEIS}.
             </p>
           )}
 
@@ -303,15 +344,17 @@ export default function PlanejarRotas({ clientes, meuNome }: Props) {
       {(fora.length > 0 || semGps > 0) && (
         <details className="text-[11px] border border-line rounded-lg p-2.5 mb-3">
           <summary className="cursor-pointer text-warn font-semibold">
-            {fora.length + semGps} cliente{fora.length + semGps !== 1 ? 's' : ''} fora do plano
+            {(incluirDistantes ? 0 : fora.length) + semGps} cliente
+            {(incluirDistantes ? 0 : fora.length) + semGps !== 1 ? 's' : ''} fora do plano
           </summary>
           <div className="mt-2 space-y-1 text-ink-muted">
             {semGps > 0 && <p>{semGps} sem GPS — use o botão de geocodificar acima.</p>}
             {fora.length > 0 && (
               <>
                 <p className="text-ink-dim">
-                  {fora.length} com coordenada longe demais da região. Cidade próxima e distância grande
-                  quase sempre significa <b className="text-warn">GPS errado na planilha</b>, não cliente distante:
+                  {fora.length} com coordenada longe do centro da região. Cidade próxima e distância grande
+                  quase sempre significa <b className="text-warn">GPS errado na planilha</b> — mas se o
+                  cliente fica longe mesmo, dá para incluir:
                 </p>
                 {fora.map(c => (
                   <p key={c.seller_id} className="truncate">
@@ -319,6 +362,13 @@ export default function PlanejarRotas({ clientes, meuNome }: Props) {
                     <b className="text-warn">{distanciaAoCentroKm(c, centro).toFixed(0)} km</b> do centro
                   </p>
                 ))}
+                <button
+                  onClick={() => { setIncluirDistantes(v => !v); setFase('idle') }}
+                  className="underline font-semibold text-ink-dim hover:text-ink mt-1">
+                  {incluirDistantes
+                    ? 'Voltar a deixar os distantes de fora'
+                    : `Incluir ${fora.length === 1 ? 'este' : 'estes ' + fora.length} no plano mesmo assim`}
+                </button>
               </>
             )}
           </div>
@@ -341,7 +391,7 @@ export default function PlanejarRotas({ clientes, meuNome }: Props) {
           </button>
         </div>
       ) : (
-        <button onClick={planejar} disabled={fase === 'criando' || dentro.length === 0}
+        <button onClick={planejar} disabled={fase === 'criando' || base.length === 0}
           className="w-full text-good border border-good/30 bg-good-bg hover:bg-good/20 disabled:opacity-50 text-sm font-semibold py-2.5 rounded-xl">
           {fase === 'ok' ? 'Planejar de novo' : `Planejar ${quantidade} rotas`}
         </button>

@@ -1,23 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { getProfile } from '@/lib/supabase/profile'
 import { buscarTudo } from '@/lib/supabase/buscar-tudo'
+import { carregarFichaMP } from '@/lib/supabase/ficha-mp'
 import { redirect } from 'next/navigation'
 import type { Cliente } from '@/lib/types'
 import ClientesClient from './ClientesClient'
-
-/** Ficha do cliente na Planilha Geral do MP. Ausente = não está na planilha. */
-export interface FichaMP {
-  status: string | null
-  quartil: string | null
-  prio: number | null
-  tpv_mes_atual: number | null
-  tpv_mes_passado: number | null
-  status_credito: string | null
-  mcc: string | null
-  recorrencia: string | null
-  ultimo_contato: string | null
-  qtd_acionaveis: number | null
-}
 
 export default async function ClientesPage() {
   const profile = await getProfile()
@@ -54,31 +41,9 @@ export default async function ClientesPage() {
     ),
 
     // Ficha técnica vinda da Planilha Geral do MP: TPV, situação, prioridade,
-    // crédito, segmento. É LEITURA — as duas bases continuam separadas e nada é
-    // escrito de volta em `clientes`. Quem não está na Planilha Geral simplesmente
-    // não tem ficha, e a tela mostra o cadastro sozinho.
-    (async () => {
-      const { data: ultimaMP } = await supabase
-        .from('mp_carteira')
-        .select('data_referencia')
-        .order('data_referencia', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      const dataMP: string | null = ultimaMP?.data_referencia ?? null
-      const fichaTecnica: Record<string, FichaMP> = {}
-      if (dataMP) {
-        const linhas = await buscarTudo<FichaMP & { seller_id: string }>((opcoes, de, ate) =>
-          supabase
-            .from('mp_carteira')
-            .select('seller_id, status, quartil, prio, tpv_mes_atual, tpv_mes_passado, status_credito, mcc, recorrencia, ultimo_contato, qtd_acionaveis', opcoes)
-            .eq('data_referencia', dataMP)
-            .range(de, ate),
-        )
-        for (const m of linhas) fichaTecnica[m.seller_id] = m
-      }
-      return { dataMP, fichaTecnica }
-    })(),
+    // crédito, segmento. A consulta mora em `lib/supabase/ficha-mp` porque o
+    // Roteirizar filtra pelos mesmos eixos e precisa dela igual.
+    carregarFichaMP(supabase),
 
     // Nomes de consultor para o datalist do cadastro manual (gestão).
     (async (): Promise<string[]> => {

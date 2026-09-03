@@ -26,6 +26,8 @@ export interface Ficha {
   nome: string
   telefone: string | null
   local: string
+  /** Tem coordenada na base de rotas — sem isso não vira parada de visita. */
+  temGps: boolean
 }
 
 export default async function AcionaveisPage() {
@@ -74,11 +76,13 @@ export default async function AcionaveisPage() {
     // as duas bases seguem separadas. Quem não estiver cadastrado aparece pelo ID.
     // Continua SEM `.eq('em_carteira', true)`: filtrar por ali é outro critério e
     // faria cliente sem reconciliar perder nome/telefone e cair para o ID cru.
-    buscarTudo<{ seller_id: string; seller_nome: string; seller_telefone: string | null; cidade: string; bairro: string }>(
+    // `lat`/`lng` entram só como sim/não: o botão "Montar rota" precisa saber
+    // quem tem coordenada, senão manda para o Roteirizar quem não vira parada.
+    buscarTudo<{ seller_id: string; seller_nome: string; seller_telefone: string | null; cidade: string; bairro: string; lat: number | null; lng: number | null }>(
       (opcoes, de, ate) =>
         supabase
           .from('clientes')
-          .select('seller_id, seller_nome, seller_telefone, cidade, bairro', opcoes)
+          .select('seller_id, seller_nome, seller_telefone, cidade, bairro, lat, lng', opcoes)
           .range(de, ate),
     ),
   ])
@@ -91,6 +95,7 @@ export default async function AcionaveisPage() {
       nome: c.seller_nome,
       telefone: c.seller_telefone,
       local: [c.bairro, c.cidade].filter(Boolean).join(', '),
+      temGps: c.lat != null && c.lng != null,
     }
   }
 

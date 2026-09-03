@@ -414,14 +414,8 @@ export function resumoHexa(clientes: HexaClienteResumivel[]): ResumoHexa {
   }
 }
 
-/** "R$ 231.056,66" — mesmo formato da planilha de origem. */
-export function fmtDinheiro(n: number): string {
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 })
-}
-
-/** Compacto para KPI: R$ 8,4 mi / R$ 231,1 mil. */
-export function fmtDinheiroCurto(n: number): string {
-  if (Math.abs(n) >= 1_000_000) return `R$ ${(n / 1_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mi`
-  if (Math.abs(n) >= 1_000) return `R$ ${(n / 1_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mil`
-  return fmtDinheiro(n)
-}
+/* Os formatadores de dinheiro mudaram para `lib/texto` quando o planejador de
+ * rotas passou a ser compartilhado com a carteira — telas fora da Hexa
+ * precisavam deles, e esta lib inteira some quando a categoria for encerrada.
+ * Reexportados aqui para não mexer nas telas da Hexa que já os importavam. */
+export { fmtDinheiro, fmtDinheiroCurto } from './texto.ts'

@@ -7,10 +7,11 @@ import { createClient } from '@/lib/supabase/client'
 import MultiFiltro from '@/components/MultiFiltro'
 import { BotaoWhatsApp, BotaoMapa, urlWhatsApp } from '@/components/BotaoContato'
 import { findCol } from '@/lib/pilares'
-import { geocodar, sleep } from '@/lib/geo'
+import { geocodar, sleep, MAX_PARADAS_ROTA } from '@/lib/geo'
+import GerarRota from './GerarRota'
 import { tituloCaso, tipoDoc, precisaIdentificar } from '@/lib/texto'
 import type { Cliente, UserRole } from '@/lib/types'
-import type { FichaMP } from './page'
+import { SITUACOES_MP, PRIORIDADES_MP, type FichaMP } from '@/lib/supabase/ficha-mp'
 import { registrarEvento } from '@/lib/atividade'
 
 const PinMapa = dynamic(() => import('./PinMapa'), {
@@ -142,10 +143,12 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   const [bulk, setBulk] = useState<{ running: boolean; done: number; ok: number; total: number } | null>(null)
   const bulkStop = useRef(false)
 
-  // WhatsApp em massa
-  const [waSel, setWaSel] = useState<Set<string>>(new Set())
+  // Seleção em massa — a mesma marcação serve para o WhatsApp e para virar rota.
+  const [selecao, setSelecao] = useState<Set<string>>(new Set())
   const [waOpen, setWaOpen] = useState(false)
   const [waMsg, setWaMsg] = useState('Olá {nome}, tudo bem?')
+  const [rotaAberta, setRotaAberta] = useState(false)
+  const [avisoSelecao, setAvisoSelecao] = useState('')
 
   // Enriquecimento: copiar o ID pra buscar no painel do MP, e filtrar pendentes.
   const [copiado, setCopiado] = useState<string | null>(null)
@@ -216,7 +219,11 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
 
   // Trocar de filtro volta pra primeira página: manter a página 7 depois de
   // filtrar para 30 clientes mostraria uma tela vazia.
-  const aoFiltrar = (aplicar: (s: Set<string>) => void) => (s: Set<string>) => { aplicar(s); setPagina(0) }
+  // O aviso do "Selecionar todos" fala de um resultado específico; trocar o
+  // filtro muda esse resultado e o aviso deixa de valer.
+  const aoFiltrar = (aplicar: (s: Set<string>) => void) => (s: Set<string>) => {
+    aplicar(s); setPagina(0); setAvisoSelecao('')
+  }
 
   function limparFiltros() {
     setBusca('')
@@ -225,6 +232,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
     setFSituacao(new Set()); setFQuartil(new Set()); setFMcc(new Set())
     setSoPendentes(false)
     setPagina(0)
+    setAvisoSelecao('')
   }
 
   function abrirNovo() {
@@ -411,10 +419,43 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
     router.refresh()
   }
 
-  function toggleWa(id: string) {
-    setWaSel(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
+  function alternarSelecao(id: string) {
+    setSelecao(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
   }
-  const selecionadosWa = useMemo(() => clientes.filter(c => waSel.has(c.id)), [clientes, waSel])
+  const selecionados = useMemo(() => clientes.filter(c => selecao.has(c.id)), [clientes, selecao])
+
+  /* Da seleção, quem pode virar parada: tem coordenada e já foi identificado.
+   * Sem GPS não há para onde ir, e cliente "pendente de identificação" (INOVVA /
+   * sem nome / nome = ID) não se visita antes de saber quem é. */
+  const roteaveis = useMemo(
+    () => selecionados.filter(c => temGps(c) && !precisaEnriquecer(c)),
+    [selecionados],
+  )
+
+  /* Marca o resultado filtrado inteiro, até o teto de uma rota.
+   *
+   * O filtro NÃO seleciona sozinho — quem escolhe é a pessoa. Este botão é o
+   * atalho para "todos estes", e para no teto porque uma rota não aceita mais
+   * que isso: cortar aqui, com aviso, é melhor que deixar passar e o corte
+   * acontecer calado lá na frente.
+   */
+  function selecionarFiltrados() {
+    const escolhidos = filtrados.slice(0, MAX_PARADAS_ROTA)
+    setSelecao(new Set(escolhidos.map(c => c.id)))
+
+    // Dois recados diferentes, e os dois importam: quantos ficaram para trás
+    // pelo teto, e quantos dos marcados NÃO viram parada (sem GPS ou pendentes).
+    // Sem o segundo, "Selecionar todos (100)" viraria 60 paradas sem explicação.
+    const semRota = escolhidos.filter(c => !temGps(c) || precisaEnriquecer(c)).length
+    const partes: string[] = []
+    if (filtrados.length > MAX_PARADAS_ROTA) {
+      partes.push(`Selecionei os primeiros ${MAX_PARADAS_ROTA} de ${nBR(filtrados.length)} — é o teto de uma rota. Para os outros, refine o filtro e monte outra.`)
+    }
+    if (semRota > 0) {
+      partes.push(`${nBR(semRota)} ${semRota === 1 ? 'não vira parada' : 'não viram parada'} (sem GPS ou pendente de identificação) — servem para o WhatsApp, mas ficam fora da rota.`)
+    }
+    setAvisoSelecao(partes.join(' '))
+  }
 
   return (
     <div className="pb-20">
@@ -494,7 +535,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
         <div className="relative flex-1 min-w-56 max-w-sm">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none"><Icon name="search" size={14} /></span>
           <input type="text" placeholder="Buscar nome, seller ID, endereço…"
-            value={busca} onChange={e => { setBusca(e.target.value); setPagina(0) }}
+            value={busca} onChange={e => { setBusca(e.target.value); setPagina(0); setAvisoSelecao('') }}
             className="w-full text-sm bg-field border border-field-line rounded-lg pl-9 pr-3 py-1.5 text-ink placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-primary" />
         </div>
         {podeGerir && <MultiFiltro label="Consultores" opcoes={consultores} sel={fConsultores} onChange={aoFiltrar(setFConsultores)} />}
@@ -502,12 +543,12 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
         <MultiFiltro label="Bairros" opcoes={bairros} sel={fBairros} onChange={aoFiltrar(setFBairros)} />
         <MultiFiltro label="GPS" opcoes={GPS_OPCOES} sel={fGps} onChange={aoFiltrar(setFGps)} />
         {temFicha && <>
-          <MultiFiltro label="Situação" opcoes={['ATIVO', 'CHURN', 'INATIVO', 'REATIVADO']} sel={fSituacao} onChange={aoFiltrar(setFSituacao)} />
-          <MultiFiltro label="Prioridade" opcoes={['P1', 'P2', 'P3', 'P4']} sel={fQuartil} onChange={aoFiltrar(setFQuartil)} />
+          <MultiFiltro label="Situação" opcoes={SITUACOES_MP} sel={fSituacao} onChange={aoFiltrar(setFSituacao)} />
+          <MultiFiltro label="Prioridade" opcoes={PRIORIDADES_MP} sel={fQuartil} onChange={aoFiltrar(setFQuartil)} />
           <MultiFiltro label="Segmento" opcoes={mccs} sel={fMcc} onChange={aoFiltrar(setFMcc)} />
         </>}
         {pendentesCount > 0 && (
-          <button onClick={() => { setSoPendentes(v => !v); setPagina(0) }}
+          <button onClick={() => { setSoPendentes(v => !v); setPagina(0); setAvisoSelecao('') }}
             className={`flex items-center gap-1.5 border rounded-lg px-2.5 py-1.5 text-sm whitespace-nowrap transition-colors ${
               soPendentes ? 'border-warn/60 bg-warn-bg text-warn' : 'border-field-line bg-field text-ink-muted hover:text-ink'
             }`}>
@@ -518,7 +559,17 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
         {filtrando && (
           <button onClick={limparFiltros} className="text-xs text-ink-muted hover:text-ink underline underline-offset-2">Limpar filtros</button>
         )}
+        {/* Atalho para transformar o filtro em rota: marca o que está na tela.
+            Fica ao lado dos filtros porque é sobre eles que ele age. */}
+        <button onClick={selecionarFiltrados} disabled={filtrados.length === 0}
+          className="ml-auto border border-field-line bg-field hover:bg-card-2 disabled:opacity-40 text-ink-dim text-sm font-medium px-3 py-1.5 rounded-lg whitespace-nowrap">
+          Selecionar todos ({nBR(Math.min(filtrados.length, MAX_PARADAS_ROTA))})
+        </button>
       </div>
+
+      {avisoSelecao && (
+        <p className="text-xs text-warn bg-warn-bg rounded-lg px-3 py-2 mb-4">{avisoSelecao}</p>
+      )}
 
       {/* Cards */}
       {filtrados.length === 0 ? (
@@ -540,7 +591,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
             // exibi-lo seria fingir que o dado existe.
             const end = c.endereco_completo.trim()
             const endereco = end && !SEM_ENDERECO.test(end) ? end : ''
-            const marcado = waSel.has(c.id)
+            const marcado = selecao.has(c.id)
             const ficha = fichaTecnica[c.seller_id]
             const pendente = precisaEnriquecer(c)
             return (
@@ -550,7 +601,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
               // com 751px numa tela de 360.
               <div key={c.id} className={`glass rounded-2xl border p-4 flex flex-col min-w-0 transition-colors ${marcado ? 'border-primary/60' : 'border-line'}`}>
                 <div className="flex items-start gap-2.5">
-                  <input type="checkbox" checked={marcado} onChange={() => toggleWa(c.id)} title="Selecionar para WhatsApp"
+                  <input type="checkbox" checked={marcado} onChange={() => alternarSelecao(c.id)} title="Selecionar"
                     className="accent-primary w-4 h-4 mt-1 flex-shrink-0 cursor-pointer" />
                   <span className={`w-9 h-9 rounded-full grid place-items-center text-white text-sm font-semibold flex-shrink-0 ${corAvatar(c.seller_id)}`}>
                     {inicial(c)}
@@ -735,13 +786,30 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
         </div>
       )}
 
-      {/* Barra de seleção WhatsApp */}
-      {waSel.size > 0 && (
-        <div className="fixed bottom-0 left-0 md:left-60 right-0 glass-blur border-t border-line px-4 md:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-3 z-30 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
-          <span className="text-sm font-semibold text-ink">{waSel.size} selecionado{waSel.size !== 1 ? 's' : ''}</span>
-          <button onClick={() => setWaSel(new Set())} className="text-sm text-ink-muted hover:underline ml-auto">Limpar</button>
+      {/* Barra de ações da seleção */}
+      {selecao.size > 0 && (
+        <div className="fixed bottom-0 left-0 md:left-60 right-0 glass-blur border-t border-line px-4 md:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-2 sm:gap-3 flex-wrap z-30 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
+          <span className="text-sm font-semibold text-ink">{selecao.size} selecionado{selecao.size !== 1 ? 's' : ''}</span>
+          {/* Quantos deles viram parada de verdade: sem GPS não há para onde ir. */}
+          {selecionados.length > roteaveis.length && (
+            <span className="text-xs text-ink-muted">{nBR(roteaveis.length)} com GPS</span>
+          )}
+          <button onClick={() => { setSelecao(new Set()); setAvisoSelecao('') }} className="text-sm text-ink-muted hover:underline ml-auto">Limpar</button>
+          <button onClick={() => setRotaAberta(true)} disabled={roteaveis.length === 0}
+            className="border border-primary/50 text-primary-lt hover:bg-primary/10 disabled:opacity-40 disabled:hover:bg-transparent text-sm font-semibold px-4 py-2 rounded-xl">
+            Gerar rota
+          </button>
           <button onClick={() => setWaOpen(true)} className="bg-primary hover:bg-primary-dk text-white text-sm font-semibold px-5 py-2 rounded-xl">Enviar WhatsApp</button>
         </div>
+      )}
+
+      {rotaAberta && (
+        <GerarRota
+          selecionados={selecionados}
+          roteaveis={roteaveis}
+          meuNome={meuNome}
+          aoFechar={() => setRotaAberta(false)}
+        />
       )}
 
       {/* Modal cadastro/edição */}
@@ -845,7 +913,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
         <div className="fixed inset-0 bg-black/40 flex items-start justify-center p-4 z-50 overflow-y-auto" onClick={() => setWaOpen(false)}>
           <div className="glass-blur rounded-2xl w-full max-w-lg my-8 shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-line flex items-center justify-between">
-              <h2 className="font-bold text-ink">WhatsApp — {selecionadosWa.length} cliente{selecionadosWa.length !== 1 ? 's' : ''}</h2>
+              <h2 className="font-bold text-ink">WhatsApp — {selecionados.length} cliente{selecionados.length !== 1 ? 's' : ''}</h2>
               <button onClick={() => setWaOpen(false)} className="text-ink-faint hover:text-ink-dim text-xl leading-none">×</button>
             </div>
             <div className="p-5 space-y-3">
@@ -856,7 +924,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                 O WhatsApp não permite disparo automático em massa. Abra a conversa de cada cliente abaixo — a mensagem já vai preenchida.
               </p>
               <div className="max-h-64 overflow-y-auto divide-y divide-line border border-line rounded-xl">
-                {selecionadosWa.map(c => {
+                {selecionados.map(c => {
                   const link = urlWhatsApp(c.seller_telefone, waMsg.replace(/\{nome\}/g, c.seller_nome || 'cliente'))
                   return (
                     <div key={c.id} className="flex items-center gap-3 px-3 py-2">
