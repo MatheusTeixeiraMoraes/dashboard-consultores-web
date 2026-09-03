@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { otimizarRota, geocodar, sleep, type Ponto, type ClienteSelecionado } from '@/lib/geo'
+import { otimizarRota, geocodar, sleep, PARTIDA_GPS, type Ponto, type ClienteSelecionado } from '@/lib/geo'
 import {
   planejarRotas, separarForaDeArea, distanciaAoCentroKm, nomeSugerido,
   type ClienteGeo, type GrupoRota,
@@ -79,7 +79,7 @@ export default function PlanejarRotas({ clientes, meuNome }: Props) {
   function usarMeuGps() {
     if (!('geolocation' in navigator)) { setErro('GPS indisponível — informe a partida por endereço.'); return }
     navigator.geolocation.getCurrentPosition(
-      p => setPartida({ lat: p.coords.latitude, lng: p.coords.longitude, endereco: 'Minha localização' }),
+      p => setPartida({ lat: p.coords.latitude, lng: p.coords.longitude, endereco: PARTIDA_GPS }),
       () => setErro('Não consegui o GPS. Informe a partida por endereço.'),
       { enableHighAccuracy: false, timeout: 20000, maximumAge: 300000 },
     )
@@ -245,7 +245,7 @@ export default function PlanejarRotas({ clientes, meuNome }: Props) {
                   ⚠ A partida está a {Math.round(partidaLongeKm).toLocaleString('pt-BR')} km dos clientes.
                 </p>
                 <p className="mb-1.5">
-                  {partida.endereco === 'Minha localização'
+                  {partida.endereco === PARTIDA_GPS
                     ? 'O GPS pegou onde VOCÊ está agora, não onde o dia de visitas começa. '
                     : ''}
                   Cada rota vai incluir essa viagem inteira e sair com milhares de km.

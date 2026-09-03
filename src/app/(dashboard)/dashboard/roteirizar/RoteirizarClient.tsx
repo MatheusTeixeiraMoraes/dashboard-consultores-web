@@ -6,8 +6,8 @@ import { createClient } from '@/lib/supabase/client'
 import MultiFiltro from '@/components/MultiFiltro'
 import { precisaIdentificar, enderecoExibivel } from '@/lib/texto'
 import {
-  otimizarRota, receberDoRadar, limparEntregaDoRadar, geocodar, linksGoogleMaps,
-  type Ponto, type ClienteSelecionado,
+  otimizarRota, receberDoRadar, limparEntregaDoRadar, geocodar, linksGoogleMaps, PARTIDA_GPS,
+  type Ponto, type PontoMaps, type ClienteSelecionado,
 } from '@/lib/geo'
 import type { ClienteRadar } from '../radar/page'
 import { registrarEvento } from '@/lib/atividade'
@@ -159,7 +159,7 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
     if (!('geolocation' in navigator)) { setErro('GPS indisponível — informe a partida por endereço ou lat/lng.'); return }
     setErro('')
     navigator.geolocation.getCurrentPosition(
-      p => { setPartLat(String(p.coords.latitude)); setPartLng(String(p.coords.longitude)); setPartEnd('Minha localização') },
+      p => { setPartLat(String(p.coords.latitude)); setPartLng(String(p.coords.longitude)); setPartEnd(PARTIDA_GPS) },
       e => setErro(
         e.code === 1 ? 'Localização bloqueada no navegador. Informe a partida por endereço ou lat/lng abaixo.'
         : 'Não foi possível obter o GPS. Informe a partida por endereço ou lat/lng.'
@@ -242,14 +242,14 @@ export default function RoteirizarClient({ clientes, meuNome }: Props) {
   const linksMaps = useMemo(() => {
     const partida = coord(partLat, partLng)
     const chegada = coord(chegLat, chegLng)
-    const seq: Ponto[] = [
-      ...(partida ? [partida] : []),
-      ...stops.map(s => ({ lat: s.lat, lng: s.lng })),
+    // O endereço vai junto: o link do Maps o prefere à coordenada (ver alvoMaps).
+    const seq: PontoMaps[] = [
+      ...(partida ? [{ ...partida, endereco: partEnd }] : []),
+      ...stops.map(s => ({ lat: s.lat, lng: s.lng, endereco: s.endereco, bairro: s.bairro, cidade: s.cidade })),
       ...(chegada ? [chegada] : []),
     ]
     return linksGoogleMaps(seq)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [partLat, partLng, chegLat, chegLng, stops])
+  }, [partLat, partLng, partEnd, chegLat, chegLng, stops])
 
   return (
     <div className="pb-4">

@@ -3,15 +3,18 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { otimizarRota, linksGoogleMaps, type Ponto } from '@/lib/geo'
+import { otimizarRota, linksGoogleMaps, type PontoMaps } from '@/lib/geo'
 import { precisaIdentificar } from '@/lib/texto'
 import { registrarEvento } from '@/lib/atividade'
 import type { Rota } from './page'
 
+// O endereço vai junto: o link do Maps o prefere à coordenada (ver alvoMaps).
 function linksMapsDaRota(r: Rota): string[] {
-  const seq: Ponto[] = [
-    ...(r.partida_lat != null && r.partida_lng != null ? [{ lat: r.partida_lat, lng: r.partida_lng }] : []),
-    ...r.stops.filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lng)).map(s => ({ lat: s.lat, lng: s.lng })),
+  const seq: PontoMaps[] = [
+    ...(r.partida_lat != null && r.partida_lng != null
+      ? [{ lat: r.partida_lat, lng: r.partida_lng, endereco: r.partida_endereco }] : []),
+    ...r.stops.filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lng))
+      .map(s => ({ lat: s.lat, lng: s.lng, endereco: s.endereco, bairro: s.bairro, cidade: s.cidade })),
     ...(r.chegada_lat != null && r.chegada_lng != null ? [{ lat: r.chegada_lat, lng: r.chegada_lng }] : []),
   ]
   return linksGoogleMaps(seq)

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import MultiFiltro from '@/components/MultiFiltro'
 import { enderecoExibivel } from '@/lib/texto'
-import { otimizarRota, geocodar, linksGoogleMaps, type Ponto, type ClienteSelecionado } from '@/lib/geo'
+import { otimizarRota, geocodar, linksGoogleMaps, PARTIDA_GPS, type Ponto, type PontoMaps, type ClienteSelecionado } from '@/lib/geo'
 import { receberDoPainelHexa, fmtDinheiro, fmtDinheiroCurto, type HexaCliente } from '@/lib/hexa-recife'
 import { registrarEvento } from '@/lib/atividade'
 
@@ -143,7 +143,7 @@ export default function HexaRoteirizarClient({
     if (!('geolocation' in navigator)) { setErro('GPS indisponível — informe a partida por endereço ou lat/lng.'); return }
     setErro('')
     navigator.geolocation.getCurrentPosition(
-      p => { setPartLat(String(p.coords.latitude)); setPartLng(String(p.coords.longitude)); setPartEnd('Minha localização') },
+      p => { setPartLat(String(p.coords.latitude)); setPartLng(String(p.coords.longitude)); setPartEnd(PARTIDA_GPS) },
       err => setErro(err.code === 1
         ? 'Localização bloqueada no navegador. Informe a partida por endereço ou lat/lng abaixo.'
         : 'Não foi possível obter o GPS. Informe a partida por endereço ou lat/lng.'),
@@ -228,12 +228,14 @@ export default function HexaRoteirizarClient({
   const linksMaps = useMemo(() => {
     const partida = coord(partLat, partLng)
     const chegada = coord(chegLat, chegLng)
-    return linksGoogleMaps([
-      ...(partida ? [partida] : []),
-      ...stops.map(s => ({ lat: s.lat, lng: s.lng })),
+    // O endereço vai junto: o link do Maps o prefere à coordenada (ver alvoMaps).
+    const seq: PontoMaps[] = [
+      ...(partida ? [{ ...partida, endereco: partEnd }] : []),
+      ...stops.map(s => ({ lat: s.lat, lng: s.lng, endereco: s.endereco, bairro: s.bairro, cidade: s.cidade })),
       ...(chegada ? [chegada] : []),
-    ])
-  }, [partLat, partLng, chegLat, chegLng, stops])
+    ]
+    return linksGoogleMaps(seq)
+  }, [partLat, partLng, partEnd, chegLat, chegLng, stops])
 
   if (clientes.length === 0) {
     return (
