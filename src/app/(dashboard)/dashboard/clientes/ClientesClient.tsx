@@ -119,9 +119,9 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
    * junto com as policies de escrita de `clientes`. */
   const podeGerir = role === 'admin' || role === 'dono' || role === 'lider'
   /* Importar planilha é upsert em massa da carteira — uma planilha errada
-   * reescreve o cadastro de milhares de clientes. Fica com admin e dono, no mesmo
-   * espírito da rota Hexa: o líder consulta a base e monta rota, não sobe
-   * planilha. É a única coisa que `podeGerir` NÃO cobre. */
+   * reescreve o cadastro de milhares de clientes. Fica com admin e dono: o líder
+   * consulta a base e monta rota, não sobe planilha. É a única coisa que
+   * `podeGerir` NÃO cobre. */
   const podeImportar = role === 'admin' || role === 'dono'
 
   const [busca, setBusca] = useState('')

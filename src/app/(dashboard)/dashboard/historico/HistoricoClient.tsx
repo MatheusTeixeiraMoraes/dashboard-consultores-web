@@ -79,7 +79,7 @@ export default function HistoricoClient({ rows: initialRows, role }: { rows: Upl
     }
     // Content-Disposition: attachment já vem do signed URL (download: filename),
     // então um <a> clicado programaticamente baixa sem navegar pra outra página
-    // — mesmo padrão de exportarCsv() em Carteira/Hexa Recife.
+    // — mesmo padrão de exportarCsv() na Carteira.
     const a = document.createElement('a')
     a.href = data.signedUrl
     a.click()

@@ -2,7 +2,7 @@
 
 // Caminho relativo COM extensão: é o que deixa `node src/lib/geo.test.mjs` importar
 // este módulo direto (o Node ESM não conhece o alias `@/` nem completa extensão).
-// Mesma convenção de hexa-recife.ts → pilares.ts.
+// Mesma convenção de pilares.ts.
 import { enderecoExibivel } from './texto.ts'
 
 export interface Ponto {

@@ -85,8 +85,8 @@ export function tituloCaso(s: string): string {
 
 // --- Dinheiro ---
 //
-// Moram aqui (e não na lib de uma categoria) porque telas de carteira, de rota
-// e da Hexa mostram os mesmos valores no mesmo formato.
+// Moram aqui (e não na lib de uma tela) porque carteira, rotas e agenda mostram
+// os mesmos valores no mesmo formato.
 
 /** "R$ 231.056,66" — mesmo formato da planilha de origem. */
 export function fmtDinheiro(n: number): string {

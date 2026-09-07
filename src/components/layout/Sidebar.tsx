@@ -9,11 +9,7 @@ import type { UserRole } from '@/lib/types'
 // Seções do menu, na ordem de exibição. Cada uma agrupa um domínio do produto:
 // Desempenho = planilhas de pontuação; Carteira = Planilha Ação Oportunidades;
 // Campo = trabalho de rua (mapa, rotas, agenda).
-// "Rota Inter/Hexa Recife" é TEMPORÁRIA e por isso tem bloco próprio em vez de
-// entrar em Campo: quando a ação acabar, some a seção inteira daqui e a pasta
-// src/app/(dashboard)/dashboard/hexa-recife — sem deixar item órfão no meio de
-// um menu permanente. Ver supabase/migrations/2026-08-04_rota_inter_hexa_recife.sql.
-const SECOES = ['Desempenho', 'Carteira', 'Campo', 'Rota Inter/Hexa Recife', 'Administração'] as const
+const SECOES = ['Desempenho', 'Carteira', 'Campo', 'Administração'] as const
 type Secao = (typeof SECOES)[number]
 
 interface NavItem {
@@ -131,12 +127,6 @@ const NAV: NavItem[] = [
   { href: '/dashboard/radar',     label: 'Radar',          roles: ['admin','dono','lider','consultor'], secao: 'Campo', icon: <IconRadar /> },
   { href: '/dashboard/roteirizar',label: 'Roteirizar',     roles: ['admin','dono','lider','consultor'], secao: 'Campo', icon: <IconRoute /> },
   { href: '/dashboard/agenda',    label: 'Agenda',         roles: ['admin','dono','lider','consultor'], secao: 'Campo', icon: <IconClock /> },
-  // Rota Inter/Hexa Recife — categoria temporária de GESTÃO: admin, dono e
-  // líder. Consultor não entra (decisão de 05/08). Quem fecha de verdade é a
-  // RLS (2026-08-05_hexa_recife_inclui_lider.sql); esta lista só evita mostrar
-  // um item que levaria a uma tela vazia.
-  { href: '/dashboard/hexa-recife',            label: 'Painel',     roles: ['admin','dono','lider'], secao: 'Rota Inter/Hexa Recife', icon: <IconPin /> },
-  { href: '/dashboard/hexa-recife/roteirizar', label: 'Roteirizar', roles: ['admin','dono','lider'], secao: 'Rota Inter/Hexa Recife', icon: <IconRoute /> },
   // Administração
   { href: '/dashboard/upload',    label: 'Upar Planilha',    roles: ['admin','dono'],              secao: 'Administração', icon: <IconUpload /> },
   { href: '/dashboard/historico', label: 'Histórico',        roles: ['admin','dono'],              secao: 'Administração', icon: <IconClock /> },
