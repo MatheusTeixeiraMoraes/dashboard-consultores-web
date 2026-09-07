@@ -189,7 +189,10 @@ export default function AtividadeClient({ eventos }: { eventos: EventoAtividade[
         (fAtores.size === 0 || fAtores.has(e.ator_nome)) &&
         (!dataInicio || dia >= dataInicio) &&
         (!dataFim || dia <= dataFim) &&
-        (!q || e.ator_nome.toLowerCase().includes(q) || (e.alvo_descricao ?? '').toLowerCase().includes(q))
+        (!q || e.ator_nome.toLowerCase().includes(q) || (e.alvo_descricao ?? '').toLowerCase().includes(q)
+          // Buscar pelo nome do líder acha o que ele fez DENTRO das contas dos
+          // consultores — que é justamente a pergunta que o carimbo responde.
+          || (e.delegado_por_nome ?? '').toLowerCase().includes(q))
     })
   }, [eventos, busca, fTipos, fAtores, dataInicio, dataFim])
 
@@ -286,6 +289,15 @@ export default function AtividadeClient({ eventos }: { eventos: EventoAtividade[
                     {ROTULO_EVENTO[ev.tipo] ?? ev.tipo}
                     {ev.alvo_descricao && <span className="font-medium"> {ev.alvo_descricao}</span>}
                   </p>
+                  {/* A ação foi gravada no nome do ator (a sessão era dele), mas
+                      quem estava dentro da conta era outra pessoa. Sem isto, o
+                      que a gestão faz numa delegação é indistinguível do que o
+                      consultor fez sozinho. */}
+                  {ev.delegado_por_nome && (
+                    <p className="text-xs text-warn mt-0.5">
+                      na conta dele, por <span className="font-semibold">{ev.delegado_por_nome}</span>
+                    </p>
+                  )}
                   {resumo && <p className="text-xs text-ink-muted mt-0.5">{resumo}</p>}
                 </div>
                 <span className="text-xs text-ink-faint flex-shrink-0 whitespace-nowrap">{formatarDataHora(ev.criado_em)}</span>
