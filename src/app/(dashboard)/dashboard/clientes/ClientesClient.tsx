@@ -113,7 +113,16 @@ interface Props {
 
 export default function ClientesClient({ clientes, role, meuNome, nomesConsultores, fichaTecnica, dataMP }: Props) {
   const router = useRouter()
-  const podeGerir = role === 'admin' || role === 'dono'
+  /* Gerir a carteira da equipe: campo "Consultor responsável" no modal (sem ele o
+   * cliente sairia cadastrado no nome de quem salvou), reatribuição de dono,
+   * filtro por consultor e geocodificação em massa. Líder incluído em 07/09/2026,
+   * junto com as policies de escrita de `clientes`. */
+  const podeGerir = role === 'admin' || role === 'dono' || role === 'lider'
+  /* Importar planilha é upsert em massa da carteira — uma planilha errada
+   * reescreve o cadastro de milhares de clientes. Fica com admin e dono, no mesmo
+   * espírito da rota Hexa: o líder consulta a base e monta rota, não sobe
+   * planilha. É a única coisa que `podeGerir` NÃO cobre. */
+  const podeImportar = role === 'admin' || role === 'dono'
 
   const [busca, setBusca] = useState('')
   const [pagina, setPagina] = useState(0)
@@ -477,7 +486,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
               Geocodar sem GPS ({nBR(semGps.length)})
             </button>
           )}
-          {podeGerir && (
+          {podeImportar && (
             <>
               <button onClick={() => inputImport.current?.click()} disabled={importState.status === 'parsing' || importState.status === 'saving'}
                 className="border border-line hover:bg-card-2 disabled:opacity-50 text-ink-dim text-sm font-medium px-4 py-2 rounded-xl flex items-center gap-2">
@@ -577,7 +586,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
           <p className="font-semibold text-ink">{clientes.length === 0 ? 'Nenhum cliente ainda' : 'Nenhum cliente com esses filtros'}</p>
           <p className="text-sm text-ink-muted mt-1">
             {clientes.length === 0
-              ? (podeGerir ? 'Importe a planilha ou cadastre o primeiro cliente.' : 'Cadastre o primeiro cliente no botão acima.')
+              ? (podeImportar ? 'Importe a planilha ou cadastre o primeiro cliente.' : 'Cadastre o primeiro cliente no botão acima.')
               : 'Tire um filtro ou ajuste a busca.'}
           </p>
         </div>

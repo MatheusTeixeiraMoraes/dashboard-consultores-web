@@ -12,7 +12,12 @@ export default async function ClientesPage() {
 
   const supabase = await createClient()
 
-  const podeGerir = profile.role === 'admin' || profile.role === 'dono'
+  /* Gestão da carteira: escolhe o consultor dono ao cadastrar, reatribui, filtra
+   * por consultor e geocodifica em massa. O líder entrou em 07/09/2026 junto com
+   * as policies de escrita de `clientes` — antes disso a tela lhe oferecia os
+   * botões e o banco recusava. Subir planilha NÃO está aqui: é `podeImportar`,
+   * dentro do client. */
+  const podeGerir = profile.role === 'admin' || profile.role === 'dono' || profile.role === 'lider'
 
   /* Três frentes independentes, disparadas juntas.
    *

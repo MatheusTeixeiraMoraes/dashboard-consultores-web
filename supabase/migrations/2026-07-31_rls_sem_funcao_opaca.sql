@@ -1,4 +1,21 @@
 -- ============================================================================
+-- ⚠ APLICADA EM PRODUÇÃO EM 07/09/2026 (não em 31/07 — ficou seis semanas só no
+--   repo; foi descoberto ao conferir pg_policies num bugfix de RLS do líder).
+--
+--   NÃO RE-EXECUTAR sem ler isto: ela recria as policies com os NOMES ANTIGOS,
+--   e as de escrita de `rotas` e `clientes` aqui dentro ainda dizem
+--   ('admin','dono'). Rodar de novo RESSUSCITA "rotas: admin e dono inserem
+--   qualquer" e as irmãs ao lado das "gestao ..." criadas em 07/09, que incluem
+--   o líder. Não tira acesso de ninguém (permissivas somam em OR e "gestao" é
+--   superconjunto), mas duplica policy e apaga o rastro de quem pode o quê —
+--   aconteceu com `rotas` no dia 07/09.
+--
+--   Se precisar re-executar: rode DEPOIS 2026-09-07_rotas_lider_gerencia.sql,
+--   2026-09-07_rotas_limpa_duplicadas.sql e 2026-09-07_clientes_lider_gerencia.sql,
+--   que limpam as duplicatas. Nenhuma delas cria nada que esta aqui desfaça.
+-- ============================================================================
+
+-- ============================================================================
 -- Performance de RLS: tirar `cliente_e_meu()` da frente do planner.
 --
 -- NÃO MUDA QUEM VÊ O QUÊ. É reescrita mecânica do MESMO predicado numa forma
