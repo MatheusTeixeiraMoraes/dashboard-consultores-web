@@ -1,0 +1,712 @@
+<title>Plano de Sessões — Correções Inovva</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+:root{
+  --ground:#EDF3F5; --surface:#FFFFFF; --surface-2:#E4EDF0;
+  --rule:#C3D6DD; --rule-soft:#DAE6EA;
+  --ink:#0E2029; --ink-dim:#3A5462; --ink-faint:#6B838E;
+  --accent:#036C93; --accent-soft:#E0EFF5;
+  --crit:#B32B22; --crit-soft:#F7E3E1;
+  --warn:#96590A; --warn-soft:#F7ECDA;
+  --ok:#0B6F4C; --ok-soft:#DFF0E8;
+  --code-bg:#0F2731; --code-ink:#D6E6EC; --code-dim:#89A9B6;
+  --m1:#70DB23; --m2:#13AC99; --m3:#059DC8;
+  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;
+  --disp:"Archivo","IBM Plex Sans",-apple-system,Segoe UI,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0A161C; --surface:#11242D; --surface-2:#183039;
+    --rule:#2A4956; --rule-soft:#1D3A45;
+    --ink:#E2EDF1; --ink-dim:#A9C1CB; --ink-faint:#7C97A3;
+    --accent:#49B4DA; --accent-soft:#12313F;
+    --crit:#F08C82; --crit-soft:#3A1D1A;
+    --warn:#E0A84E; --warn-soft:#33260F;
+    --ok:#5CC79B; --ok-soft:#12312A;
+    --code-bg:#06141B; --code-ink:#C9DEE6; --code-dim:#6E8F9C;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0A161C; --surface:#11242D; --surface-2:#183039;
+  --rule:#2A4956; --rule-soft:#1D3A45;
+  --ink:#E2EDF1; --ink-dim:#A9C1CB; --ink-faint:#7C97A3;
+  --accent:#49B4DA; --accent-soft:#12313F;
+  --crit:#F08C82; --crit-soft:#3A1D1A;
+  --warn:#E0A84E; --warn-soft:#33260F;
+  --ok:#5CC79B; --ok-soft:#12312A;
+  --code-bg:#06141B; --code-ink:#C9DEE6; --code-dim:#6E8F9C;
+}
+
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--sans);
+  font-size:15.5px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.brandline{height:3px;background:linear-gradient(90deg,var(--m1),var(--m2),var(--m3))}
+.wrap{max-width:1000px;margin:0 auto;padding:0 24px}
+@media (max-width:640px){.wrap{padding:0 16px}}
+
+header.top{padding:44px 0 28px}
+.eyebrow{font-family:var(--mono);font-size:11.5px;font-weight:500;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
+h1{font-family:var(--disp);font-weight:700;font-size:clamp(29px,4.4vw,44px);
+  line-height:1.05;letter-spacing:-.022em;margin:12px 0 0;text-wrap:balance}
+.standfirst{max-width:64ch;color:var(--ink-dim);margin:16px 0 0;font-size:16.5px}
+
+/* ---- índice ---- */
+.toc{margin:30px 0 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);
+  padding:6px 0}
+.toc ol{list-style:none;margin:0;padding:0;display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));gap:0 32px}
+@media (max-width:700px){.toc ol{grid-template-columns:1fr}}
+.toc li{border-bottom:1px solid var(--rule-soft)}
+.toc ol>li:last-child,.toc ol>li:nth-last-child(2){border-bottom:none}
+@media (max-width:700px){.toc ol>li:nth-last-child(2){border-bottom:1px solid var(--rule-soft)}}
+.toc a{display:flex;align-items:baseline;gap:12px;padding:9px 2px;
+  text-decoration:none;color:var(--ink-dim);font-size:14px}
+.toc a:hover{color:var(--accent)}
+.toc .num{font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--accent);flex:0 0 auto}
+.toc .tag{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);flex:0 0 auto}
+
+.note{background:var(--surface);border:1px solid var(--rule);padding:20px 22px;margin-top:28px}
+.note h4{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--ink-faint);margin:0 0 12px}
+.note p{margin:0 0 9px;font-size:14.5px;color:var(--ink-dim)}
+.note p:last-child{margin:0}
+
+/* ---- sessões ---- */
+.session{border-top:2px solid var(--ink);padding:26px 0 40px;margin-top:34px}
+.shead{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 14px}
+.snum{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent);letter-spacing:.05em}
+h2{font-family:var(--disp);font-weight:600;font-size:23px;letter-spacing:-.014em;
+  margin:0;flex:1 1 260px;text-wrap:balance}
+
+.badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.b{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.07em;
+  text-transform:uppercase;padding:3px 8px;border-radius:3px;white-space:nowrap}
+.b.items{background:var(--accent-soft);color:var(--accent)}
+.b.crit{background:var(--crit-soft);color:var(--crit)}
+.b.warn{background:var(--warn-soft);color:var(--warn)}
+.b.time{background:transparent;color:var(--ink-faint);border:1px solid var(--rule)}
+.b.drive{background:var(--ok-soft);color:var(--ok)}
+
+.why{margin:16px 0 0;color:var(--ink-dim);font-size:14.5px;max-width:70ch}
+.why b{color:var(--ink);font-weight:600}
+
+.careful{margin-top:14px;border-left:3px solid var(--warn);background:var(--warn-soft);
+  padding:12px 15px;font-size:14px;color:var(--ink-dim)}
+.careful strong{color:var(--warn);font-weight:600}
+
+.promptwrap{margin-top:18px;border:1px solid var(--rule);background:var(--code-bg)}
+.pbar{display:flex;align-items:center;gap:12px;padding:8px 10px 8px 14px;
+  border-bottom:1px solid rgba(255,255,255,.09)}
+.plabel{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--code-dim)}
+.copy{margin-left:auto;font-family:var(--mono);font-size:11px;font-weight:600;
+  letter-spacing:.05em;background:rgba(255,255,255,.09);color:var(--code-ink);
+  border:1px solid rgba(255,255,255,.16);border-radius:3px;padding:5px 11px;cursor:pointer}
+.copy:hover{background:rgba(255,255,255,.16)}
+.copy.done{background:var(--m2);border-color:var(--m2);color:#04222B}
+pre.prompt{margin:0;padding:16px 18px;font-family:var(--mono);font-size:12.6px;
+  line-height:1.7;color:var(--code-ink);white-space:pre-wrap;word-wrap:break-word;
+  overflow-x:auto}
+
+code{font-family:var(--mono);font-size:.865em;background:var(--surface-2);
+  padding:1.5px 5px;border-radius:3px;color:var(--ink-dim);word-break:break-word}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--rule);background:var(--surface);margin-top:18px}
+table{border-collapse:collapse;width:100%;min-width:540px;font-size:13.5px}
+th{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;text-align:left;padding:11px 14px;color:var(--ink-faint);
+  border-bottom:1px solid var(--rule);background:var(--surface-2)}
+td{padding:9px 14px;border-bottom:1px solid var(--rule-soft);vertical-align:top;color:var(--ink-dim)}
+tbody tr:last-child td{border-bottom:none}
+td.f{font-family:var(--mono);font-size:12px;color:var(--ink);white-space:nowrap}
+
+footer{margin-top:40px;padding:22px 0 60px;border-top:1px solid var(--rule);
+  font-family:var(--mono);font-size:11.5px;color:var(--ink-faint);line-height:1.9}
+a{color:var(--accent)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+
+<div class="brandline"></div>
+<div class="wrap">
+
+<header class="top">
+  <p class="eyebrow">Dashboard de Consultores · plano de execução</p>
+  <h1>Dez sessões para fechar os 22 achados</h1>
+  <p class="standfirst">Os cortes seguem duas regras: sessões que tocam os <b>mesmos arquivos</b> ficam juntas, e sessões que exigem <b>modelos mentais diferentes</b> ficam separadas. A ordem respeita as dependências — só a 6 e a 8 precisam vir depois de outra.</p>
+
+  <nav class="toc">
+    <ol>
+      <li><a href="#s1"><span class="num">01</span> Ordem na paginação<span class="tag">B1</span></a></li>
+      <li><a href="#s2"><span class="num">02</span> Faxina de pontuais<span class="tag">B2 B8 B9 R11</span></a></li>
+      <li><a href="#s3"><span class="num">03</span> A casca do app<span class="tag">B3 R8 V1</span></a></li>
+      <li><a href="#s4"><span class="num">04</span> Camada de mapa<span class="tag">B4 B6</span></a></li>
+      <li><a href="#s5"><span class="num">05</span> Componente Modal<span class="tag">R3</span></a></li>
+      <li><a href="#s6"><span class="num">06</span> Zerar o ESLint<span class="tag">B5</span></a></li>
+      <li><a href="#s7"><span class="num">07</span> Breakpoints das grades<span class="tag">R1 R2</span></a></li>
+      <li><a href="#s8"><span class="num">08</span> Acabamento por tela<span class="tag">R4 R5 R6 R7 R9 R10 R12</span></a></li>
+      <li><a href="#s9"><span class="num">09</span> Filtros de Clientes<span class="tag">R13</span></a></li>
+      <li><a href="#s10"><span class="num">10</span> Nominatim<span class="tag">B7</span></a></li>
+    </ol>
+  </nav>
+
+  <div class="note">
+    <h4>Como usar</h4>
+    <p><b>Uma sessão = um bloco.</b> Abrir sessão nova, colar o texto, executar até o fim, <code>/clear</code>. Não emendar duas sessões sem limpar: é aí que nasce a gambiarra.</p>
+    <p>Os prompts <b>não repetem</b> o que já está no seu <code>CLAUDE.md</code> — canal <code>[BUGFIX]</code>/<code>[CRIAÇÃO]</code>, causa raiz, verificar antes de declarar pronto, commit e push. Isso já entra sozinho.</p>
+    <p>Onde diz <b>“me fala antes”</b>, é de propósito: são os pontos em que a decisão é sua e um palpite errado custa retrabalho.</p>
+    <p>Se uma sessão passar de duas correções na mesma coisa, pare, <code>/clear</code>, e recomece com o que aprendeu. Contexto sujo é o que faz remendar sintoma.</p>
+  </div>
+</header>
+
+<!-- ══════════════ 01 ══════════════ -->
+<section class="session" id="s1">
+  <div class="shead"><span class="snum">SESSÃO 01</span><h2>Ordem total na paginação paralela</h2></div>
+  <div class="badges">
+    <span class="b items">B1</span><span class="b crit">Alta</span><span class="b time">~1h · 15 arquivos</span>
+  </div>
+  <p class="why"><b>Sozinha, e primeiro.</b> É a única que corrompe dado, e é toda na camada de consultas — nenhuma UI. Misturar tela aqui poluiria o contexto de um trabalho que é mecânico mas exige conferir o schema tabela por tabela. Só leitura no banco, então é a sessão mais segura de todas.</p>
+
+  <div class="promptwrap">
+    <div class="pbar"><span class="plabel">Colar em sessão nova</span><button class="copy">Copiar</button></div>
+<pre class="prompt">[BUGFIX] Paginação paralela sem ORDER BY em buscarTudo
+
+src/lib/supabase/buscar-tudo.ts conta as linhas e dispara TODAS as páginas em
+paralelo com .range(). Sem ordenação total o Postgres não garante ordem estável
+entre requisições independentes: a mesma linha pode cair em duas páginas e outra
+em nenhuma, e a tela não dá erro nenhum.
+
+A regra já está escrita, com o motivo, em
+src/app/(dashboard)/dashboard/carteira/page.tsx:68 — é o único dos 16 pontos de
+chamada que a aplica. Os outros não.
+
+Só morde acima de 1000 linhas. A tabela `clientes` tem ~3.200 (4 páginas) e é lida
+em 6 telas. O gatilho real é o botão "Geocodar sem GPS"
+(ClientesClient.tsx:400), que faz centenas de UPDATE e muda a ordem física do heap.
+
+O que fazer:
+
+1. Mudar a assinatura de buscarTudo para EXIGIR a coluna de ordenação, para o
+   próximo ponto de chamada não poder esquecer. Se na prática isso ficar ruim,
+   me fala antes de fazer diferente.
+
+2. Aplicar ordem TOTAL (o último critério tem que ser único) em:
+   - radar/page.tsx:26 (clientes)
+   - roteirizar/page.tsx:19 (clientes)
+   - dashboard/page.tsx:77 (clientes) e :84 (mp_carteira)
+   - acionaveis/page.tsx:59 (mp_carteira — hoje só .order('prio'), que empata em
+     massa), :67 (mp_acionaveis), :81 (clientes)
+   - queda-tpv/page.tsx:71 (mp_carteira), :89 (clientes), :96 (mp_acionaveis)
+   - lib/supabase/ficha-mp.ts:55 (mp_carteira)
+   - usuarios/convites.ts:61 (mp_carteira), :69 (clientes)
+   - consultor/page.tsx:63 (mp_carteira)
+   - clientes/page.tsx:36 (hoje .order('seller_nome') — nome repete, falta desempate)
+
+3. carteira/page.tsx:77 já está certo. Usar como referência, não mexer.
+
+Antes de escolher a coluna de desempate, conferir em supabase/migrations qual é
+única em cada tabela. Não chutar: em mp_carteira o mesmo seller_id aparece uma vez
+por snapshot, então seller_id sozinho não é ordem total ali.
+
+Não mexer em nada de UI nesta sessão.
+
+Fechar com: npm run build, npx tsc --noEmit, os testes de src/lib/*.test.mjs, e
+abrir Clientes, Radar e Roteirizar conferindo que a contagem de clientes bate entre
+as três telas.</pre>
+  </div>
+</section>
+
+<!-- ══════════════ 02 ══════════════ -->
+<section class="session" id="s2">
+  <div class="shead"><span class="snum">SESSÃO 02</span><h2>Faxina: quatro correções pontuais</h2></div>
+  <div class="badges">
+    <span class="b items">B2 · B8 · B9 · R11</span><span class="b warn">Alta + baixas</span><span class="b time">~40min</span>
+  </div>
+  <p class="why"><b>Juntas porque não se tocam.</b> Quatro arquivos diferentes, zero interação, cada uma verificável sozinha. Agrupar aqui não suja contexto — separá-las custaria três aberturas de sessão para mudar dez linhas. Um commit por item.</p>
+
+  <div class="promptwrap">
+    <div class="pbar"><span class="plabel">Colar em sessão nova</span><button class="copy">Copiar</button></div>
+<pre class="prompt">[BUGFIX] Quatro correções pontuais e independentes
+
+São quatro coisas isoladas, sem interação entre si. Fazer uma de cada vez, com um
+commit por item.
+
+1. src/lib/geo.ts:35 — MAX_PARADAS_ROTA = 100, mas otimizarRota (geo.ts:239) monta
+   [partida, ...stops, chegada] = 101 ou 102 coordenadas, e o /trip do OSRM público
+   aceita 100. Ou seja: o botão "Selecionar todos (100)" que Clientes
+   (ClientesClient.tsx:575) e Roteirizar (RoteirizarClient.tsx:213) oferecem é
+   exatamente o caso que falha, e o usuário recebe a mensagem crua do OSRM em inglês.
+   Baixar para 98 e barrar pontos.length &gt; 100 DENTRO de otimizarRota, antes de sair
+   pra rede, com mensagem em português. Acrescentar teste em src/lib/geo.test.mjs
+   fixando MAX_PARADAS_ROTA + 2 &lt;= 100 (hoje o teste que existe só prova que a
+   constante não divergiu entre telas, não que ela cabe no serviço).
+
+2. src/lib/carteira.ts:115 e :127 — o separador da chave do par de consultores é um
+   byte NUL LITERAL, cru no arquivo. A escolha do NUL está CERTA e não é pra mudar:
+   espaço quebraria com nome composto ("MARIA SILVA" + "JOAO SOUZA" daria de="MARIA",
+   para="SILVA"). O problema é só a forma: o grep trata carteira.ts como binário e
+   num editor o separador é invisível.
+   Trocar pelo escape '\u0000' numa constante SEP, usada na montagem e no split.
+   Mesmo byte. src/lib/carteira.test.mjs tem que continuar passando sem alteração.
+
+3. src/app/page.tsx e src/app/(dashboard)/page.tsx resolvem as duas para "/" — grupo
+   de rota não acrescenta segmento. Ambas só fazem redirect('/dashboard'), e o build
+   serve a estática, então a de dentro do grupo é código morto.
+   Apagar src/app/(dashboard)/page.tsx e conferir que "/" continua redirecionando.
+
+4. Trocar min-h-screen (que é 100vh) por min-h-dvh em: (auth)/login/page.tsx:26,
+   (auth)/convite/[token]/page.tsx:29, (dashboard)/AcessoDesativado.tsx:28,
+   app/error.tsx:34 e app/global-error.tsx:29. O resto do app já usa 100dvh
+   (RadarMapa.tsx:176) — só as telas de entrada ficaram para trás.
+
+Fechar com build + tsc + testes, e abrir /login no DevTools em modo device
+conferindo que o card não fica sob a barra de URL.</pre>
+  </div>
+</section>
+
+<!-- ══════════════ 03 ══════════════ -->
+<section class="session" id="s3">
+  <div class="shead"><span class="snum">SESSÃO 03</span><h2>A casca: faixa de delegação, gaveta e rolagem</h2></div>
+  <div class="badges">
+    <span class="b items">B3 · R8 · V1</span><span class="b crit">Alta</span><span class="b time">~1h</span><span class="b drive">Você dirige</span>
+  </div>
+  <p class="why"><b>Juntas porque são literalmente os mesmos dois arquivos:</b> <code>Shell.tsx</code> e <code>Sidebar.tsx</code>. Fazer em sessões separadas significaria reler a casca três vezes e arriscar conflito entre as três edições.</p>
+  <div class="careful"><strong>Cuidado:</strong> testar o item 1 exige entrar na conta de alguém, e isso grava em <code>acessos_delegados</code> e no log de atividade <em>no nome dessa pessoa</em>. Use um consultor fictício se tiver, e saiba que o evento fica registrado.</div>
+
+  <div class="promptwrap">
+    <div class="pbar"><span class="plabel">Colar em sessão nova</span><button class="copy">Copiar</button></div>
+<pre class="prompt">[BUGFIX] A casca do app: barra de delegação, gaveta e rolagem
+
+Três problemas nos mesmos dois arquivos. Ler src/components/layout/Shell.tsx e
+src/components/layout/Sidebar.tsx inteiros antes de mexer em qualquer um.
+
+1. BarraDelegacao.tsx:52 é `fixed bottom-0 z-50` e o &lt;main&gt; do Shell.tsx:65 não
+   reserva altura nenhuma pra ela. Seis telas têm pb-20/pb-16, mas essa folga é da
+   BARRA DE SELEÇÃO, não da faixa — e as duas empilham: a barra de ação é z-30 e
+   some debaixo da z-50.
+   Reproduzir primeiro, com os próprios olhos: Usuários -&gt; Entrar na conta de um
+   consultor -&gt; Clientes -&gt; marcar 3 clientes. "Gerar rota" e "Enviar WhatsApp"
+   ficam atrás da faixa amarela.
+   Nas 11 telas SEM pb-* (Agenda, Roteirizar, Usuários, Metas, Comparar, Histórico,
+   Por Área, Consultor, Upload, Alertas, Meu Desempenho) o último item da lista fica
+   coberto sempre que há delegação em curso.
+   Corrigir na raiz: a faixa publica a própria altura numa variável CSS e o main
+   reserva a partir dela. NÃO sair espalhando pb-* tela por tela — isso é remendo e
+   deixa as próximas telas quebradas de novo.
+
+2. Sidebar.tsx:179 esconde a gaveta com -translate-x-full: ela sai da vista mas
+   continua no DOM e focável. No celular o Tab percorre até 15 links de um menu
+   invisível antes de chegar no conteúdo.
+   Pôr `inert` no &lt;aside&gt; quando !aberto (React 19 suporta nativo). E quando aberta,
+   travar a rolagem do fundo e prender o foco dentro dela — hoje o Tab sai da gaveta
+   pro conteúdo atrás do véu.
+
+3. ESTE É PRA VERIFICAR ANTES DE CORRIGIR. Com html/body em height:100% e
+   overflow-auto no &lt;main&gt; (Shell.tsx:65), quem rola é o main, não o documento — e a
+   restauração de rolagem do App Router age sobre a janela.
+   Testar: descer bem numa lista longa em Clientes e clicar em Agenda no menu.
+   Se a tela nova abrir no meio, rolar o main pro topo a cada mudança de pathname.
+   Se abrir no topo, NÃO mexer, e me avisar que não era problema.
+
+Fechar dirigindo os três no navegador: delegação ativa com a barra de seleção
+aberta, Tab no modo device com a gaveta fechada, e navegação entre telas longas.</pre>
+  </div>
+</section>
+
+<!-- ══════════════ 04 ══════════════ -->
+<section class="session" id="s4">
+  <div class="shead"><span class="snum">SESSÃO 04</span><h2>Camada de mapa: cor dos pinos e corrida no Leaflet</h2></div>
+  <div class="badges">
+    <span class="b items">B4 · B6</span><span class="b warn">Média</span><span class="b time">~1h</span><span class="b drive">Você dirige</span>
+  </div>
+  <p class="why"><b>Juntas porque as duas moram no Leaflet</b> e a sessão começa abrindo o Radar de qualquer jeito. O B4 é o único achado não confirmado do relatório: a sessão abre verificando, e só depois corrige. Vem <b>antes</b> da sessão 06 porque reescreve efeitos do <code>RadarMapa</code> que o ESLint também acusa.</p>
+
+  <div class="promptwrap">
+    <div class="pbar"><span class="plabel">Colar em sessão nova</span><button class="copy">Copiar</button></div>
+<pre class="prompt">[BUGFIX] Camada de mapa: cor dos pinos e corrida no carregamento do Leaflet
+
+Ler src/app/(dashboard)/dashboard/radar/RadarMapa.tsx inteiro antes de mexer.
+
+PRIMEIRO, VERIFICAR — não corrigir antes de ver: abrir /dashboard/radar e olhar os
+pinos. Cliente selecionado deveria sair VERDE e não-selecionado VERMELHO
+(RadarMapa.tsx:115). Se saírem pretos, é o problema 1. Me dizer o que você viu antes
+de continuar.
+
+1. Em vários pontos a cor entra como ATRIBUTO de apresentação SVG
+   (fill="var(--color-good)") em vez de declaração de estilo. O Leaflet faz o mesmo
+   por dentro: path.setAttribute('fill', options.fillColor), em
+   node_modules/leaflet/dist/leaflet-src.js:13345. var() em atributo de apresentação
+   não é substituído de forma confiável entre navegadores; onde não for, o valor é
+   inválido, fill cai pro inicial (preto) e stroke pra nenhum.
+   Em RadarMapa.tsx:115 a cor É O SINAL FUNCIONAL — verde é selecionado, vermelho não
+   é. Se os dois saem pretos, a seleção no mapa deixa de ser legível.
+   Onde está: RadarMapa.tsx:100, :106, :115 · PinMapa.tsx:56 · AgendaClient.tsx:73 e
+   :76 (traçado da rota) · e o stroke= dos ícones em dashboard/page.tsx:46,
+   meu-score/page.tsx:20, alertas/page.tsx:148, ConsultorClient.tsx:124,
+   RadarClient.tsx:183, RoteirizarClient.tsx:343, app/error.tsx:37.
+   A correção vale independente do resultado do teste: nos SVG do JSX usar
+   style={{fill:'var(--color-good)'}}; nas opções do Leaflet resolver o token antes,
+   com getComputedStyle. Os popups do Radar (RadarMapa.tsx:147-162) já fazem o certo,
+   com style="color:var(...)" — seguir aquele padrão, não inventar outro.
+
+2. RadarMapa.tsx:37-84 — o efeito de init é async (await import('leaflet')) e só
+   chama desenhar() no fim. O efeito de redesenho ([pos, raio, clientes], linha 87)
+   roda ANTES disso e sai cedo, porque mapRef.current ainda é null. Se o GPS
+   responder antes do bundle do Leaflet baixar, esse redraw se perde e o mapa fica
+   com o estado do primeiro render até alguém mexer no raio ou num filtro.
+   Guardar um estado `pronto`, ligar no fim da inicialização e incluir nas
+   dependências do efeito de redesenho.
+
+3. De quebra, o ESLint acusa RadarMapa.tsx:34 (ref escrito durante o render) e :77
+   (desenhar chamada antes de declarada). PinMapa.tsx:21 já faz o ref do jeito certo
+   — copiar o padrão do vizinho em vez de inventar.
+
+Fechar abrindo o Radar de verdade: pinos coloridos, seleção visível no mapa, e o
+mapa desenhando certo já no primeiro carregamento — testar com o cache quente, que
+é quando a corrida do item 2 aparece.</pre>
+  </div>
+</section>
+
+<!-- ══════════════ 05 ══════════════ -->
+<section class="session" id="s5">
+  <div class="shead"><span class="snum">SESSÃO 05</span><h2>Componente Modal, e migrar os seis existentes</h2></div>
+  <div class="badges">
+    <span class="b items">R3</span><span class="b crit">Alta</span><span class="b time">~1h30</span><span class="b drive">Você dirige</span>
+  </div>
+  <p class="why"><b>Sozinha porque é <code>[CRIAÇÃO]</code>, não conserto.</b> Nasce um componente novo e seis telas migram para ele — é a única sessão da lista que pede checklist confirmado antes de escrever código, e fatias verticais depois.</p>
+  <div class="careful"><strong>Cuidado:</strong> testar o modal <em>Novo Usuário</em> cria usuário <em>de verdade</em> em produção — e o modo demo <em>bloqueia</em> essa rota (<code>escritaBloqueadaPeloDemo</code>), então não dá para testar em demo. Crie um alvo fictício, tipo <code>TESTE MODAL</code>, e apague depois. Nunca teste no cadastro de uma pessoa real.</div>
+
+  <div class="promptwrap">
+    <div class="pbar"><span class="plabel">Colar em sessão nova</span><button class="copy">Copiar</button></div>
+<pre class="prompt">[CRIAÇÃO] Componente &lt;Modal&gt; único, e migrar os 6 modais existentes
+
+Hoje são 6 modais escritos à mão, cada um um pouco diferente. Problemas confirmados:
+
+- UsuariosClient.tsx:800 ("Novo Usuário", 6 campos) e :619 usam
+  `fixed inset-0 flex items-center` SEM overflow-y-auto, e o painel não tem max-h.
+  Num celular em paisagem, ou em retrato com o teclado aberto, o topo do formulário
+  sai da tela e não há como voltar a ele. O de :619 tem max-h-[85vh], mas só a lista
+  de consultores rola — o formulário em si, não.
+- Nenhum dos 6 fecha com Escape. A única tecla tratada no app inteiro é a da gaveta
+  do menu (Shell.tsx:38).
+- Nenhum tem role="dialog"/aria-modal, foco preso ou devolução de foco ao fechar.
+- Nenhum trava a rolagem do fundo: no celular o dedo rola a página atrás do modal.
+- Os de Clientes/GerarRota/QuedaTPV fecham clicando fora; os de Usuários não. Mesmo
+  gesto, resultado diferente.
+
+ANTES DE CODAR: me mostrar o checklist do que o componente vai garantir e a API
+proposta, e esperar eu confirmar. Nesse checklist, avaliar o &lt;dialog&gt; nativo — ele
+já entrega foco preso, Escape e trava de rolagem sem código nosso; se não servir,
+dizer por quê.
+
+Depois migrar em fatias, UM modal por vez, conferindo cada um no navegador antes de
+passar pro próximo:
+  1. UsuariosClient.tsx:800  (começar por este — é o que está quebrado)
+  2. UsuariosClient.tsx:619
+  3. ClientesClient.tsx:826
+  4. ClientesClient.tsx:922
+  5. GerarRota.tsx:133
+  6. QuedaTpvClient.tsx:765
+
+ATENÇÃO ao testar o item 1: o banco é o de PRODUÇÃO e o modo demo bloqueia a rota de
+criar usuário, então não dá pra testar em demo. Vou criar um alvo fictício e apagar
+depois — não teste em cima de ninguém real.
+
+Fechar dirigindo os 6 no DevTools em iPhone SE, retrato E paisagem: formulário
+inteiro alcançável, Escape fecha, foco não escapa pro fundo, fundo não rola.</pre>
+  </div>
+</section>
+
+<!-- ══════════════ 06 ══════════════ -->
+<section class="session" id="s6">
+  <div class="shead"><span class="snum">SESSÃO 06</span><h2>Zerar o ESLint</h2></div>
+  <div class="badges">
+    <span class="b items">B5</span><span class="b warn">Média</span><span class="b time">~45min</span><span class="b crit">Depois da 04</span>
+  </div>
+  <p class="why"><b>Sozinha porque tem uma linha de chegada objetiva:</b> <code>npx eslint src</code> devolvendo zero. Isso é uma sessão inteira e boa. Vem depois da 04, que já deve ter resolvido os dois erros do <code>RadarMapa</code>.</p>
+
+  <div class="promptwrap">
+    <div class="pbar"><span class="plabel">Colar em sessão nova</span><button class="copy">Copiar</button></div>
+<pre class="prompt">[BUGFIX] Zerar o ESLint
+
+`npx eslint src` devolve hoje 7 erros e 3 avisos. Objetivo desta sessão: zero.
+
+Rodar primeiro pra ver o que sobrou — uma sessão anterior mexeu no RadarMapa.tsx e
+pode já ter resolvido os de lá. O que estava aberto:
+
+- RoteirizarClient.tsx:205 e :213 — setErro() é chamado DENTRO do updater de
+  setStops, via operador vírgula: `(setErro(...), prev)`. O updater pode rodar duas
+  vezes em StrictMode ou render concorrente, e o efeito colateral vai junto.
+  Calcular a condição antes e chamar os dois em sequência.
+- RoteirizarClient.tsx:130 e :141 — setState síncrono dentro de efeito
+- RadarClient.tsx:59 e :89 — idem
+- AgendaClient.tsx:95 — idem
+- RadarMapa.tsx:34 (ref escrito durante o render) e :77 (função chamada antes de
+  declarada) — conferir se ainda existem
+- Avisos: formatDateTimeBR não usado (HistoricoClient.tsx:52), meuNome não usado
+  (RadarClient.tsx:37), useRef não usado (RoteirizarClient.tsx:3)
+
+Nos setState-em-efeito, entender o que cada um faz antes de mexer. Alguns são
+legítimos (derivar estado na montagem, ler localStorage) e o certo é reestruturar,
+não calar com eslint-disable. Se algum realmente precisar do disable, escrever no
+comentário POR QUE ele é a exceção — o resto do repositório faz assim.
+
+Não aproveitar a sessão pra "melhorar" nada além disso.
+
+Fechar com `npx eslint src` limpo, build, testes, e abrir Roteirizar, Radar e Agenda
+conferindo que nada regrediu — principalmente a seleção de clientes no Roteirizar,
+que é onde está a correção mais delicada.</pre>
+  </div>
+</section>
+
+<!-- ══════════════ 07 ══════════════ -->
+<section class="session" id="s7">
+  <div class="shead"><span class="snum">SESSÃO 07</span><h2>Breakpoints: a tela cresce e o card encolhe</h2></div>
+  <div class="badges">
+    <span class="b items">R1 · R2</span><span class="b crit">Alta</span><span class="b time">~1h30 · 9 grades</span><span class="b drive">Você dirige</span>
+  </div>
+  <p class="why"><b>Sozinha porque começa por uma decisão de arquitetura</b> — breakpoint de janela contra container query — e ela se aplica igual às nove grades. Decidir no meio de outra coisa é como isso vira meia migração.</p>
+
+  <div class="promptwrap">
+    <div class="pbar"><span class="plabel">Colar em sessão nova</span><button class="copy">Copiar</button></div>
+<pre class="prompt">[BUGFIX] Breakpoints: a tela cresce e os cards encolhem
+
+A sidebar entra em md (768px) ocupando 240px fixos, e o padding do main sobe de p-4
+pra p-6. Mas as grades de cartão usam sm:grid-cols-2, que liga em 640px — antes disso.
+
+  767px  ->  767 - 32                = 735px úteis  ->  2 col ~ 361px
+  768px  ->  768 - 240 - 48          = 480px úteis  ->  2 col ~ 234px
+
+Ou seja: abrir mais a janela PIORA o layout. O card de cliente cai de 361px pra
+234px carregando nome, endereço, telefone, e-mail, CPF/CNPJ e ficha do MP.
+
+Pior ainda quando a grade vive dentro de uma coluna. RoteirizarClient.tsx:336 divide
+em lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)], e dentro da coluna direita roda
+sm:grid-cols-2 xl:grid-cols-3 (:486):
+
+  janela 1024 - 240 sidebar - 48 padding      = 736px
+             - 340 coluna esquerda - 12 gap   = 384px de coluna direita
+             - 32 padding do card             = 352px
+             ÷ 2 colunas (sm: já ligado)      ~ 172px por card de cliente
+
+RadarClient.tsx:223 tem o mesmo desenho.
+
+Grades afetadas: clientes/ClientesClient.tsx:594 · acionaveis/AcionaveisClient.tsx:167
+· carteira/CarteiraClient.tsx:142 · metas/MetasClient.tsx:253 ·
+upload/UploadClient.tsx:246 e :251 · roteirizar/RoteirizarClient.tsx:486 ·
+queda-tpv/QuedaTpvClient.tsx:899.
+
+Duas saídas — quero SUA recomendação e o porquê antes de você escolher:
+  (a) rápida: mover de sm:grid-cols-2 pra lg:grid-cols-2
+  (b) certa: @container, porque quem decide quantas colunas cabem é a largura da
+      COLUNA, não a da janela. O Tailwind 4 já traz container queries sem plugin.
+
+Depois de decidir, fazer TELA POR TELA, não tudo de uma vez. Após cada tela, conferir
+no DevTools nas larguras 375, 767, 768, 1024 e 1440 — a regra é uma só: o card nunca
+pode encolher quando a tela cresce.</pre>
+  </div>
+</section>
+
+<!-- ══════════════ 08 ══════════════ -->
+<section class="session" id="s8">
+  <div class="shead"><span class="snum">SESSÃO 08</span><h2>Acabamento de responsividade, tela por tela</h2></div>
+  <div class="badges">
+    <span class="b items">R4 · R5 · R6 · R7 · R9 · R10 · R12</span><span class="b warn">Média/baixa</span><span class="b time">~1h30 · 7 itens</span><span class="b drive">Você dirige</span>
+  </div>
+  <p class="why"><b>Juntas porque são todas do mesmo tipo:</b> mudança de classe, sem lógica nova, verificada redimensionando o navegador. Sete telas diferentes, mas um modelo mental só. Vem <b>depois da 07</b> — não vale ajustar detalhe numa grade que ainda vai mudar de breakpoint.</p>
+
+  <div class="promptwrap">
+    <div class="pbar"><span class="plabel">Colar em sessão nova</span><button class="copy">Copiar</button></div>
+<pre class="prompt">[BUGFIX] Acabamento de responsividade — 7 itens independentes
+
+Itens sem relação entre si, cada um numa tela. Fazer UM POR VEZ, conferindo no
+DevTools em 360px e 768px, com commit separado por item.
+
+1. AtividadeClient.tsx:218 — dois &lt;input type="date"&gt; + "De" + "até" + botão num
+   único item flex, sem min-w-0 e sem flex-wrap interno. O globals.css força 16px em
+   input no toque (bloco @media pointer:coarse — está certo, é o que impede o zoom do
+   iOS), então cada campo fica ~140px e o grupo dá ~350px dentro dos 288px úteis de um
+   iPhone SE. Como o main é overflow-auto, a tela INTEIRA desliza pro lado.
+   Pôr flex-wrap no grupo e empilhar abaixo de sm. Considerar também overflow-x:clip
+   no main como rede de segurança — hoje não existe nenhuma em lugar nenhum.
+
+2. AgendaClient.tsx:402 — `grid grid-cols-3` sem breakpoint nenhum, com text-3xl
+   dentro (o KPI, linha 33). Em 360px cada célula tem ~64px de texto útil, e
+   "Km percorridos" com "1.234,5 km" não cabe. É a ÚNICA grade do app sem variante
+   responsiva: todas as outras telas usam grid-cols-2 lg:grid-cols-4. Alinhar.
+
+3. AgendaClient.tsx:426 — grid-cols-2 md:grid-cols-4 xl:grid-cols-7. Em md a área útil
+   é 480px ÷ 4 = ~110px por dia, com cartão de rota (nome, paradas, ações) dentro.
+   Pular o passo de 4 colunas, ou trocar por rolagem horizontal abaixo de xl.
+
+4. QuedaTpvClient.tsx:528-536 — larguras fixas w-32 (nome) + flex-1 (barra) + w-12 +
+   w-20 = 256px, mais 24px de gaps. Em 290px úteis a barra fica com ~10px — e a barra
+   É a informação da linha, é ela que mostra quem perdeu mais.
+   Abaixo de sm, empilhar: nome e valor numa linha, barra em largura total embaixo.
+
+5. As 3 tabelas rolam de lado sem coluna fixa: rolando pra ver o Δ de um pilar,
+   perde-se o nome do consultor. Pôr position:sticky; left:0 na primeira td e th, com
+   fundo OPACO — o vidro translúcido do tema deixa o conteúdo passar por baixo.
+   comparar/CompararClient.tsx:185 (11 colunas) · historico/HistoricoClient.tsx:135 ·
+   usuarios/UsuariosClient.tsx:348.
+
+6. Alvos de toque. BotaoContato.tsx padroniza 40px e explica por quê ("são os botões
+   que a pessoa usa NA RUA, com o celular na mão"). Fora dele o padrão não pegou:
+   - ClientesClient.tsx:613 — caixa de seleção do card em 16px. É o gesto principal
+     pra montar rota em campo.
+   - ClientesClient.tsx:663 — "sem GPS · geocodar", text-[11px] sem padding
+   - AgendaClient.tsx:358-363 — "Refazer / Renomear / Excluir" colados, sem área
+     clicável, e um deles é destrutivo
+   - AgendaClient.tsx:415 e :419 — setas ‹ › da semana em 32px
+   Crescer a ÁREA sem mexer no desenho: p-2 -m-2 nos links de texto, e um &lt;label&gt;
+   envolvente na caixa de seleção.
+
+7. DistribuicaoEquipe.tsx:36 — YAxis width={120} e margin right 48 dentro de um h-28
+   (GeralClient.tsx:214). Em 290px úteis sobram 82px pra barra, e "Acima do objetivo"
+   a 12px não cabe em 120px (o Recharts não quebra rótulo de categoria).
+   Abaixo de sm, trocar por três linhas rotuladas com barra em largura total. São três
+   valores — não precisa de gráfico pra contar essa história.
+
+Nenhum item pode remover dado da tela. Se algum só couber cortando informação, pare e
+me fale antes.</pre>
+  </div>
+</section>
+
+<!-- ══════════════ 09 ══════════════ -->
+<section class="session" id="s9">
+  <div class="shead"><span class="snum">SESSÃO 09</span><h2>Barra de filtros de Clientes</h2></div>
+  <div class="badges">
+    <span class="b items">R13</span><span class="b warn">Baixa</span><span class="b time">~45min</span><span class="b drive">Você dirige</span>
+  </div>
+  <p class="why"><b>Separada da 08 porque muda comportamento, não classe.</b> É a única da lista de responsividade que introduz um estado novo e mexe em duas telas — merece contexto limpo.</p>
+
+  <div class="promptwrap">
+    <div class="pbar"><span class="plabel">Colar em sessão nova</span><button class="copy">Copiar</button></div>
+<pre class="prompt">[BUGFIX] A barra de filtros de Clientes ocupa 5 linhas no celular
+
+ClientesClient.tsx:542-577 tem campo de busca + até sete MultiFiltro + "Só pendentes"
++ "Limpar filtros" + "Selecionar todos". Com flex-wrap nada estoura, mas empilha em
+4-5 linhas antes do primeiro cliente aparecer: no celular a lista, que é o que a
+pessoa abriu a tela pra ver, começa fora do campo de visão.
+
+Abaixo de md, colapsar os sete chips num botão "Filtros" único com contador de
+filtros ativos, abrindo a MESMA folha inferior que o MultiFiltro já usa
+(MultiFiltro.tsx:74-77). Vale também pro Roteirizar (RoteirizarClient.tsx:459-478),
+que tem exatamente a mesma barra.
+
+Regra que não pode ser quebrada: NENHUM dado sai da tela. Os sete eixos continuam
+todos acessíveis — Consultores, Cidades, Bairros, GPS, Situação, Prioridade,
+Segmento —, só deixam de ocupar a tela inteira de saída. Mesclar em um controle
+composto é a solução; cortar filtro, não é.
+
+Ler MultiFiltro.tsx inteiro antes de escrever qualquer coisa: a folha inferior, os
+alvos de ~40px e a busca interna já estão resolvidos lá, com o motivo comentado. É
+pra reusar, não reescrever.
+
+Fechar abrindo Clientes no DevTools em 375px: a lista tem que começar visível na
+primeira dobra, e os 7 filtros continuarem alcançáveis em no máximo 2 toques.
+Conferir também que o contador bate com o número de filtros de fato aplicados.</pre>
+  </div>
+</section>
+
+<!-- ══════════════ 10 ══════════════ -->
+<section class="session" id="s10">
+  <div class="shead"><span class="snum">SESSÃO 10</span><h2>Nominatim: decidir antes de implementar</h2></div>
+  <div class="badges">
+    <span class="b items">B7</span><span class="b warn">Média</span><span class="b time">decisão + implementação</span><span class="b drive">Decisão sua</span>
+  </div>
+  <p class="why"><b>Por último porque é a única que não tem resposta certa</b> — depende de custo e de quanto volume vocês querem geocodificar. O prompt pede opções, não código. Depois que você escolher, a implementação pode ser a mesma sessão ou uma nova, conforme o tamanho da escolha.</p>
+
+  <div class="promptwrap">
+    <div class="pbar"><span class="plabel">Colar em sessão nova</span><button class="copy">Copiar</button></div>
+<pre class="prompt">[PERGUNTA] Geocodificação em massa contra o Nominatim — qual caminho seguir
+
+Não quero código ainda. Quero a decisão.
+
+ClientesClient.tsx:400 (geocodarEmMassa) percorre a lista inteira de clientes sem GPS
+a 1 requisição por 1,1s contra nominatim.openstreetmap.org. Com algumas centenas de
+clientes isso é meia hora de requisições seguidas do mesmo IP, e a política de uso do
+Nominatim veta geocodificação em massa.
+
+Se o IP for bloqueado, geocodar() devolve null pelo catch (geo.ts:125) e a tela apenas
+diz que não achou. A falha vira "o endereço é ruim" e ninguém descobre que é bloqueio
+— e a função para de funcionar pra todo mundo, calada.
+
+Me apresenta as opções com custo e esforço de cada uma — manter o Nominatim com lote
+menor, migrar o lote pro Photon (que já está lá como reserva, geo.ts:128), um provedor
+pago, ou mover pro servidor com fila —, a sua recomendação com o porquê, e o que muda
+na tela em cada caso.
+
+Depois que eu escolher, implementamos junto com duas coisas que valem em qualquer
+cenário:
+- distinguir "não encontrado" de "bloqueado / erro de rede" no retorno de geocodar, e
+  mostrar essa diferença na tela
+- abortar o laço no desmonte do componente, não só no botão "Parar": hoje sair da tela
+  no meio deixa as escritas correndo</pre>
+  </div>
+</section>
+
+<!-- ══════════════ resumo ══════════════ -->
+<section class="session" id="resumo">
+  <div class="shead"><span class="snum">RESUMO</span><h2>Se você só tem uma tarde</h2></div>
+  <p class="why">As sessões <b>01, 02 e 03</b> tiram do caminho as três coisas que quebram na mão do usuário — dado sumindo, rota que não gera, botão coberto — e mais quatro pontuais. São cerca de duas horas e meia, e sozinhas fecham 8 dos 22 achados, incluindo três dos quatro de alta prioridade.</p>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Sessão</th><th>Fecha</th><th>Tempo</th><th>Depende de</th></tr></thead>
+      <tbody>
+        <tr><td class="f">01 Paginação</td><td>B1</td><td class="f">~1h</td><td>—</td></tr>
+        <tr><td class="f">02 Faxina</td><td>B2 B8 B9 R11</td><td class="f">~40min</td><td>—</td></tr>
+        <tr><td class="f">03 Casca</td><td>B3 R8 V1</td><td class="f">~1h</td><td>—</td></tr>
+        <tr><td class="f">04 Mapa</td><td>B4 B6</td><td class="f">~1h</td><td>—</td></tr>
+        <tr><td class="f">05 Modal</td><td>R3</td><td class="f">~1h30</td><td>—</td></tr>
+        <tr><td class="f">06 ESLint</td><td>B5</td><td class="f">~45min</td><td>sessão 04</td></tr>
+        <tr><td class="f">07 Breakpoints</td><td>R1 R2</td><td class="f">~1h30</td><td>—</td></tr>
+        <tr><td class="f">08 Acabamento</td><td>R4 R5 R6 R7 R9 R10 R12</td><td class="f">~1h30</td><td>sessão 07</td></tr>
+        <tr><td class="f">09 Filtros</td><td>R13</td><td class="f">~45min</td><td>sessão 07</td></tr>
+        <tr><td class="f">10 Nominatim</td><td>B7</td><td class="f">a definir</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  22 achados · 10 sessões · nenhuma corrige duas coisas que se tocam<br>
+  Os tempos são de trabalho da sessão, não incluem o seu tempo dirigindo o app<br>
+  Companheiro do relatório de auditoria — commit base 60b90e2
+</footer>
+
+</div>
+
+<script>
+document.querySelectorAll('.copy').forEach(function (btn) {
+  btn.addEventListener('click', async function () {
+    var pre = btn.closest('.promptwrap').querySelector('pre.prompt');
+    var texto = pre.textContent;
+    var ok = false;
+    try {
+      await navigator.clipboard.writeText(texto);
+      ok = true;
+    } catch (e) {
+      try {
+        var sel = window.getSelection();
+        var r = document.createRange();
+        r.selectNodeContents(pre);
+        sel.removeAllRanges();
+        sel.addRange(r);
+      } catch (e2) { /* nada a fazer */ }
+    }
+    var antes = btn.textContent;
+    btn.textContent = ok ? 'Copiado' : 'Selecionado — Ctrl+C';
+    btn.classList.add('done');
+    setTimeout(function () {
+      btn.textContent = antes;
+      btn.classList.remove('done');
+    }, 2200);
+  });
+});
+</script>

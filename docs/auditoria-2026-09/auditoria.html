@@ -1,0 +1,840 @@
+<title>Auditoria Inovva Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+:root{
+  --ground:#EDF3F5;
+  --surface:#FFFFFF;
+  --surface-2:#E4EDF0;
+  --rule:#C3D6DD;
+  --rule-soft:#DAE6EA;
+  --ink:#0E2029;
+  --ink-dim:#3A5462;
+  --ink-faint:#6B838E;
+  --accent:#036C93;
+  --accent-soft:#E0EFF5;
+  --crit:#B32B22;
+  --crit-soft:#F7E3E1;
+  --warn:#96590A;
+  --warn-soft:#F7ECDA;
+  --ok:#0B6F4C;
+  --ok-soft:#DFF0E8;
+  --m1:#70DB23; --m2:#13AC99; --m3:#059DC8;
+  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;
+  --disp:"Archivo","IBM Plex Sans",-apple-system,Segoe UI,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0A161C;
+    --surface:#11242D;
+    --surface-2:#183039;
+    --rule:#2A4956;
+    --rule-soft:#1D3A45;
+    --ink:#E2EDF1;
+    --ink-dim:#A9C1CB;
+    --ink-faint:#7C97A3;
+    --accent:#49B4DA;
+    --accent-soft:#12313F;
+    --crit:#F08C82;
+    --crit-soft:#3A1D1A;
+    --warn:#E0A84E;
+    --warn-soft:#33260F;
+    --ok:#5CC79B;
+    --ok-soft:#12312A;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0A161C;
+  --surface:#11242D;
+  --surface-2:#183039;
+  --rule:#2A4956;
+  --rule-soft:#1D3A45;
+  --ink:#E2EDF1;
+  --ink-dim:#A9C1CB;
+  --ink-faint:#7C97A3;
+  --accent:#49B4DA;
+  --accent-soft:#12313F;
+  --crit:#F08C82;
+  --crit-soft:#3A1D1A;
+  --warn:#E0A84E;
+  --warn-soft:#33260F;
+  --ok:#5CC79B;
+  --ok-soft:#12312A;
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--ground);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:15.5px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.brandline{height:3px;background:linear-gradient(90deg,var(--m1),var(--m2),var(--m3))}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+@media (max-width:640px){.wrap{padding:0 16px}}
+
+/* ---------- cabeçalho ---------- */
+header.top{padding:44px 0 30px}
+.eyebrow{
+  font-family:var(--mono);font-size:11.5px;font-weight:500;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);
+}
+h1{
+  font-family:var(--disp);font-weight:700;font-size:clamp(30px,4.6vw,46px);
+  line-height:1.05;letter-spacing:-.022em;margin:12px 0 0;text-wrap:balance;
+}
+.standfirst{max-width:63ch;color:var(--ink-dim);margin:16px 0 0;font-size:16.5px}
+
+.meta{
+  display:flex;flex-wrap:wrap;gap:0 28px;margin-top:26px;
+  padding-top:18px;border-top:1px solid var(--rule);
+  font-family:var(--mono);font-size:12px;color:var(--ink-faint);
+}
+.meta b{color:var(--ink-dim);font-weight:500}
+
+/* ---------- placar ---------- */
+.tally{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--rule-soft);
+  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);margin:30px 0 0}
+@media (max-width:620px){.tally{grid-template-columns:repeat(2,1fr)}}
+.tally div{background:var(--ground);padding:16px 18px}
+.tally .n{font-family:var(--disp);font-weight:700;font-size:30px;line-height:1;font-variant-numeric:tabular-nums}
+.tally .l{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin-top:7px}
+.n.c{color:var(--crit)} .n.w{color:var(--warn)} .n.o{color:var(--ok)} .n.a{color:var(--accent)}
+
+/* ---------- seções ---------- */
+section{padding:52px 0 8px}
+h2{
+  font-family:var(--disp);font-weight:600;font-size:24px;letter-spacing:-.012em;
+  margin:0;display:flex;align-items:baseline;gap:14px;
+}
+h2 .idx{font-family:var(--mono);font-size:12.5px;font-weight:500;color:var(--accent);letter-spacing:.06em}
+.sechead{border-bottom:2px solid var(--ink);padding-bottom:12px;margin-bottom:8px}
+.sechead p{margin:10px 0 0;color:var(--ink-dim);max-width:66ch;font-size:15px}
+
+/* ---------- entradas do relatório ---------- */
+.entry{
+  border-bottom:1px solid var(--rule-soft);
+  padding:26px 0 26px 20px;
+  border-left:3px solid var(--rule);
+  padding-left:22px;
+}
+.entry.sev-crit{border-left-color:var(--crit)}
+.entry.sev-warn{border-left-color:var(--warn)}
+.entry.sev-low{border-left-color:var(--accent)}
+
+.ehead{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px 12px}
+.eid{font-family:var(--mono);font-weight:600;font-size:13px;color:var(--ink-faint);letter-spacing:.04em}
+h3{font-family:var(--disp);font-weight:600;font-size:18.5px;letter-spacing:-.008em;margin:0;flex:1 1 300px;text-wrap:balance}
+
+.chip{
+  font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  padding:3px 8px;border-radius:3px;white-space:nowrap;
+}
+.chip.crit{background:var(--crit-soft);color:var(--crit)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.chip.low{background:var(--accent-soft);color:var(--accent)}
+.chip.conf{background:transparent;color:var(--ink-faint);border:1px solid var(--rule)}
+
+.ebody{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:14px 40px;margin-top:14px;align-items:start}
+@media (max-width:860px){.ebody{grid-template-columns:1fr;gap:18px}}
+.ebody p{margin:0 0 10px}
+.ebody p:last-child{margin-bottom:0}
+.ebody .col-b{font-size:14px}
+
+.sub{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--ink-faint);margin:0 0 8px;display:block}
+
+code,.path{font-family:var(--mono);font-size:.865em;background:var(--surface-2);
+  padding:1.5px 5px;border-radius:3px;color:var(--ink-dim);word-break:break-word}
+.entry ul{margin:0;padding-left:0;list-style:none}
+.entry ul li{position:relative;padding-left:15px;margin-bottom:6px;font-size:14px;color:var(--ink-dim)}
+.entry ul li::before{content:"";position:absolute;left:0;top:.62em;width:5px;height:1.5px;background:var(--ink-faint)}
+
+.fix{background:var(--surface);border:1px solid var(--rule-soft);padding:13px 15px;border-radius:2px}
+.fix p{font-size:14px;color:var(--ink-dim)}
+.fix .sub{color:var(--ok)}
+
+.calc{font-family:var(--mono);font-size:12.5px;line-height:1.85;background:var(--surface);
+  border:1px solid var(--rule-soft);padding:12px 15px;border-radius:2px;color:var(--ink-dim);
+  overflow-x:auto;white-space:pre}
+
+/* ---------- tabela ---------- */
+.tablewrap{overflow-x:auto;border:1px solid var(--rule);background:var(--surface);margin-top:18px}
+table{border-collapse:collapse;width:100%;min-width:620px;font-size:13.5px}
+th{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  text-align:left;padding:11px 14px;color:var(--ink-faint);border-bottom:1px solid var(--rule);background:var(--surface-2)}
+td{padding:9px 14px;border-bottom:1px solid var(--rule-soft);vertical-align:top;color:var(--ink-dim)}
+tbody tr:last-child td{border-bottom:none}
+td.f{font-family:var(--mono);font-size:12px;color:var(--ink);white-space:nowrap}
+td.st{font-family:var(--mono);font-size:11.5px;font-weight:600;white-space:nowrap}
+.st.no{color:var(--crit)} .st.part{color:var(--warn)} .st.yes{color:var(--ok)}
+
+/* ---------- rodapé ---------- */
+.good{background:var(--surface);border:1px solid var(--rule);padding:24px 26px;margin-top:14px}
+.good ul{margin:14px 0 0;padding-left:0;list-style:none}
+.good li{position:relative;padding-left:20px;margin-bottom:9px;font-size:14.5px;color:var(--ink-dim)}
+.good li::before{content:"✓";position:absolute;left:0;color:var(--ok);font-weight:700;font-size:13px}
+
+footer{margin-top:56px;padding:22px 0 60px;border-top:1px solid var(--rule);
+  font-family:var(--mono);font-size:11.5px;color:var(--ink-faint);line-height:1.8}
+
+a{color:var(--accent)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+
+<div class="brandline"></div>
+
+<div class="wrap">
+
+<header class="top">
+  <p class="eyebrow">Dashboard de Consultores · Inovva Group</p>
+  <h1>Auditoria de responsividade e bugs</h1>
+  <p class="standfirst">Varredura de leitura sobre <code>master</code> em 08/09/2026, cobrindo as 20 telas do painel, a casca de layout e as bibliotecas de dados. Nenhum arquivo foi alterado. Cada item traz onde está, o que quebra e qual é a correção.</p>
+
+  <div class="meta">
+    <span><b>Commit base</b> 60b90e2</span>
+    <span><b>Next</b> 16.2.9 · React 19.2.4</span>
+    <span><b>Fontes</b> 16.188 linhas / 97 arquivos</span>
+  </div>
+
+  <div class="tally">
+    <div><p class="n c">4</p><p class="l">Alta prioridade</p></div>
+    <div><p class="n w">10</p><p class="l">Média</p></div>
+    <div><p class="n a">8</p><p class="l">Baixa</p></div>
+    <div><p class="n o">130</p><p class="l">Testes passando</p></div>
+  </div>
+</header>
+
+<section>
+  <div class="sechead">
+    <h2><span class="idx">SEÇÃO A</span> Estado das verificações automáticas</h2>
+    <p>Antes das descobertas, o que a máquina já responde. Tudo abaixo foi executado nesta sessão.</p>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Verificação</th><th>Resultado</th><th>Observação</th></tr></thead>
+      <tbody>
+        <tr><td class="f">npm run build</td><td class="st yes">passa</td><td>32 rotas geradas, saída limpa, sem avisos</td></tr>
+        <tr><td class="f">tsc --noEmit</td><td class="st yes">passa</td><td>zero erros de tipo</td></tr>
+        <tr><td class="f">10 suítes .test.mjs</td><td class="st yes">130 ok</td><td>carteira, geo, tpv, pilares, texto, convites, planilha-geral, xlsx, demo/motor, separação</td></tr>
+        <tr><td class="f">eslint src</td><td class="st no">7 erros</td><td>+ 3 avisos — todos em Radar, RadarMapa, Roteirizar e Agenda (ver B5)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="sechead">
+    <h2><span class="idx">SEÇÃO B</span> Bugs</h2>
+    <p>Nove itens, do mais grave ao menos. O rótulo <b>confirmado</b> significa que dá para provar lendo o código ou rodando o que está no repositório; <b>verificar</b> significa que a suspeita é sólida mas depende de abrir num navegador, coisa que este ambiente não tem instalado.</p>
+  </div>
+
+  <article class="entry sev-crit">
+    <div class="ehead">
+      <span class="eid">B1</span>
+      <h3>Paginação paralela sem ORDER BY: linhas somem e duplicam em silêncio</h3>
+      <span class="chip crit">Alta</span><span class="chip conf">confirmado</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p><code>buscarTudo</code> conta as linhas e dispara <b>todas as páginas em paralelo</b> com <code>.range()</code>. Sem uma ordenação total, o Postgres não promete ordem estável entre requisições independentes — a mesma linha pode cair em duas páginas e outra em nenhuma.</p>
+        <p>O repositório <b>já conhece a regra</b>: <code>carteira/page.tsx:68</code> a escreve por extenso, com o motivo. É o único dos 14 pontos de chamada que a aplica.</p>
+        <p>Só morde acima de 1.000 linhas (mais de uma página). A carteira tem ~3.200 clientes, ou seja 4 páginas — está sempre na zona de risco.</p>
+        <p><span class="sub">O gatilho no mundo real</span>Todo <code>UPDATE</code> no Postgres reescreve a tupla no fim do heap e muda a ordem física. O botão <b>“Geocodar sem GPS”</b> (<code>ClientesClient.tsx:400</code>) faz centenas de <code>UPDATE</code> em <code>clientes</code> — exatamente a tabela lida em 6 telas. Depois de rodá-lo, a chance de as páginas discordarem entre si sobe muito.</p>
+        <p>O sintoma é o pior tipo: um cliente somem do Radar sem erro nenhum, e reaparece no F5 seguinte.</p>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Correção</span>
+          <p>Acrescentar uma coluna única como último critério de ordenação em toda consulta paginada (<code>.order('seller_id')</code>, <code>.order('id')</code>).</p>
+          <p>Melhor ainda: mudar a assinatura de <code>buscarTudo</code> para <b>exigir</b> a coluna de ordenação, para não depender de alguém lembrar no próximo ponto de chamada.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Arquivo</th><th>Tabela</th><th>Ordenação</th><th>Situação</th></tr></thead>
+        <tbody>
+          <tr><td class="f">radar/page.tsx:26</td><td>clientes</td><td>—</td><td class="st no">sem ordem</td></tr>
+          <tr><td class="f">roteirizar/page.tsx:19</td><td>clientes</td><td>—</td><td class="st no">sem ordem</td></tr>
+          <tr><td class="f">dashboard/page.tsx:77</td><td>clientes</td><td>—</td><td class="st no">sem ordem</td></tr>
+          <tr><td class="f">dashboard/page.tsx:84</td><td>mp_carteira</td><td>—</td><td class="st no">sem ordem</td></tr>
+          <tr><td class="f">acionaveis/page.tsx:67</td><td>mp_acionaveis</td><td>—</td><td class="st no">sem ordem</td></tr>
+          <tr><td class="f">acionaveis/page.tsx:81</td><td>clientes</td><td>—</td><td class="st no">sem ordem</td></tr>
+          <tr><td class="f">queda-tpv/page.tsx:71</td><td>mp_carteira</td><td>—</td><td class="st no">sem ordem</td></tr>
+          <tr><td class="f">queda-tpv/page.tsx:89</td><td>clientes</td><td>—</td><td class="st no">sem ordem</td></tr>
+          <tr><td class="f">queda-tpv/page.tsx:96</td><td>mp_acionaveis</td><td>—</td><td class="st no">sem ordem</td></tr>
+          <tr><td class="f">ficha-mp.ts:55</td><td>mp_carteira</td><td>—</td><td class="st no">sem ordem</td></tr>
+          <tr><td class="f">convites.ts:61</td><td>mp_carteira</td><td>—</td><td class="st no">sem ordem</td></tr>
+          <tr><td class="f">convites.ts:69</td><td>clientes</td><td>—</td><td class="st no">sem ordem</td></tr>
+          <tr><td class="f">consultor/page.tsx:63</td><td>mp_carteira</td><td>—</td><td class="st no">sem ordem</td></tr>
+          <tr><td class="f">acionaveis/page.tsx:59</td><td>mp_carteira</td><td>prio</td><td class="st part">empata em massa</td></tr>
+          <tr><td class="f">clientes/page.tsx:36</td><td>clientes</td><td>seller_nome</td><td class="st part">nome repete</td></tr>
+          <tr><td class="f">carteira/page.tsx:77</td><td>mp_carteira</td><td>data_referencia + seller_id</td><td class="st yes">ordem total</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="entry sev-crit">
+    <div class="ehead">
+      <span class="eid">B2</span>
+      <h3>“Selecionar todos (100)” estoura o limite do OSRM e a rota não gera</h3>
+      <span class="chip crit">Alta</span><span class="chip conf">confirmado</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p><code>MAX_PARADAS_ROTA = 100</code> (<code>geo.ts:35</code>), documentado como “o limite prático do OSRM <code>/trip</code> público”. Só que <code>otimizarRota</code> monta o pedido como <code>[partida, ...stops, chegada]</code> (<code>geo.ts:239</code>) — a partida e a chegada também são coordenadas.</p>
+        <div class="calc">100 paradas + partida            = 101 coordenadas
+100 paradas + partida + chegada  = 102 coordenadas
+teto do /trip público            = 100</div>
+        <p>Resultado: o botão que a própria tela oferece — <b>“Selecionar todos (100)”</b> em Clientes (<code>ClientesClient.tsx:575</code>) e Roteirizar (<code>RoteirizarClient.tsx:213</code>) — é exatamente o caso que falha. O usuário recebe a mensagem crua do OSRM em inglês, via <code>geo.ts:247</code>.</p>
+        <p><code>geo.test.mjs</code> tem um teste chamado “o teto de paradas é um número só para todas as telas”: ele prova que a constante não divergiu entre telas, não que ela cabe no serviço.</p>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Correção</span>
+          <p><code>MAX_PARADAS_ROTA = 98</code>, deixando espaço para partida e chegada; e uma checagem em <code>otimizarRota</code> que barre <code>pontos.length &gt; 100</code> <b>antes</b> de sair para a rede, com mensagem em português.</p>
+          <p>Um teste novo pode fixar a relação: <code>MAX_PARADAS_ROTA + 2 &lt;= 100</code>.</p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="entry sev-crit">
+    <div class="ehead">
+      <span class="eid">B3</span>
+      <h3>A faixa de delegação cobre o rodapé de todas as telas</h3>
+      <span class="chip crit">Alta</span><span class="chip conf">confirmado</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p><code>BarraDelegacao</code> é <code>fixed bottom-0 z-50</code> (<code>BarraDelegacao.tsx:52</code>), mas o <code>&lt;main&gt;</code> não reserva altura nenhuma para ela (<code>Shell.tsx:65</code>).</p>
+        <p>Seis telas têm <code>pb-20</code>/<code>pb-16</code> — mas essa folga é da <b>barra de seleção</b>, não da faixa de delegação. E as duas empilham: a barra de ação é <code>z-30</code> e desaparece por baixo da <code>z-50</code>.</p>
+        <p><span class="sub">Caminho para reproduzir</span>Entrar na conta de um consultor → Clientes → marcar 3 clientes. Os botões <b>Gerar rota</b> e <b>Enviar WhatsApp</b> ficam atrás da faixa amarela.</p>
+        <p>Nas 11 telas sem <code>pb-*</code> (Agenda, Roteirizar, Usuários, Metas, Comparar, Histórico, Por Área, Consultor, Upload, Alertas, Meu Desempenho) o último item da lista fica sempre coberto durante uma delegação.</p>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Correção</span>
+          <p>A faixa publica a própria altura numa variável CSS no <code>Shell</code>, e o <code>main</code> reserva <code>padding-bottom</code> a partir dela. Ou, mais simples, um único contêiner de rodapé fixo que empilhe faixa de delegação e barra de seleção na ordem certa.</p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="entry sev-warn">
+    <div class="ehead">
+      <span class="eid">B4</span>
+      <h3>Cor de marca passada como <code>var()</code> em atributo SVG e em opção do Leaflet</h3>
+      <span class="chip warn">Média</span><span class="chip conf">verificar</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p>Em vários pontos a cor entra como <b>atributo de apresentação</b> (<code>fill="var(--color-good)"</code>) em vez de declaração de estilo. O Leaflet faz o mesmo por dentro: <code>path.setAttribute('fill', options.fillColor)</code>, em <code>leaflet-src.js:13345</code>.</p>
+        <p><code>var()</code> em atributo de apresentação SVG não é substituído de forma confiável entre navegadores. Onde não for, o valor é inválido: <code>fill</code> cai para o inicial (preto) e <code>stroke</code> para nenhum.</p>
+        <p><span class="sub">Onde importa mais</span>Em <code>RadarMapa.tsx:115</code> a cor <b>é o sinal funcional</b> — pino verde é cliente selecionado, vermelho é não selecionado. Se os dois saírem pretos, a seleção no mapa deixa de ser legível (resta só o ✓ interno).</p>
+        <ul>
+          <li><code>RadarMapa.tsx:100, 106, 115</code> — marcador “você está aqui”, círculo do raio, pinos</li>
+          <li><code>PinMapa.tsx:56</code> — alfinete arrastável do cadastro</li>
+          <li><code>AgendaClient.tsx:73, 76</code> — traçado e pontos da rota</li>
+          <li><code>stroke=</code> nos ícones de <code>dashboard/page.tsx:46</code>, <code>meu-score/page.tsx:20</code>, <code>alertas/page.tsx:148</code>, <code>ConsultorClient:124</code>, <code>RadarClient:183</code>, <code>RoteirizarClient:343</code>, <code>error.tsx:37</code></li>
+        </ul>
+        <p><b>Não consegui provar aqui</b> — não há navegador instalado neste ambiente e não instalei nenhum sem pedir. Teste de 30 segundos: abrir o Radar e ver se os pinos saem verde/vermelho ou pretos.</p>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Correção — vale nos dois casos</span>
+          <p>Nos SVG do JSX, trocar o atributo por <code>style={{fill:'var(--color-good)'}}</code>: em declaração de estilo o <code>var()</code> funciona em todo lugar.</p>
+          <p>Nas opções do Leaflet, resolver o token antes: <code>getComputedStyle(document.documentElement).getPropertyValue('--color-primary')</code>.</p>
+          <p>Os popups do Radar já fazem o certo — usam <code>style="color:var(...)"</code>. É só o atributo que está fora do padrão.</p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="entry sev-warn">
+    <div class="ehead">
+      <span class="eid">B5</span>
+      <h3>Sete erros de ESLint em regras de hooks do React</h3>
+      <span class="chip warn">Média</span><span class="chip conf">confirmado</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p>O mais concreto é <code>RoteirizarClient.tsx:205</code> e <code>:213</code>: <code>setErro()</code> é chamado <b>dentro do updater</b> de <code>setStops</code>, via operador vírgula. O updater pode rodar duas vezes em StrictMode ou render concorrente, e o efeito colateral vai junto.</p>
+        <ul>
+          <li><code>RadarMapa.tsx:34</code> — <code>onToggleRef.current = onToggle</code> escrito durante o render</li>
+          <li><code>RadarMapa.tsx:77</code> — <code>desenhar()</code> chamada antes da declaração</li>
+          <li><code>RoteirizarClient.tsx:130, 141</code> — <code>setState</code> síncrono em efeito</li>
+          <li><code>RadarClient.tsx:59, 89</code> — idem</li>
+          <li><code>AgendaClient.tsx:95</code> — idem</li>
+        </ul>
+        <p>Avisos: <code>formatDateTimeBR</code> não usado (<code>HistoricoClient:52</code>), <code>meuNome</code> não usado (<code>RadarClient:37</code>), <code>useRef</code> não usado (<code>RoteirizarClient:3</code>).</p>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Correção</span>
+          <p>Tirar <code>setErro</code> de dentro do updater — calcular a condição antes e chamar os dois em sequência. Em <code>RadarMapa</code>, mover a atribuição do ref para dentro de um <code>useEffect</code> (é o que <code>PinMapa.tsx:21</code> já faz certo — dá para copiar o padrão do vizinho).</p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="entry sev-warn">
+    <div class="ehead">
+      <span class="eid">B6</span>
+      <h3>Radar: corrida entre o carregamento do Leaflet e a chegada do GPS</h3>
+      <span class="chip warn">Média</span><span class="chip conf">confirmado</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p>O efeito de inicialização é assíncrono (<code>await import('leaflet')</code>, <code>RadarMapa.tsx:37-84</code>) e só chama <code>desenhar()</code> no fim. O efeito de redesenho — <code>[pos, raio, clientes]</code>, linha 87 — roda antes disso e <b>sai cedo</b>, porque <code>mapRef.current</code> ainda é <code>null</code>.</p>
+        <p>Se o GPS responder antes de o bundle do Leaflet baixar (comum em conexão boa e cache quente), esse redraw é perdido. O mapa fica com o estado do primeiro render até a pessoa mexer no raio ou num filtro.</p>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Correção</span>
+          <p>Guardar um <code>const [pronto, setPronto] = useState(false)</code>, ligá-lo ao fim da inicialização, e incluí-lo nas dependências do efeito de redesenho.</p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="entry sev-warn">
+    <div class="ehead">
+      <span class="eid">B7</span>
+      <h3>Geocodificação em massa contra o Nominatim, que proíbe uso em lote</h3>
+      <span class="chip warn">Média</span><span class="chip conf">confirmado</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p><code>ClientesClient.tsx:400</code> percorre a lista inteira de clientes sem GPS a uma requisição por 1,1s contra <code>nominatim.openstreetmap.org</code>. Com algumas centenas de clientes isso é meia hora de requisições seguidas do mesmo IP.</p>
+        <p>A política de uso do Nominatim veta geocodificação em massa. Se o IP for bloqueado, <code>geocodar()</code> passa a devolver <code>null</code> pelo <code>catch</code> (<code>geo.ts:125</code>) e a tela apenas diz que não achou — a falha vira “o endereço é ruim”, e ninguém descobre que é bloqueio.</p>
+        <p>Secundário: o laço não para no desmonte. Só o botão <b>Parar</b> seta <code>bulkStop</code>; sair da tela no meio deixa as escritas correndo.</p>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Correção</span>
+          <p>Distinguir “não encontrado” de “bloqueado/erro de rede” no retorno de <code>geocodar</code> e mostrar isso na tela. Para o lote, mover para um provedor que permita volume (o Photon já está lá como reserva) ou rodar do servidor com fila.</p>
+          <p>E abortar o laço num <code>useEffect</code> de limpeza, não só no botão.</p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="entry sev-low">
+    <div class="ehead">
+      <span class="eid">B8</span>
+      <h3>Byte NUL literal dentro do código-fonte</h3>
+      <span class="chip low">Baixa</span><span class="chip conf">confirmado</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p><code>carteira.ts:115</code> e <code>:127</code> usam um caractere NUL <b>literal</b> como separador da chave do par de consultores. A escolha está certa — nome de pessoa nunca contém NUL, então o <code>split</code> é seguro, ao contrário de um espaço.</p>
+        <p>O problema é a forma: o byte está cru no arquivo. O <code>grep</code> passa a tratar <code>carteira.ts</code> como binário e se recusa a mostrar as linhas; num editor o separador é invisível; num merge é fácil perdê-lo sem ninguém ver.</p>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Correção</span>
+          <p>Escrever o mesmo caractere como <b>escape</b>, numa constante: <code>const SEP = '&#92;u0000'</code>, usada na montagem e no <code>split</code>. Byte idêntico, comportamento idêntico, e o arquivo volta a ser texto para toda ferramenta.</p>
+          <p>O que <b>não</b> serve é trocar por espaço: nome de consultor tem espaço, e o <code>split</code> devolveria só o primeiro sobrenome. Foi o que quase escrevi aqui antes de conferir os bytes do arquivo — o custo real de um separador invisível.</p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="entry sev-low">
+    <div class="ehead">
+      <span class="eid">B9</span>
+      <h3>Duas páginas resolvem a mesma rota <code>/</code></h3>
+      <span class="chip low">Baixa</span><span class="chip conf">confirmado</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p><code>src/app/page.tsx</code> e <code>src/app/(dashboard)/page.tsx</code> apontam ambas para <code>/</code> — grupo de rota não acrescenta segmento. As duas só fazem <code>redirect('/dashboard')</code>.</p>
+        <p>O build passou e serviu <code>/</code> como estática, o que indica que <code>app/page.tsx</code> ganhou e a outra é código morto. Mas qual vence não está garantido, e a de dentro do grupo arrastaria o layout autenticado junto.</p>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Correção</span>
+          <p>Apagar <code>src/app/(dashboard)/page.tsx</code>.</p>
+        </div>
+      </div>
+    </div>
+  </article>
+</section>
+
+<section>
+  <div class="sechead">
+    <h2><span class="idx">SEÇÃO C</span> Responsividade</h2>
+    <p>A base está feita e bem feita: o <code>viewport</code> está declarado, há <code>safe-area</code> para o notch, campos vão a 16px no toque para o iOS não dar zoom, a sidebar vira gaveta e as tabelas rolam dentro do próprio contêiner. O que segue são as lacunas em cima dessa base.</p>
+  </div>
+
+  <article class="entry sev-crit">
+    <div class="ehead">
+      <span class="eid">R1</span>
+      <h3>Aos 768px a tela cresce e os cards encolhem 35%</h3>
+      <span class="chip crit">Alta</span><span class="chip conf">confirmado</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p>A sidebar entra em <code>md</code> (768px) ocupando 240px fixos, e o padding do <code>main</code> sobe de <code>p-4</code> para <code>p-6</code>. Mas as grades de cartão usam <code>sm:grid-cols-2</code>, que liga em 640px — antes disso.</p>
+        <div class="calc">767px →  767 − 32 (p-4)              = 735px úteis → 2 col ≈ 361px
+768px →  768 − 240 (sidebar) − 48   = 480px úteis → 2 col ≈ 234px</div>
+        <p>Ou seja: girar o tablet para o modo paisagem, ou abrir um pouco mais a janela, <b>piora</b> o layout. O card de cliente cai de 361px para 234px carregando nome, endereço, telefone, e-mail, CPF/CNPJ e ficha do MP.</p>
+        <p><span class="sub">Telas afetadas</span><code>clientes:594</code>, <code>acionaveis:167</code>, <code>carteira:142</code>, <code>metas:253</code>, <code>upload:246 e :251</code>, <code>roteirizar:486</code>, <code>queda-tpv:899</code>.</p>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Correção</span>
+          <p>Duas saídas. A rápida: mover essas grades de <code>sm:grid-cols-2</code> para <code>lg:grid-cols-2</code>, para a segunda coluna só entrar quando houver largura de verdade.</p>
+          <p>A certa: <code>@container</code>. O que decide quantas colunas cabem é a largura da <b>coluna</b>, não a da janela — e o Tailwind 4 já traz container queries sem plugin.</p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="entry sev-crit">
+    <div class="ehead">
+      <span class="eid">R2</span>
+      <h3>Grades dentro de coluna estreita ainda medem a janela</h3>
+      <span class="chip crit">Alta</span><span class="chip conf">confirmado</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p>É o caso agudo do R1. O Roteirizar divide a tela em <code>lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]</code> (<code>RoteirizarClient.tsx:336</code>). Dentro da coluna direita roda outra grade, <code>sm:grid-cols-2 xl:grid-cols-3</code> (<code>:486</code>).</p>
+        <div class="calc">janela 1024px
+  − 240 sidebar − 48 padding      = 736px
+  − 340 coluna esquerda − 12 gap  = 384px de coluna direita
+  − 32 padding do card            = 352px
+  ÷ 2 colunas (sm: já está ligado) ≈ 172px por card de cliente</div>
+        <p>172px para nome, bairro/cidade, ficha e caixa de seleção. O Radar tem o mesmo desenho em <code>RadarClient.tsx:223</code>.</p>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Correção</span>
+          <p><code>@container</code> na coluna direita, com as colunas dos cards decididas pela largura dela. É o único jeito de o número de colunas continuar certo quando a coluna vive dentro de outra coluna.</p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="entry sev-crit">
+    <div class="ehead">
+      <span class="eid">R3</span>
+      <h3>Seis modais sem Escape nem trava de rolagem — e dois sem scroll algum</h3>
+      <span class="chip crit">Alta</span><span class="chip conf">confirmado</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p><span class="sub">O que trava de verdade</span>Os dois modais de <code>UsuariosClient.tsx</code> (<code>:619</code> e <code>:800</code>) usam <code>fixed inset-0 flex items-center</code> <b>sem</b> <code>overflow-y-auto</code>. O de <b>Novo Usuário</b> tem seis campos e nenhum <code>max-h</code>: num celular em paisagem, ou em retrato com o teclado aberto, o topo do formulário sai da tela e não há como voltar a ele. O de link (<code>:619</code>) tem <code>max-h-[85vh]</code>, mas só a lista de consultores rola — o formulário em si, não.</p>
+        <p><span class="sub">O que falta nos seis</span>Nenhum fecha com <b>Escape</b> — a única tecla tratada no app inteiro é a da gaveta do menu (<code>Shell.tsx:38</code>). Nenhum tem <code>role="dialog"</code>, <code>aria-modal</code>, foco preso ou devolução de foco ao fechar. Nenhum trava a rolagem do fundo, então no celular o dedo rola a página atrás do modal.</p>
+        <p><span class="sub">Inconsistência</span>Os modais de Clientes, Gerar Rota e Queda de TPV fecham clicando fora. Os de Usuários, não. Mesmo gesto, resultado diferente.</p>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Correção</span>
+          <p>Um componente <code>&lt;Modal&gt;</code> só, resolvendo os seis de uma vez: <code>overflow-y-auto</code> no overlay, <code>max-h</code> com corpo rolável, Escape, clique fora, <code>role="dialog"</code> + <code>aria-modal</code>, foco inicial e devolução.</p>
+          <p>Vale considerar o <code>&lt;dialog&gt;</code> nativo — ele já entrega foco preso, Escape e trava de rolagem sem código.</p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="entry sev-warn">
+    <div class="ehead">
+      <span class="eid">R4</span>
+      <h3>A faixa de datas da Atividade estoura a largura do celular</h3>
+      <span class="chip warn">Média</span><span class="chip conf">confirmado</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p><code>AtividadeClient.tsx:218</code> coloca dois <code>&lt;input type="date"&gt;</code>, os rótulos “De” e “até” e um botão de limpar num <b>único item flex</b>, sem <code>min-w-0</code> e sem <code>flex-wrap</code> interno. O grupo não encolhe abaixo da largura intrínseca dos campos.</p>
+        <p>E o <code>globals.css</code> força <code>font-size:16px</code> em <code>input</code> no toque (bloco <code>pointer: coarse</code>) — correto para o iOS não dar zoom, mas engorda cada campo de data para ~140px.</p>
+        <div class="calc">2 × 140 (datas) + 20 ("De") + 28 ("até") + 16 (padding) + gaps ≈ 350px
+iPhone SE:  375 − 32 (p-4)                                   =  288px</div>
+        <p>Como o <code>main</code> é <code>overflow-auto</code>, o resultado é a tela inteira deslizando para o lado.</p>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Correção</span>
+          <p><code>flex-wrap</code> no grupo e empilhar “De” e “até” abaixo de <code>sm</code>. E vale um <code>overflow-x: clip</code> no <code>main</code> como rede de segurança — hoje não há nenhuma, então qualquer item largo desloca a tela inteira.</p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="entry sev-warn">
+    <div class="ehead">
+      <span class="eid">R5</span>
+      <h3>KPIs da Agenda em três colunas fixas, sem breakpoint</h3>
+      <span class="chip warn">Média</span><span class="chip conf">confirmado</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p><code>AgendaClient.tsx:402</code> é <code>grid grid-cols-3</code> — a única grade do app sem variante responsiva. Dentro dela, o KPI usa <code>text-3xl</code> (<code>:33</code>).</p>
+        <div class="calc">360px − 32 (p-4) = 328px  ÷ 3 col − gaps ≈ 96px por célula
+menos p-4 do card                        ≈ 64px de texto útil
+conteúdo: "Km percorridos" + "1.234,5 km" em 30px de altura</div>
+        <p>Todas as outras telas usam <code>grid-cols-2 lg:grid-cols-4</code> (Visão Geral, Clientes, Radar, Queda de TPV). Esta é a exceção.</p>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Correção</span>
+          <p><code>grid-cols-1 sm:grid-cols-3</code>, alinhando com o padrão das outras telas, e reduzir o número para <code>text-2xl</code> abaixo de <code>sm</code>.</p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="entry sev-warn">
+    <div class="ehead">
+      <span class="eid">R6</span>
+      <h3>A grade da semana fica espremida justamente no tamanho intermediário</h3>
+      <span class="chip warn">Média</span><span class="chip conf">confirmado</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p><code>AgendaClient.tsx:426</code>: <code>grid-cols-2 md:grid-cols-4 xl:grid-cols-7</code>. Em <code>md</code> a área útil é 480px (ver R1), dividida em 4 → ~110px por dia, carregando cartão de rota com nome, contagem de paradas e ações. Em <code>xl</code> (1280px) são ~130px por dia.</p>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Correção</span>
+          <p>Pular o passo de 4 colunas (<code>grid-cols-2 xl:grid-cols-7</code>) ou trocar a semana por rolagem horizontal com um dia por coluna abaixo de <code>xl</code> — sete dias é uma grade que só cabe em desktop largo.</p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="entry sev-warn">
+    <div class="ehead">
+      <span class="eid">R7</span>
+      <h3>A barra do ranking por consultor some no celular</h3>
+      <span class="chip warn">Média</span><span class="chip conf">confirmado</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p><code>QuedaTpvClient.tsx:528-536</code> monta cada linha com larguras fixas: <code>w-32</code> (nome) + <code>flex-1</code> (barra) + <code>w-12</code> (contagem) + <code>w-20</code> (valor).</p>
+        <div class="calc">128 + 48 + 80 = 256px fixos + 24px de gaps = 280px
+celular:  290px úteis  →  sobra ~10px para o flex-1</div>
+        <p>A barra é a informação da linha — é ela que mostra quem perdeu mais. Em 10px, some.</p>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Correção</span>
+          <p>Abaixo de <code>sm</code>, empilhar: nome e valor numa linha, barra em largura total na linha de baixo.</p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="entry sev-warn">
+    <div class="ehead">
+      <span class="eid">R8</span>
+      <h3>A gaveta fechada continua na ordem de tabulação</h3>
+      <span class="chip warn">Média</span><span class="chip conf">confirmado</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p><code>Sidebar.tsx:179</code> esconde a gaveta com <code>-translate-x-full</code> — ela sai da vista, mas continua no DOM e focável. No celular, o Tab percorre até 15 links de um menu invisível antes de chegar ao conteúdo da página.</p>
+        <p>E quando aberta, ela não trava a rolagem do fundo nem prende o foco: o Tab sai da gaveta para o conteúdo atrás do véu.</p>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Correção</span>
+          <p><code>inert</code> no <code>&lt;aside&gt;</code> quando <code>!aberto</code> e a largura for de celular — é um atributo só, e o React 19 já o suporta nativamente. A gaveta aberta pede o mesmo tratamento de foco do R3.</p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="entry sev-warn">
+    <div class="ehead">
+      <span class="eid">R9</span>
+      <h3>Tabelas rolam de lado sem manter a coluna de identificação</h3>
+      <span class="chip warn">Média</span><span class="chip conf">confirmado</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p>As três tabelas do app estão corretamente embrulhadas em <code>overflow-x-auto</code> — o corpo da página não desliza. Falta a primeira coluna fixa.</p>
+        <ul>
+          <li><code>comparar:185</code> — 11 colunas (5 fixas + 6 pilares) num <code>min-w-[680px]</code> que subestima bem o real. Rolando para ver o Δ de um pilar, perde-se o nome do consultor.</li>
+          <li><code>historico:135</code> — <code>min-w-[720px]</code>, 7 colunas</li>
+          <li><code>usuarios:348</code> — <code>min-w-[640px]</code></li>
+        </ul>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Correção</span>
+          <p><code>position: sticky; left: 0</code> na primeira <code>&lt;td&gt;</code> e <code>&lt;th&gt;</code>, com fundo opaco (o vidro translúcido deixaria o conteúdo passar por baixo).</p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="entry sev-warn">
+    <div class="ehead">
+      <span class="eid">R10</span>
+      <h3>Alvos de toque abaixo do padrão que o próprio app definiu</h3>
+      <span class="chip warn">Média</span><span class="chip conf">confirmado</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p><code>BotaoContato.tsx</code> padroniza 40px e explica por quê: “são os botões que a pessoa usa NA RUA, com o celular na mão”. Fora dele, o padrão não foi seguido:</p>
+        <ul>
+          <li><code>ClientesClient.tsx:613</code> — a caixa de seleção do card é <code>w-4 h-4</code> (16px). É o gesto principal para montar rota em campo.</li>
+          <li><code>ClientesClient.tsx:663</code> — “sem GPS · geocodar”, <code>text-[11px]</code> sem padding</li>
+          <li><code>AgendaClient.tsx:358-363</code> — “Refazer / Renomear / Excluir” são links <code>text-xs</code> colados, sem área clicável, e um deles é destrutivo</li>
+          <li><code>AgendaClient.tsx:415, 419</code> — setas ‹ › da semana em 32px</li>
+        </ul>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Correção</span>
+          <p>Levar a área para 40px sem mexer no desenho: <code>p-2 -m-2</code> nos links de texto e um <code>&lt;label&gt;</code> envolvente na caixa de seleção — o alvo cresce, o visual fica igual.</p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="entry sev-low">
+    <div class="ehead">
+      <span class="eid">R11</span>
+      <h3>As telas de fora usam <code>100vh</code> enquanto o resto do app já usa <code>dvh</code></h3>
+      <span class="chip low">Baixa</span><span class="chip conf">confirmado</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p><code>min-h-screen</code> (que no Tailwind é <code>100vh</code>) em <code>login/page.tsx:26</code>, <code>convite/[token]/page.tsx:29</code>, <code>AcessoDesativado.tsx:28</code>, <code>error.tsx:34</code> e <code>global-error.tsx:29</code>.</p>
+        <p>No celular, <code>100vh</code> conta a barra de URL como se ela não existisse — a caixa centralizada fica um pouco baixa demais e parte dela some sob a barra. O resto do app já resolveu isso: <code>RadarMapa.tsx:176</code> e <code>RadarClient.tsx:14</code> usam <code>100dvh</code>.</p>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Correção</span>
+          <p><code>min-h-dvh</code> nos cinco. É a mesma decisão que já foi tomada no Radar, só não chegou nas telas de entrada.</p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="entry sev-low">
+    <div class="ehead">
+      <span class="eid">R12</span>
+      <h3>O gráfico de distribuição da equipe não sobra largura no celular</h3>
+      <span class="chip low">Baixa</span><span class="chip conf">confirmado</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p><code>DistribuicaoEquipe.tsx:36</code> fixa <code>YAxis width={120}</code> e <code>margin right 48</code>, dentro de um contêiner <code>h-28</code> (<code>GeralClient.tsx:214</code>).</p>
+        <div class="calc">290px úteis − 40 (p-5 do card) = 250px
+− 120 (eixo Y) − 48 (margem direita) =  82px para a barra</div>
+        <p>E “Acima do objetivo” a 12px não cabe em 120px — o Recharts não quebra o rótulo de categoria.</p>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Correção</span>
+          <p>Abaixo de <code>sm</code>, trocar por três linhas rotuladas com barra em largura total — sem gráfico. São três valores; um <code>&lt;div&gt;</code> com <code>width: %</code> conta a mesma história e sempre cabe.</p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="entry sev-low">
+    <div class="ehead">
+      <span class="eid">R13</span>
+      <h3>A barra de filtros de Clientes vira cinco linhas no celular</h3>
+      <span class="chip low">Baixa</span><span class="chip conf">confirmado</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p><code>ClientesClient.tsx:542-577</code>: campo de busca + até sete <code>MultiFiltro</code> + “Só pendentes” + “Limpar filtros” + “Selecionar todos”. Com <code>flex-wrap</code> nada estoura — mas empilha em 4 a 5 linhas antes do primeiro cliente aparecer.</p>
+        <p>O <code>MultiFiltro</code> em si já é bem resolvido para o toque: vira folha inferior no celular, com alvos de ~40px.</p>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Correção</span>
+          <p>Abaixo de <code>md</code>, colapsar os sete chips num botão “Filtros” único com contador, abrindo a mesma folha inferior. Mantém todo dado disponível e devolve a tela à lista, que é o que a pessoa veio ver.</p>
+        </div>
+      </div>
+    </div>
+  </article>
+</section>
+
+<section>
+  <div class="sechead">
+    <h2><span class="idx">SEÇÃO D</span> Um ponto a conferir no navegador</h2>
+    <p>Não classifiquei como achado porque não pude executar.</p>
+  </div>
+  <article class="entry sev-low">
+    <div class="ehead">
+      <span class="eid">V1</span>
+      <h3>Rolagem ao navegar entre telas</h3>
+      <span class="chip low">Baixa</span><span class="chip conf">verificar</span>
+    </div>
+    <div class="ebody">
+      <div>
+        <p>Com <code>html, body { height: 100% }</code> e <code>overflow-auto</code> no <code>&lt;main&gt;</code> (<code>Shell.tsx:65</code>), quem rola é o <code>main</code>, não o documento. A restauração de rolagem do App Router age sobre a janela.</p>
+        <p>Teste: descer bem numa lista longa de Clientes e clicar em Agenda no menu. Se a nova tela abrir no meio em vez de no topo, é isto.</p>
+      </div>
+      <div class="col-b">
+        <div class="fix">
+          <span class="sub">Se confirmar</span>
+          <p>Rolar o <code>main</code> para o topo a cada mudança de <code>pathname</code>, num efeito no <code>Shell</code>.</p>
+        </div>
+      </div>
+    </div>
+  </article>
+</section>
+
+<section>
+  <div class="sechead">
+    <h2><span class="idx">SEÇÃO E</span> O que já está bem</h2>
+    <p>Vale registrar, porque muda a leitura da lista acima: não é um código descuidado com problemas espalhados. É um código cuidadoso com lacunas pontuais — e várias delas são regras que <b>já existem no repositório</b> e só não chegaram a todos os pontos de chamada.</p>
+  </div>
+  <div class="good">
+    <ul>
+      <li><b>Isolamento e autorização.</b> <code>perfilReal()</code> × <code>perfilAutorizado()</code> separam “quem é” de “pode agir”; as duas rotas de API com <code>service_role</code> verificam papel, barreira do modo demo e <code>canManageUsers</code> antes de tocar em <code>auth.users</code>. Nada frouxo encontrado.</li>
+      <li><b>Verificação de sessão.</b> <code>getClaims()</code> em vez de <code>getUser()</code>, com a ressalva de revogação documentada e a decisão consciente de que o desligamento real é <code>profiles.ativo</code> + RLS.</li>
+      <li><b>Base de responsividade.</b> <code>viewport</code> declarado com <code>viewportFit: cover</code>, <code>safe-area-inset</code> nas barras fixas, 16px em campos no toque, gaveta com véu e Escape, <code>min-w-0</code> nos cards de grade com o motivo escrito no comentário.</li>
+      <li><b>Desempenho pensado com medição.</b> O <code>glass</code> sem <code>backdrop-filter</code> vem com a explicação de render passes; o <code>buscarTudo</code> traz o comparativo em milissegundos; o Recharts foi tirado do first-load da tela de entrada.</li>
+      <li><b>130 testes</b> em 10 suítes, cobrindo as regras que de fato têm regra: comparação de TPV por ritmo, diff de carteira, parsing de planilha, normalização de nome, entrega Radar → Roteirizar.</li>
+      <li><b>Comentários que explicam o porquê</b>, incluindo os erros já cometidos. Metade desta auditoria saiu de ler esses comentários e conferir se a regra descrita valia em todos os lugares.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="sechead">
+    <h2><span class="idx">SEÇÃO F</span> Ordem sugerida</h2>
+    <p>Por relação entre esforço e risco removido, não por gravidade pura.</p>
+  </div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Ordem</th><th>Itens</th><th>Por quê</th></tr></thead>
+      <tbody>
+        <tr><td class="f">1</td><td class="f">B1</td><td>Corrupção silenciosa de dado. Uma linha por consulta, 16 lugares. É a correção com melhor retorno do relatório.</td></tr>
+        <tr><td class="f">2</td><td class="f">B2 · B3</td><td>Dois caminhos que o usuário percorre e que hoje travam. Correções pequenas e isoladas.</td></tr>
+        <tr><td class="f">3</td><td class="f">R3</td><td>Formulário inalcançável em celular. Um componente <code>&lt;Modal&gt;</code> resolve seis telas e leva o R8 junto.</td></tr>
+        <tr><td class="f">4</td><td class="f">B4</td><td>Conferir no navegador primeiro. Se confirmar, é troca mecânica em ~12 pontos.</td></tr>
+        <tr><td class="f">5</td><td class="f">R1 · R2</td><td>Uma decisão só (container queries), aplicada em 9 grades. Mais trabalho, mas conserta a faixa inteira de tablet.</td></tr>
+        <tr><td class="f">6</td><td class="f">R4 · R5 · R7 · R11</td><td>Ajustes locais de classe, sem risco. Bons para agrupar num commit de acabamento.</td></tr>
+        <tr><td class="f">7</td><td class="f">B5 · B6 · B7 · B8 · B9 · R6 · R9 · R10 · R12 · R13</td><td>Dívida sem urgência. B5 dá para fechar rodando o ESLint até zerar.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  Auditoria de leitura · nenhum arquivo do repositório foi modificado<br>
+  Verificado nesta sessão: build, tsc, 10 suítes de teste, ESLint<br>
+  Não verificado: comportamento em navegador real (nenhum instalado no ambiente)
+</footer>
+
+</div>
