@@ -37,7 +37,7 @@ export default async function ClientesPage() {
       supabase
         .from('clientes')
         .select(
-          'id, consultor_nome, seller_id, seller_nome, seller_telefone, seller_email, doc_tipo, cpf_cnpj, cidade, bairro, endereco_completo, lat, lng, status_atualizacao',
+          'id, consultor_nome, seller_id, seller_nome, seller_telefone, seller_email, doc_tipo, cpf_cnpj, cidade, bairro, endereco_completo, lat, lng, status_atualizacao, coordenada_origem',
           opcoes,
         )
         .eq('em_carteira', true)

@@ -50,7 +50,12 @@ export function tipoDoc(s: string): 'CPF' | 'CNPJ' | null {
 const SEM_ENDERECO = /^(endereç?o\s+n[ãa]o\s+informad[oa]|n[ãa]o\s+informad[oa]|sem\s+endereç?o|n\/?a|-+|—+)$/i
 // Metade da base traz o campo endereço preenchido só com o par de coordenadas
 // ("-1.3895, -48.3724") — é lat/lng cru, não serve pra ler numa tela.
-const SO_COORDENADAS = /^-?\d{1,3}\.\d+\s*,\s*-?\d{1,3}\.\d+$/
+//
+// Exportada porque a geocodificação precisa da MESMA definição: aqui ela decide
+// o que não exibir, lá ela decide o que não mandar a um buscador de texto. Duas
+// cópias divergindo deixariam um lado tratando como coordenada o que o outro
+// trata como rua.
+export const SO_COORDENADAS = /^-?\d{1,3}\.\d+\s*,\s*-?\d{1,3}\.\d+$/
 
 /**
  * Texto de endereço exibível, ou '' quando não há rua de verdade.

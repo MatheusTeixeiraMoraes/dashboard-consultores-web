@@ -18,8 +18,8 @@ globalThis.localStorage = {
   removeItem: k => memoria.delete(k),
 }
 
-const { entregarAoRoteirizar, receberSelecao, limparSelecao, CHAVE_RADAR_ROTA, MAX_PARADAS_ROTA } =
-  await import('./geo.ts')
+const { entregarAoRoteirizar, receberSelecao, limparSelecao, CHAVE_RADAR_ROTA, MAX_PARADAS_ROTA,
+  coordenadaNoTexto, geocodar } = await import('./geo.ts')
 
 let n = 0
 const t = (nome, fn) => { memoria.clear(); fn(); n++; console.log('  ok:', nome) }
@@ -84,5 +84,50 @@ t('origem "constructor" não vira rótulo (protótipo não é origem válida)', 
   localStorage.setItem(CHAVE_RADAR_ROTA, JSON.stringify({ origem: 'constructor', clientes: [cliente('1')] }))
   assert.equal(receberSelecao().origem, 'radar')
 })
+
+// --- Coordenada embutida no campo de endereço ---
+//
+// Regressão de campo: 5 clientes de Terra Firme/Belém tinham a coordenada exata
+// gravada em `endereco_completo` e um lat/lng compartilhado que caía em Nazaré,
+// 5 km fora. A rota levava o consultor ao lugar errado. Quem geocodifica tem
+// que enxergar que o par de coordenadas JÁ é a resposta.
+
+t('par de coordenadas no campo de endereço é lido como coordenada', () => {
+  assert.deepEqual(coordenadaNoTexto('-1.4611027731776192, -48.451071204631326'),
+    { lat: -1.4611027731776192, lng: -48.451071204631326 })
+})
+
+t('aceita o par sem espaço depois da vírgula', () => {
+  assert.deepEqual(coordenadaNoTexto('-8.05,-34.9'), { lat: -8.05, lng: -34.9 })
+})
+
+t('rua de verdade não é coordenada', () => {
+  assert.equal(coordenadaNoTexto('Rua 01 157, Boa Viagem, Recife'), null)
+  assert.equal(coordenadaNoTexto('Endereço não informado'), null)
+  assert.equal(coordenadaNoTexto(''), null)
+  assert.equal(coordenadaNoTexto(null), null)
+})
+
+// A regex casa a FORMA, não a faixa: sem esta checagem "-999.5, -48.4" viraria
+// um ponto e o mapa o desenharia em lugar nenhum.
+t('par fora da faixa do globo não é coordenada', () => {
+  assert.equal(coordenadaNoTexto('-999.5, -48.4'), null)
+  assert.equal(coordenadaNoTexto('-1.46, -481.5'), null)
+})
+
+// Assíncrono: geocodar não pode sair para a rede quando a resposta já está no
+// texto — era a rede que devolvia o lugar errado. Sem stub de sucesso: se ele
+// tentar buscar, o contador denuncia.
+let chamouRede = 0
+globalThis.fetch = async () => { chamouRede++; throw new Error('não deveria buscar') }
+
+assert.deepEqual(await geocodar('-1.4611027731776192, -48.451071204631326'),
+  { lat: -1.4611027731776192, lng: -48.451071204631326 })
+assert.equal(chamouRede, 0, 'geocodar buscou na rede uma coordenada que já tinha')
+n++; console.log('  ok: geocodar devolve a coordenada do texto sem ir à rede')
+
+assert.equal(await geocodar('   '), null)
+assert.equal(chamouRede, 0)
+n++; console.log('  ok: endereço vazio não vira busca')
 
 console.log(`\n${n} testes ok`)

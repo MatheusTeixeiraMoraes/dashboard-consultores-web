@@ -3,7 +3,7 @@
 // Caminho relativo COM extensão: é o que deixa `node src/lib/geo.test.mjs` importar
 // este módulo direto (o Node ESM não conhece o alias `@/` nem completa extensão).
 // Mesma convenção de pilares.ts.
-import { enderecoExibivel } from './texto.ts'
+import { enderecoExibivel, SO_COORDENADAS } from './texto.ts'
 
 export interface Ponto {
   lat: number
@@ -109,9 +109,33 @@ export function limparSelecao() {
 // reserva. Ambos públicos, CORS liberado. Uso leve/pontual — em massa, jogar
 // throttle (~1 req/s) para respeitar a política do Nominatim.
 
+/**
+ * Coordenada que o próprio campo de endereço já carrega, quando ele é só o par
+ * "lat, lng". Devolve null quando o texto é uma rua de verdade.
+ *
+ * Metade da base traz `endereco_completo` nesse formato — é o ponto exato do
+ * estabelecimento, capturado na origem. Valida a faixa (lat ±90, lng ±180)
+ * porque a regex sozinha aceita "-999.5, -48.4".
+ */
+export function coordenadaNoTexto(endereco: string | null): Ponto | null {
+  const t = (endereco ?? '').trim()
+  if (!SO_COORDENADAS.test(t)) return null
+  const [lat, lng] = t.split(',').map(x => Number(x.trim()))
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null
+  return { lat, lng }
+}
+
 export async function geocodar(endereco: string): Promise<Ponto | null> {
   const q = endereco.trim()
   if (!q) return null
+
+  // O campo JÁ É a coordenada: não há o que buscar, e buscar era o bug. Estes
+  // são serviços de busca por TEXTO — entregar "-1.4611, -48.4510" a eles é
+  // torcer para que interpretem o par; quando não interpretam, casam o que
+  // puder e devolvem outro lugar, que é gravado como se fosse o cliente.
+  const direta = coordenadaNoTexto(q)
+  if (direta) return direta
 
   try {
     const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(q)}`)

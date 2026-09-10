@@ -9,7 +9,7 @@ import { BotaoWhatsApp, BotaoMapa, urlWhatsApp } from '@/components/BotaoContato
 import { findCol } from '@/lib/pilares'
 import { geocodar, sleep, MAX_PARADAS_ROTA } from '@/lib/geo'
 import GerarRota from './GerarRota'
-import { tituloCaso, tipoDoc, precisaIdentificar } from '@/lib/texto'
+import { tituloCaso, tipoDoc, precisaIdentificar, SO_COORDENADAS } from '@/lib/texto'
 import type { Cliente, UserRole } from '@/lib/types'
 import { SITUACOES_MP, PRIORIDADES_MP, type FichaMP } from '@/lib/supabase/ficha-mp'
 import { registrarEvento } from '@/lib/atividade'
@@ -27,6 +27,9 @@ const VAZIO = {
   doc_tipo: '', cpf_cnpj: '',
   cidade: '', bairro: '', endereco_completo: '',
   lat: '', lng: '', consultor_nome: '',
+  // '' = manteve o que estava no banco. Preenchido quando ESTA edição definiu a
+  // coordenada (pin no mapa, digitação ou geocodificação).
+  coordenada_origem: '' as '' | 'exata' | 'aproximada',
 }
 type FormState = typeof VAZIO
 
@@ -44,14 +47,21 @@ function paraForm(c: Cliente): FormState {
     doc_tipo: c.doc_tipo ?? '', cpf_cnpj: c.cpf_cnpj ?? '',
     cidade: c.cidade, bairro: c.bairro, endereco_completo: c.endereco_completo,
     lat: c.lat != null ? String(c.lat) : '', lng: c.lng != null ? String(c.lng) : '',
+    coordenada_origem: c.coordenada_origem ?? '',
     consultor_nome: c.consultor_nome,
   }
 }
 
 const temGps = (c: Cliente) => c.lat != null && c.lng != null
 
-const GPS_OPCOES = ['Com GPS', 'Sem GPS']
-const rotuloGps = (c: Cliente) => (temGps(c) ? 'Com GPS' : 'Sem GPS')
+// Coordenada que veio do centro do bairro/cidade: existe, mas não é a porta do
+// cliente. Fica entre "com" e "sem" GPS porque é exatamente isso — dá para
+// desenhar no mapa, não dá para bater na porta.
+const gpsAproximado = (c: Cliente) => temGps(c) && c.coordenada_origem === 'aproximada'
+
+const GPS_OPCOES = ['Com GPS', 'GPS aproximado', 'Sem GPS']
+const rotuloGps = (c: Cliente) =>
+  !temGps(c) ? 'Sem GPS' : gpsAproximado(c) ? 'GPS aproximado' : 'Com GPS'
 
 const ordenar = (s: Iterable<string>) => [...new Set(s)].filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR'))
 
@@ -76,11 +86,31 @@ const precisaEnriquecer = (c: Cliente) => precisaIdentificar(c.seller_nome, c.se
 // Placeholders que NÃO são endereço — geocodá-los devolveria um pino aleatório.
 const SEM_ENDERECO = /^(endereç?o\s+n[ãa]o\s+informad[oa]|n[ãa]o\s+informad[oa]|sem\s+endereç?o|n\/?a|-+|—+)$/i
 
-/** Melhor texto de endereço para geocodificar, ou '' se não houver nada útil. */
-const enderecoDe = (c: { endereco_completo: string; bairro: string; cidade: string }) => {
+/** Endereço com rua escrita — nem placeholder, nem o par de coordenadas cru. */
+const temRua = (end: string) => {
+  const t = (end ?? '').trim()
+  return !!t && !SEM_ENDERECO.test(t) && !SO_COORDENADAS.test(t)
+}
+
+/**
+ * O que mandar para a geocodificação E quanto a resposta vai valer.
+ *
+ * Devolver só o texto era o bug: quando o cliente não tem rua, o alvo vira
+ * "Bairro, Cidade" e o serviço responde o CENTRO da região. Isso era gravado em
+ * lat/lng igual a uma coordenada de porta, e cada cliente do bairro recebia o
+ * mesmo ponto — foi assim que 934 clientes foram parar em 285 pontos, e que uma
+ * rota de Terra Firme apontou para Nazaré. Quem chama precisa saber a diferença
+ * para registrá-la.
+ */
+type AlvoGeo = { texto: string; origem: 'exata' | 'aproximada' }
+
+const alvoGeocodificacao = (c: { endereco_completo: string; bairro: string; cidade: string }): AlvoGeo | null => {
   const end = c.endereco_completo.trim()
-  const real = end && !SEM_ENDERECO.test(end) ? end : ''
-  return real || [c.bairro, c.cidade].filter(Boolean).join(', ')
+  // Coordenada crua no campo conta como endereço de verdade: `geocodar` a lê
+  // direto, sem consultar ninguém, e é o ponto exato do estabelecimento.
+  if (end && !SEM_ENDERECO.test(end)) return { texto: end, origem: 'exata' }
+  const regiao = [c.bairro, c.cidade].filter(Boolean).join(', ')
+  return regiao ? { texto: regiao, origem: 'aproximada' } : null
 }
 
 /** Top N de uma dimensão, para os painéis do rodapé. */
@@ -149,7 +179,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   const [geoLinha, setGeoLinha] = useState<string | null>(null)
   const [geoForm, setGeoForm] = useState(false)
   const [mapaAberto, setMapaAberto] = useState(false)
-  const [bulk, setBulk] = useState<{ running: boolean; done: number; ok: number; total: number } | null>(null)
+  const [bulk, setBulk] = useState<{ running: boolean; done: number; ok: number; total: number; aproximados: number } | null>(null)
   const bulkStop = useRef(false)
 
   // Seleção em massa — a mesma marcação serve para o WhatsApp e para virar rota.
@@ -203,13 +233,28 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   // Os KPIs leem o resultado filtrado: eles são o placar do que está na tela,
   // não um total fixo que ignora os filtros.
   const semGps = useMemo(() => filtrados.filter(c => !temGps(c)), [filtrados])
+
+  // Aproximados que a geocodificação CONSEGUE melhorar: sem rua escrita ela
+  // devolveria o mesmo centroide de bairro que já está gravado — um request de
+  // 1 s por cliente para reescrever o valor idêntico. Quem só tem bairro/cidade
+  // não se resolve daqui; precisa de endereço ou de alguém no local.
+  const aproximados = useMemo(
+    () => filtrados.filter(c => gpsAproximado(c) && temRua(c.endereco_completo)),
+    [filtrados],
+  )
+
   const kpis = useMemo(() => {
     const comGps = filtrados.length - semGps.length
+    const nAprox = filtrados.filter(gpsAproximado).length
     return [
-      { icon: 'users', label: 'Clientes', valor: filtrados.length },
-      { icon: 'pin', label: 'Com GPS', valor: comGps },
-      { icon: 'alert', label: 'Sem GPS', valor: semGps.length },
-      { icon: 'doc', label: 'A identificar', valor: filtrados.filter(precisaEnriquecer).length },
+      { icon: 'users', label: 'Clientes', valor: filtrados.length, nota: '' },
+      // Nota na mesma célula em vez de um quinto KPI: o grid é de 4 e a quebra
+      // deixaria um card órfão. O dado continua na tela, junto do total que ele
+      // qualifica — "com GPS" sem dizer quantos são centro de bairro esconde
+      // justamente o que fez a rota errar.
+      { icon: 'pin', label: 'Com GPS', valor: comGps, nota: nAprox > 0 ? `${nBR(nAprox)} aproximados` : '' },
+      { icon: 'alert', label: 'Sem GPS', valor: semGps.length, nota: '' },
+      { icon: 'doc', label: 'A identificar', valor: filtrados.filter(precisaEnriquecer).length, nota: '' },
     ]
   }, [filtrados, semGps])
 
@@ -261,13 +306,16 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   const set = (campo: keyof FormState) => (v: string) => setForm(f => ({ ...f, [campo]: v }))
 
   async function geocodarForm() {
-    const end = enderecoDe({ endereco_completo: form.endereco_completo, bairro: form.bairro, cidade: form.cidade })
-    if (!end) return setErro('Preencha o endereço, bairro ou cidade primeiro.')
+    const alvo = alvoGeocodificacao({ endereco_completo: form.endereco_completo, bairro: form.bairro, cidade: form.cidade })
+    if (!alvo) return setErro('Preencha o endereço, bairro ou cidade primeiro.')
     setErro(''); setGeoForm(true)
-    const p = await geocodar(end)
+    const p = await geocodar(alvo.texto)
     setGeoForm(false)
     if (!p) return setErro('Endereço não encontrado na geocodificação.')
-    setForm(f => ({ ...f, lat: String(p.lat), lng: String(p.lng) }))
+    setForm(f => ({ ...f, lat: String(p.lat), lng: String(p.lng), coordenada_origem: alvo.origem }))
+    if (alvo.origem === 'aproximada') {
+      setErro('Atenção: sem rua no endereço, o ponto encontrado é o CENTRO de ' + alvo.texto + ', não o cliente. Ajuste no mapa se souber o local.')
+    }
   }
 
   async function salvar() {
@@ -299,6 +347,12 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
       bairro: form.bairro.trim() ? tituloCaso(form.bairro) : '',
       endereco_completo: form.endereco_completo.trim(),
       lat: latNum, lng: lngNum,
+      // Só carimba quando esta edição definiu a coordenada. Sem coordenada não
+      // há origem a declarar; e '' (nada mexeu) preserva o que o banco já sabe
+      // em vez de rebaixar para NULL um ponto que alguém já tinha conferido.
+      ...(latNum != null && lngNum != null && form.coordenada_origem
+        ? { coordenada_origem: form.coordenada_origem }
+        : latNum == null && lngNum == null ? { coordenada_origem: null } : {}),
     }
 
     setSalvando(true)
@@ -373,14 +427,14 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   }
 
   async function geocodarLinha(c: Cliente) {
-    const end = enderecoDe(c)
-    if (!end) return setErro(`"${c.seller_nome || c.seller_id}" não tem endereço para geocodificar.`)
+    const alvo = alvoGeocodificacao(c)
+    if (!alvo) return setErro(`"${c.seller_nome || c.seller_id}" não tem endereço para geocodificar.`)
     setErro(''); setGeoLinha(c.id)
-    const p = await geocodar(end)
+    const p = await geocodar(alvo.texto)
     setGeoLinha(null)
     if (!p) return setErro(`Não foi possível geocodificar "${c.seller_nome || c.seller_id}".`)
     const supabase = createClient()
-    const { data, error } = await supabase.from('clientes').update({ lat: p.lat, lng: p.lng, updated_at: new Date().toISOString() }).eq('id', c.id).select('id')
+    const { data, error } = await supabase.from('clientes').update({ lat: p.lat, lng: p.lng, coordenada_origem: alvo.origem, updated_at: new Date().toISOString() }).eq('id', c.id).select('id')
     if (error) { setErro(error.message); return }
     if (!data || data.length === 0) { setErro(`"${c.seller_nome || c.seller_id}" saiu da sua carteira. Recarregue a página.`); return }
     registrarEvento({
@@ -393,31 +447,32 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
     router.refresh()
   }
 
-  // Geocodifica em massa os clientes sem lat/lng DO FILTRO ATUAL — o botão diz
-  // o mesmo número que o KPI "Sem GPS" ao lado, então tem que agir sobre os
-  // mesmos clientes. Throttle de ~1s respeita a política do Nominatim.
-  // Interrompível.
-  async function geocodarEmMassa() {
-    if (semGps.length === 0) return
-    const alvo = semGps
+  // Geocodifica em massa DO FILTRO ATUAL. Recebe o alvo em vez de assumir
+  // `semGps`: os clientes marcados como aproximados também precisam passar por
+  // aqui, e eles NÃO estão em `semGps` — têm lat/lng, só que é o centro do
+  // bairro. Enquanto isto assumia "sem lat/lng", 725 clientes com endereço
+  // escrito não tinham como ser corrigidos por nenhum caminho da tela.
+  // Throttle de ~1s respeita a política do Nominatim. Interrompível.
+  async function geocodarEmMassa(alvo: Cliente[]) {
+    if (alvo.length === 0) return
     setErro(''); bulkStop.current = false
-    setBulk({ running: true, done: 0, ok: 0, total: alvo.length })
+    setBulk({ running: true, done: 0, ok: 0, total: alvo.length, aproximados: 0 })
     const supabase = createClient()
-    let done = 0, ok = 0
+    let done = 0, ok = 0, aproximados = 0
     for (const c of alvo) {
       if (bulkStop.current) break
-      const end = enderecoDe(c)
-      if (!end) { done++; setBulk({ running: true, done, ok, total: alvo.length }); continue }  // sem endereço → pula sem request
-      const p = await geocodar(end)
+      const geo = alvoGeocodificacao(c)
+      if (!geo) { done++; setBulk({ running: true, done, ok, total: alvo.length, aproximados }); continue }  // sem endereço → pula sem request
+      const p = await geocodar(geo.texto)
       if (p) {
-        const { error } = await supabase.from('clientes').update({ lat: p.lat, lng: p.lng, updated_at: new Date().toISOString() }).eq('id', c.id)
-        if (!error) ok++
+        const { error } = await supabase.from('clientes').update({ lat: p.lat, lng: p.lng, coordenada_origem: geo.origem, updated_at: new Date().toISOString() }).eq('id', c.id)
+        if (!error) { ok++; if (geo.origem === 'aproximada') aproximados++ }
       }
       done++
-      setBulk({ running: true, done, ok, total: alvo.length })
+      setBulk({ running: true, done, ok, total: alvo.length, aproximados })
       await sleep(1100)
     }
-    setBulk({ running: false, done, ok, total: alvo.length })
+    setBulk({ running: false, done, ok, total: alvo.length, aproximados })
     if (ok > 0) {
       registrarEvento({
         tipo: 'clientes_editados_em_massa',
@@ -480,10 +535,22 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {podeGerir && semGps.length > 0 && (
-            <button onClick={geocodarEmMassa} disabled={bulk?.running}
+            <button onClick={() => geocodarEmMassa(semGps)} disabled={bulk?.running}
               className="border border-line hover:bg-card-2 disabled:opacity-50 text-ink-dim text-sm font-medium px-4 py-2 rounded-xl flex items-center gap-2">
               <Icon name="pin" size={15} />
               Geocodar sem GPS ({nBR(semGps.length)})
+            </button>
+          )}
+          {/* Botão separado, e não somado ao de cima: são clientes que JÁ
+              aparecem no mapa, num ponto que parece bom. Refazer isso é uma
+              decisão consciente de quem gere a carteira, não um efeito colateral
+              de "geocodar quem falta". */}
+          {podeGerir && aproximados.length > 0 && (
+            <button onClick={() => geocodarEmMassa(aproximados)} disabled={bulk?.running}
+              title="Reprocessa quem está com coordenada do centro do bairro e tem endereço escrito no cadastro."
+              className="border border-warn/40 hover:bg-warn-bg disabled:opacity-50 text-warn text-sm font-medium px-4 py-2 rounded-xl flex items-center gap-2">
+              <Icon name="pin" size={15} />
+              Refazer aproximados ({nBR(aproximados.length)})
             </button>
           )}
           {podeImportar && (
@@ -509,7 +576,8 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
           {bulk.running && <Spinner />}
           {bulk.running
             ? <>Geocodificando… {bulk.done}/{bulk.total} ({bulk.ok} com sucesso)</>
-            : <>✓ Geocodificação concluída: {bulk.ok} de {bulk.total} localizados.</>}
+            : <>✓ Geocodificação concluída: {bulk.ok} de {bulk.total} localizados.
+                {bulk.aproximados > 0 && <strong className="text-warn"> {bulk.aproximados} sem rua no cadastro caíram no centro do bairro — marcados como aproximados, confira antes de rotear.</strong>}</>}
           {bulk.running && <button onClick={() => { bulkStop.current = true }} className="ml-auto text-bad font-medium">Parar</button>}
         </div>
       )}
@@ -535,6 +603,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
               <span className="text-xs font-medium">{k.label}</span>
             </div>
             <p className="text-2xl font-semibold text-ink tracking-tight">{nBR(k.valor)}</p>
+            {k.nota && <p className="text-[11px] text-warn font-medium mt-0.5">{k.nota}</p>}
           </div>
         ))}
       </div>
@@ -595,6 +664,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
           {visiveis.map(c => {
             const wa = urlWhatsApp(c.seller_telefone)
             const gps = temGps(c)
+            const aprox = gpsAproximado(c)
             const local = [c.bairro, c.cidade].filter(Boolean).join(', ') || '—'
             // "Endereço não informado" é placeholder da planilha, não endereço:
             // exibi-lo seria fingir que o dado existe.
@@ -649,8 +719,17 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                     "Editar" — para consultar um cliente em campo, ler não pode
                     exigir entrar no formulário de edição. */}
                 <div className="flex flex-col gap-1.5 mt-3.5 pt-3.5 border-t border-line">
-                  <Linha icon="pin" iconCls={gps ? 'text-ink-faint' : 'text-warn'}>
+                  <Linha icon="pin" iconCls={gps && !aprox ? 'text-ink-faint' : 'text-warn'}>
                     <span className="truncate min-w-0">{local}</span>
+                    {/* O aviso vale mais que o espaço que ocupa: sem ele, uma
+                        coordenada de centro de bairro entra numa rota como se
+                        fosse endereço conferido. */}
+                    {aprox && (
+                      <span title="Coordenada obtida do centro do bairro/cidade, não do endereço do cliente. Confira antes de rotear."
+                        className="ml-auto flex-shrink-0 text-[10px] font-semibold text-warn bg-warn-bg px-1.5 py-0.5 rounded-md">
+                        GPS aproximado
+                      </span>
+                    )}
                     {!gps && (geoLinha === c.id
                       ? <span className="ml-auto flex-shrink-0 inline-flex items-center gap-1 text-[11px]"><Spinner /> …</span>
                       : <button onClick={() => geocodarLinha(c)} className="ml-auto flex-shrink-0 text-[11px] font-semibold text-warn hover:underline">
@@ -880,7 +959,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                       value={form.lat || form.lng ? `${form.lat}, ${form.lng}` : ''}
                       onChange={e => {
                         const [lat = '', lng = ''] = e.target.value.split(',').map(s => s.trim())
-                        setForm(f => ({ ...f, lat, lng }))
+                        setForm(f => ({ ...f, lat, lng, coordenada_origem: 'exata' }))
                       }}
                       className={inputCls}
                       placeholder="-23.55, -46.63"
@@ -899,7 +978,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                   <PinMapa
                     lat={paraNum(form.lat)}
                     lng={paraNum(form.lng)}
-                    onChange={(lat, lng) => setForm(f => ({ ...f, lat: lat.toFixed(6), lng: lng.toFixed(6) }))}
+                    onChange={(lat, lng) => setForm(f => ({ ...f, lat: lat.toFixed(6), lng: lng.toFixed(6), coordenada_origem: 'exata' }))}
                   />
                   <p className="text-[11px] text-ink-faint">Arraste o alfinete ou clique no mapa para ajustar a posição exata.</p>
                 </div>

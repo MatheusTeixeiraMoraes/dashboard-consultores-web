@@ -86,6 +86,11 @@ export interface Cliente {
   lat: number | null
   lng: number | null
   status_atualizacao: 'Cliente não atualizado' | 'Cliente Atualizado'
+  // De onde vieram lat/lng. 'aproximada' = centro do bairro/cidade, NÃO a porta
+  // do cliente. null = herdado da importação, sem verificação — e é o caso da
+  // maioria, então tratar null como exata seria repetir o erro que a coluna
+  // existe para evitar.
+  coordenada_origem: 'exata' | 'aproximada' | null
   // Existem na tabela, mas a tela não busca: são ~130 bytes por linha × 3,2 mil
   // clientes de payload que ninguém lê. Opcionais para não prometer o que não
   // vem. Se for usar alguma, inclua no select de `clientes/page.tsx`.
