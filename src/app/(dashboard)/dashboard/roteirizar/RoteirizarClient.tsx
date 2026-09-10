@@ -42,6 +42,7 @@ function paraSelecionado(c: ClienteRadar): ClienteSelecionado {
     seller_id: c.seller_id, seller_nome: c.seller_nome, lat: c.lat, lng: c.lng,
     telefone: c.seller_telefone, endereco: c.endereco_completo, cidade: c.cidade,
     bairro: c.bairro, consultor_nome: c.consultor_nome,
+    coordenada_origem: c.coordenada_origem,
   }
 }
 

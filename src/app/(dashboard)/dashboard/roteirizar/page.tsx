@@ -19,7 +19,7 @@ export default async function RoteirizarPage() {
     buscarTudo<ClienteRadar>((opcoes, de, ate) =>
       supabase
         .from('clientes')
-        .select('seller_id, seller_nome, seller_telefone, consultor_nome, cidade, bairro, endereco_completo, lat, lng', opcoes)
+        .select('seller_id, seller_nome, seller_telefone, consultor_nome, cidade, bairro, endereco_completo, lat, lng, coordenada_origem', opcoes)
         .eq('em_carteira', true)
         .not('lat', 'is', null)
         .not('lng', 'is', null)

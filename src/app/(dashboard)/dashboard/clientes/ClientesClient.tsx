@@ -86,6 +86,18 @@ const precisaEnriquecer = (c: Cliente) => precisaIdentificar(c.seller_nome, c.se
 // Placeholders que NÃO são endereço — geocodá-los devolveria um pino aleatório.
 const SEM_ENDERECO = /^(endereç?o\s+n[ãa]o\s+informad[oa]|n[ãa]o\s+informad[oa]|sem\s+endereç?o|n\/?a|-+|—+)$/i
 
+/**
+ * A coordenada cai dentro do Brasil?
+ *
+ * Filtro grosso de sanidade para dado que chega de fora. A base tinha 36
+ * clientes fora destes limites, 33 deles com a latitude POSITIVA — o sinal de
+ * menos se perdeu no caminho e "Ribeirão Preto" (-21,17) virou 21,17, no
+ * hemisfério norte. Todos estavam em carteira ativa, prontos para entrar numa
+ * rota.
+ */
+const NO_BRASIL = (lat: number, lng: number) =>
+  lat >= -34 && lat <= 5.3 && lng >= -74 && lng <= -34.8
+
 /** Endereço com rua escrita — nem placeholder, nem o par de coordenadas cru. */
 const temRua = (end: string) => {
   const t = (end ?? '').trim()
@@ -128,6 +140,10 @@ interface ImportState {
   msg?: string
   inseridos?: number
   ignorados?: number
+  /** Coordenadas recusadas por cair fora do Brasil. */
+  coordRecusadas?: number
+  /** Coordenadas que a própria planilha repete entre endereços diferentes. */
+  coordRepetidas?: number
 }
 
 interface Props {
@@ -589,7 +605,22 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
           : 'bg-card-2 text-ink-muted flex items-center gap-2'}`}>
           {importState.status === 'parsing' && <><Spinner /> Lendo planilha…</>}
           {importState.status === 'saving' && <><Spinner /> Importando… {importState.inseridos} inseridos</>}
-          {importState.status === 'ok' && `✓ ${importState.inseridos} clientes importados${importState.ignorados ? ` · ${importState.ignorados} já existiam (ignorados)` : ''}.`}
+          {importState.status === 'ok' && (
+            <>
+              {`✓ ${importState.inseridos} clientes importados${importState.ignorados ? ` · ${importState.ignorados} já existiam (ignorados)` : ''}.`}
+              {/* Dito na hora, e não descoberto meses depois numa rota errada. */}
+              {!!importState.coordRecusadas && (
+                <span className="block text-warn font-medium mt-1">
+                  {importState.coordRecusadas} coordenada(s) da planilha caíam fora do Brasil e não foram gravadas — esses clientes ficam em &quot;Sem GPS&quot;.
+                </span>
+              )}
+              {!!importState.coordRepetidas && (
+                <span className="block text-warn font-medium mt-1">
+                  {importState.coordRepetidas} coordenada(s) se repetem entre endereços diferentes na planilha — marcadas como aproximadas.
+                </span>
+              )}
+            </>
+          )}
           {importState.status === 'error' && importState.msg}
         </div>
       )}
@@ -1071,6 +1102,42 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
         status_atualizacao: val(r, c.stat) === 'Cliente Atualizado' ? 'Cliente Atualizado' : 'Cliente não atualizado',
       }))
 
+      // --- Sanidade das coordenadas da planilha ---
+      //
+      // Esta era a porta de entrada do defeito: o import copiava lat/lng da
+      // planilha sem olhar. Foi assim que 934 clientes chegaram empilhados em
+      // 285 pontos e 36 foram parar fora do Brasil — o app nunca os tocou
+      // (created_at == updated_at), vieram prontos daqui.
+      //
+      // Duas checagens, ambas sobre o que a PRÓPRIA planilha mostra, sem
+      // adivinhar nada:
+      //  1. Coordenada fora do Brasil não é gravada. Um pino no hemisfério
+      //     norte é pior que pino nenhum: sem coordenada o cliente aparece em
+      //     "Sem GPS" e alguém conserta; com ela, entra numa rota.
+      //  2. Coordenada que se repete entre clientes de ENDEREÇOS diferentes é
+      //     centroide de região, não porta de ninguém — entra marcada como
+      //     aproximada, e a tela avisa.
+      //
+      // O que sobra fica com origem NULL de propósito: a planilha não diz de
+      // onde veio a coordenada, e carimbar 'exata' seria afirmar o que ninguém
+      // verificou.
+      const chave = (l: typeof linhas[number]) => `${l.lat},${l.lng}`
+      const repetidas = new Map<string, Set<string>>()
+      for (const l of linhas) {
+        if (l.lat == null || l.lng == null) continue
+        const enderecos = repetidas.get(chave(l)) ?? new Set<string>()
+        enderecos.add(l.endereco_completo.trim().toLowerCase())
+        repetidas.set(chave(l), enderecos)
+      }
+      let coordRecusadas = 0, coordRepetidas = 0
+      for (const l of linhas as (typeof linhas[number] & { coordenada_origem: string | null })[]) {
+        l.coordenada_origem = null
+        if (l.lat == null || l.lng == null) continue
+        if (!NO_BRASIL(l.lat, l.lng)) { l.lat = null; l.lng = null; coordRecusadas++; continue }
+        // Mais de um endereço distinto no mesmo ponto: é região, não porta.
+        if ((repetidas.get(chave(l))?.size ?? 0) > 1) { l.coordenada_origem = 'aproximada'; coordRepetidas++ }
+      }
+
       setImportState({ status: 'saving', inseridos: 0 })
       const supabase = createClient()
       let inseridos = 0
@@ -1090,7 +1157,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
           detalhes: { quantidade: inseridos, ignorados: linhas.length - inseridos },
         })
       }
-      setImportState({ status: 'ok', inseridos, ignorados: linhas.length - inseridos })
+      setImportState({ status: 'ok', inseridos, ignorados: linhas.length - inseridos, coordRecusadas, coordRepetidas })
       router.refresh()
     } catch (e) {
       setImportState({ status: 'error', msg: (e as Error).message })

@@ -47,6 +47,13 @@ export interface ClienteSelecionado {
   cidade: string
   bairro: string
   consultor_nome: string
+  /**
+   * Viaja junto até `rotas.stops` de propósito: a parada guarda um *snapshot*,
+   * e quem abre a rota no dia precisa saber se aquele ponto é a porta do
+   * cliente ou o centro do bairro. Opcional porque as rotas salvas antes desta
+   * versão não têm o campo — ausente significa "não se sabe", não "exata".
+   */
+  coordenada_origem?: 'exata' | 'aproximada' | null
 }
 
 export const CHAVE_RADAR_ROTA = 'radar_add_to_rota'

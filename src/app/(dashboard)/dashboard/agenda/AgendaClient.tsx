@@ -216,6 +216,12 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
   const badges = (r: Rota) => (
     <div className="flex items-center gap-1.5 flex-wrap text-[10px] font-semibold">
       <span className="bg-primary/10 text-primary-lt px-1.5 py-0.5 rounded">{r.stops?.length ?? 0} cliente{(r.stops?.length ?? 0) !== 1 ? 's' : ''}</span>
+      {(r.stops ?? []).some(s => s.coordenada_origem === 'aproximada') && (
+        <span title="Esta rota tem paradas cujo ponto é o centro do bairro, não o endereço do cliente."
+          className="bg-warn-bg text-warn px-1.5 py-0.5 rounded font-medium">
+          {(r.stops ?? []).filter(s => s.coordenada_origem === 'aproximada').length} aproximada{(r.stops ?? []).filter(s => s.coordenada_origem === 'aproximada').length !== 1 ? 's' : ''}
+        </span>
+      )}
       {r.distancia_km != null && <span className="bg-card-2 text-ink-dim px-1.5 py-0.5 rounded">{r.distancia_km.toFixed(1).replace('.', ',')} km</span>}
       {r.tempo_minutos != null && <span className="bg-card-2 text-ink-dim px-1.5 py-0.5 rounded">{Math.round(r.tempo_minutos)} min</span>}
     </div>
@@ -228,6 +234,13 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
           <li key={s.seller_id} className="truncate">
             <span className="text-ink-faint">{i + 1}.</span>{' '}
             {precisaIdentificar(s.seller_nome, s.seller_id) ? `Pendente #${s.seller_id}` : s.seller_nome}
+            {/* Esta é a tela aberta no carro, na hora da visita: é o último
+                lugar onde ainda dá para o consultor saber que aquele pino é o
+                centro do bairro, e não a porta. */}
+            {s.coordenada_origem === 'aproximada' && (
+              <span title="O ponto desta parada é o centro do bairro, não o endereço do cliente."
+                className="ml-1 text-warn font-semibold">· GPS aproximado</span>
+            )}
           </li>
         ))}
       </ol>

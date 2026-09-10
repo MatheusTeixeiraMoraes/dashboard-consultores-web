@@ -14,6 +14,8 @@ export interface ClienteRadar {
   endereco_completo: string
   lat: number
   lng: number
+  /** 'aproximada' = centro do bairro. null nas linhas herdadas da importação. */
+  coordenada_origem: 'exata' | 'aproximada' | null
 }
 
 export default async function RadarPage() {
@@ -26,7 +28,7 @@ export default async function RadarPage() {
   const clientes = await buscarTudo<ClienteRadar>((opcoes, de, ate) =>
     supabase
       .from('clientes')
-      .select('seller_id, seller_nome, seller_telefone, consultor_nome, cidade, bairro, endereco_completo, lat, lng', opcoes)
+      .select('seller_id, seller_nome, seller_telefone, consultor_nome, cidade, bairro, endereco_completo, lat, lng, coordenada_origem', opcoes)
       .eq('em_carteira', true)
       .not('lat', 'is', null)
       .not('lng', 'is', null)

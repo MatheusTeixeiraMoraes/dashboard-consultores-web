@@ -36,6 +36,10 @@ export default function GerarRota({
   const semGps = selecionados.filter(c => c.lat == null || c.lng == null).length
   const pendentes = selecionados.length - roteaveis.length - semGps
   const excedeu = roteaveis.length > MAX_PARADAS_ROTA
+  // Diferente de "sem GPS" e "pendente": estes NÃO ficam de fora, entram na
+  // rota. O aviso existe porque o ponto deles é o centro do bairro, e é aqui —
+  // montando o roteiro — que dá tempo de conferir. Na porta já é tarde.
+  const aproximados = roteaveis.filter(c => c.coordenada_origem === 'aproximada')
 
   // Uma rota aceita até MAX_PARADAS_ROTA paradas; o excedente fica de fora e é
   // dito na tela, nunca cortado calado.
@@ -72,6 +76,7 @@ export default function GerarRota({
       cidade: c.cidade,
       bairro: c.bairro,
       consultor_nome: c.consultor_nome,
+      coordenada_origem: c.coordenada_origem,
     }
   }
 
@@ -142,8 +147,17 @@ export default function GerarRota({
         <div className="p-5 space-y-4">
           {/* Quem ficou de fora aparece antes de qualquer campo: é a diferença
               entre o que a pessoa marcou e o que vai virar visita. */}
-          {(semGps > 0 || pendentes > 0 || excedeu) && (
+          {(semGps > 0 || pendentes > 0 || excedeu || aproximados.length > 0) && (
             <div className="text-xs bg-warn-bg text-warn rounded-lg px-3 py-2.5 space-y-1">
+              {aproximados.length > 0 && (
+                <p>
+                  <b>{aproximados.length.toLocaleString('pt-BR')}</b>{' '}
+                  {aproximados.length === 1 ? 'parada entra' : 'paradas entram'} com{' '}
+                  <b>GPS aproximado</b> (o ponto é o centro do bairro, não o endereço):{' '}
+                  {aproximados.slice(0, 3).map(c => c.seller_nome || c.seller_id).join(', ')}
+                  {aproximados.length > 3 && ` e mais ${aproximados.length - 3}`}.
+                </p>
+              )}
               {semGps > 0 && (
                 <p>
                   <b>{semGps.toLocaleString('pt-BR')}</b> sem GPS {semGps === 1 ? 'ficou' : 'ficaram'} de fora —
