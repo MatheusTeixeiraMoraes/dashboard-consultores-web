@@ -28,11 +28,17 @@ export function distanciaKm(a: Ponto, b: Ponto): number {
  * servidor de demonstração), e por tabela o teto de "Selecionar todos" nas
  * telas que alimentam uma rota.
  *
+ * 98, não 100: `otimizarRota` monta `[partida, ...stops, chegada]` antes de
+ * chamar o OSRM, então o pedido real tem duas coordenadas a mais que o número
+ * de paradas. Com o teto em 100 paradas, o pedido saía com 101/102 pontos e o
+ * `/trip` público (que aceita até 100) recusava — bug só visível em "Selecionar
+ * todos".
+ *
  * Mora aqui porque três telas precisam do mesmo número: se ele mudar em uma e
  * não nas outras, a seleção passa do que a rota aceita e o corte acontece
  * calado, no meio do caminho.
  */
-export const MAX_PARADAS_ROTA = 100
+export const MAX_PARADAS_ROTA = 98
 
 // Um cliente selecionado em outra tela, "entregue" ao Roteirizar via
 // localStorage. Quem entrega não escreve no banco — só passa a seleção adiante
@@ -268,6 +274,12 @@ export async function otimizarRota(
   chegada?: Ponto | null,
 ): Promise<RotaOtimizada> {
   const pontos: Ponto[] = [partida, ...stops, ...(chegada ? [chegada] : [])]
+  // Barra ANTES de sair pra rede: o /trip público do OSRM recusa acima de 100
+  // coordenadas, e a mensagem dele vem crua e em inglês. As telas já limitam a
+  // seleção a MAX_PARADAS_ROTA, mas esta é a rede de segurança do serviço.
+  if (pontos.length > 100) {
+    throw new Error('Rota com paradas demais para calcular de uma vez. Reduza a seleção e monte outra rota com o restante.')
+  }
   const coords = pontos.map(p => `${p.lng},${p.lat}`).join(';')
   const params = new URLSearchParams({ source: 'first', roundtrip: 'false', overview: 'false' })
   if (chegada) params.set('destination', 'last')

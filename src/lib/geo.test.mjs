@@ -76,7 +76,14 @@ t('limpar apaga a entrega (senão ela voltaria na próxima visita à tela)', () 
 })
 
 t('o teto de paradas é um número só para todas as telas', () => {
-  assert.equal(MAX_PARADAS_ROTA, 100)
+  assert.equal(MAX_PARADAS_ROTA, 98)
+})
+
+// Regressão: otimizarRota monta [partida, ...stops, chegada] — dois pontos a
+// mais que MAX_PARADAS_ROTA. Se o teto subir sem essa conta, "Selecionar
+// todos" volta a passar do limite de 100 coordenadas do /trip público do OSRM.
+t('o teto deixa folga para partida + chegada dentro do limite do OSRM (100)', () => {
+  assert.ok(MAX_PARADAS_ROTA + 2 <= 100)
 })
 
 // Regressão: `in` acha chaves do protótipo, e a tela renderizaria uma função.
