@@ -3,6 +3,14 @@
 Varredura de leitura sobre `master` em 08/09/2026, commit base `60b90e2`.
 22 achados, divididos em 10 sessões de trabalho.
 
+**Atualizado em 11/09/2026:** dois commits (`d22e7a3`, `b311081`, sem relação com
+os achados — corrigiram lat/lng virando centro de bairro) tocaram arquivos citados
+nas sessões 01, 02, 05, 07, 08, 09 e 10. Todo `file:line` foi conferido contra o
+código atual e corrigido; nenhum achado foi resolvido por engano. A sessão 10 ganhou
+um parágrafo novo porque o volume do Nominatim mudou de verdade, não só a linha.
+Se um número de linha não bater no futuro, é sinal do mesmo tipo de deriva —
+localizar pelo trecho de código citado, não confiar cego na linha.
+
 ## Onde está cada coisa
 
 | O quê | Arquivo local | Link publicado |
@@ -26,16 +34,16 @@ causa raiz, verificar antes de declarar pronto, commit e push) — isso entra so
 
 | # | Sessão | Fecha | Tempo | Depende de |
 |---|---|---|---|---|
-| 01 | Ordem total na paginação paralela | B1 | ~1h | — |
+| 01 | Ordem total na paginação paralela | B1 | ~1h · 15 arquivos | — |
 | 02 | Faxina: quatro correções pontuais | B2 · B8 · B9 · R11 | ~40min | — |
 | 03 | A casca: faixa de delegação, gaveta e rolagem | B3 · R8 · V1 | ~1h | — |
 | 04 | Camada de mapa: cor dos pinos e corrida no Leaflet | B4 · B6 | ~1h | — |
 | 05 | Componente Modal, e migrar os seis existentes | R3 | ~1h30 | — |
 | 06 | Zerar o ESLint | B5 | ~45min | **sessão 04** |
-| 07 | Breakpoints: a tela cresce e o card encolhe | R1 · R2 | ~1h30 | — |
-| 08 | Acabamento de responsividade, tela por tela | R4 · R5 · R6 · R7 · R9 · R10 · R12 | ~1h30 | **sessão 07** |
+| 07 | Breakpoints: a tela cresce e o card encolhe | R1 · R2 | ~1h30 · 9 grades | — |
+| 08 | Acabamento de responsividade, tela por tela | R4 · R5 · R6 · R7 · R9 · R10 · R12 | ~1h30 · 7 itens | **sessão 07** |
 | 09 | Barra de filtros de Clientes | R13 | ~45min | sessão 07 |
-| 10 | Nominatim: decidir antes de implementar | B7 | a definir | — |
+| 10 | Nominatim: decidir antes de implementar | B7 | decisão + implementação | — |
 
 **Se você só tem uma tarde:** 01 + 02 + 03. ~2h40, fecham 8 dos 22 achados,
 incluindo três dos quatro de alta prioridade.
@@ -64,7 +72,7 @@ chamada que a aplica. Os outros não.
 
 Só morde acima de 1000 linhas. A tabela `clientes` tem ~3.200 (4 páginas) e é lida
 em 6 telas. O gatilho real é o botão "Geocodar sem GPS"
-(ClientesClient.tsx:400), que faz centenas de UPDATE e muda a ordem física do heap.
+(ClientesClient.tsx:472), que faz centenas de UPDATE e muda a ordem física do heap.
 
 O que fazer:
 
@@ -109,10 +117,10 @@ as três telas.
 São quatro coisas isoladas, sem interação entre si. Fazer uma de cada vez, com um
 commit por item.
 
-1. src/lib/geo.ts:35 — MAX_PARADAS_ROTA = 100, mas otimizarRota (geo.ts:239) monta
+1. src/lib/geo.ts:35 — MAX_PARADAS_ROTA = 100, mas otimizarRota (geo.ts:270) monta
    [partida, ...stops, chegada] = 101 ou 102 coordenadas, e o /trip do OSRM público
    aceita 100. Ou seja: o botão "Selecionar todos (100)" que Clientes
-   (ClientesClient.tsx:575) e Roteirizar (RoteirizarClient.tsx:213) oferecem é
+   (ClientesClient.tsx:675) e Roteirizar (RoteirizarClient.tsx:214) oferecem é
    exatamente o caso que falha, e o usuário recebe a mensagem crua do OSRM em inglês.
    Baixar para 98 e barrar pontos.length > 100 DENTRO de otimizarRota, antes de sair
    pra rede, com mensagem em português. Acrescentar teste em src/lib/geo.test.mjs
@@ -271,9 +279,9 @@ Depois migrar em fatias, UM modal por vez, conferindo cada um no navegador antes
 passar pro próximo:
   1. UsuariosClient.tsx:800  (começar por este — é o que está quebrado)
   2. UsuariosClient.tsx:619
-  3. ClientesClient.tsx:826
-  4. ClientesClient.tsx:922
-  5. GerarRota.tsx:133
+  3. ClientesClient.tsx:936
+  4. ClientesClient.tsx:1032
+  5. GerarRota.tsx:138
   6. QuedaTpvClient.tsx:765
 
 ATENÇÃO ao testar o item 1: o banco é o de PRODUÇÃO e o modo demo bloqueia a rota de
@@ -351,7 +359,7 @@ sm:grid-cols-2 xl:grid-cols-3 (:486):
 
 RadarClient.tsx:223 tem o mesmo desenho.
 
-Grades afetadas: clientes/ClientesClient.tsx:594 · acionaveis/AcionaveisClient.tsx:167
+Grades afetadas: clientes/ClientesClient.tsx:694 · acionaveis/AcionaveisClient.tsx:167
 · carteira/CarteiraClient.tsx:142 · metas/MetasClient.tsx:253 ·
 upload/UploadClient.tsx:246 e :251 · roteirizar/RoteirizarClient.tsx:486 ·
 queda-tpv/QuedaTpvClient.tsx:899.
@@ -386,12 +394,12 @@ DevTools em 360px e 768px, com commit separado por item.
    Pôr flex-wrap no grupo e empilhar abaixo de sm. Considerar também overflow-x:clip
    no main como rede de segurança — hoje não existe nenhuma em lugar nenhum.
 
-2. AgendaClient.tsx:402 — `grid grid-cols-3` sem breakpoint nenhum, com text-3xl
+2. AgendaClient.tsx:415 — `grid grid-cols-3` sem breakpoint nenhum, com text-3xl
    dentro (o KPI, linha 33). Em 360px cada célula tem ~64px de texto útil, e
    "Km percorridos" com "1.234,5 km" não cabe. É a ÚNICA grade do app sem variante
    responsiva: todas as outras telas usam grid-cols-2 lg:grid-cols-4. Alinhar.
 
-3. AgendaClient.tsx:426 — grid-cols-2 md:grid-cols-4 xl:grid-cols-7. Em md a área útil
+3. AgendaClient.tsx:439 — grid-cols-2 md:grid-cols-4 xl:grid-cols-7. Em md a área útil
    é 480px ÷ 4 = ~110px por dia, com cartão de rota (nome, paradas, ações) dentro.
    Pular o passo de 4 colunas, ou trocar por rolagem horizontal abaixo de xl.
 
@@ -408,12 +416,12 @@ DevTools em 360px e 768px, com commit separado por item.
 
 6. Alvos de toque. BotaoContato.tsx padroniza 40px e explica por quê ("são os botões
    que a pessoa usa NA RUA, com o celular na mão"). Fora dele o padrão não pegou:
-   - ClientesClient.tsx:613 — caixa de seleção do card em 16px. É o gesto principal
+   - ClientesClient.tsx:715 — caixa de seleção do card em 16px. É o gesto principal
      pra montar rota em campo.
-   - ClientesClient.tsx:663 — "sem GPS · geocodar", text-[11px] sem padding
-   - AgendaClient.tsx:358-363 — "Refazer / Renomear / Excluir" colados, sem área
+   - ClientesClient.tsx:767 — "sem GPS · geocodar", text-[11px] sem padding
+   - AgendaClient.tsx:373-376 — "Refazer / Renomear / Excluir" colados, sem área
      clicável, e um deles é destrutivo
-   - AgendaClient.tsx:415 e :419 — setas ‹ › da semana em 32px
+   - AgendaClient.tsx:428 e :432 — setas ‹ › da semana em 32px
    Crescer a ÁREA sem mexer no desenho: p-2 -m-2 nos links de texto, e um <label>
    envolvente na caixa de seleção.
 
@@ -436,7 +444,7 @@ me fale antes.
 ```text
 [BUGFIX] A barra de filtros de Clientes ocupa 5 linhas no celular
 
-ClientesClient.tsx:542-577 tem campo de busca + até sete MultiFiltro + "Só pendentes"
+ClientesClient.tsx:643-677 tem campo de busca + até sete MultiFiltro + "Só pendentes"
 + "Limpar filtros" + "Selecionar todos". Com flex-wrap nada estoura, mas empilha em
 4-5 linhas antes do primeiro cliente aparecer: no celular a lista, que é o que a
 pessoa abriu a tela pra ver, começa fora do campo de visão.
@@ -471,19 +479,36 @@ Conferir também que o contador bate com o número de filtros de fato aplicados.
 
 Não quero código ainda. Quero a decisão.
 
-ClientesClient.tsx:400 (geocodarEmMassa) percorre a lista inteira de clientes sem GPS
-a 1 requisição por 1,1s contra nominatim.openstreetmap.org. Com algumas centenas de
-clientes isso é meia hora de requisições seguidas do mesmo IP, e a política de uso do
-Nominatim veta geocodificação em massa.
+Antes de ler o resto: os commits d22e7a3 e b311081 (10/09/2026) mudaram geocodarEmMassa
+depois que esta pergunta foi escrita. Ler ClientesClient.tsx e geo.ts inteiros para
+confirmar que a descrição abaixo ainda bate antes de responder — se algo mudou de novo,
+me avisar em vez de responder em cima do que está desatualizado.
 
-Se o IP for bloqueado, geocodar() devolve null pelo catch (geo.ts:125) e a tela apenas
-diz que não achou. A falha vira "o endereço é ruim" e ninguém descobre que é bloqueio
-— e a função para de funcionar pra todo mundo, calada.
+O que era verdade em 10/09: geocodarEmMassa (ClientesClient.tsx) percorre uma lista de
+clientes a 1 requisição por 1,1s contra nominatim.openstreetmap.org, e agora é chamada
+para DUAS categorias: "sem GPS" (lat/lng nulos) e "aproximados" (coordenada é centro de
+bairro, coordenada_origem = 'aproximada' — ver a migration 2026-09-10_coordenada_origem
+e a memória "coordenada-cliente-centroide-de-bairro"). Isso não reduziu o problema,
+aumentou: o lote elegível ficou maior que quando esta pergunta foi escrita — a
+memória registra 725 clientes só na categoria "aproximados".
+Com algumas centenas de clientes isso é meia hora de requisições seguidas do mesmo IP,
+e a política de uso do Nominatim veta geocodificação em massa.
+
+Se o IP for bloqueado, geocodar() devolve null pelo catch e a tela apenas diz que não
+achou. A falha vira "o endereço é ruim" e ninguém descobre que é bloqueio — e a função
+para de funcionar pra todo mundo, calada.
+
+Uma fatia do problema JÁ foi resolvida de graça pelos dois commits: geocodar() agora
+tem um atalho (coordenadaNoTexto, geo.ts) que reconhece quando endereco_completo já É
+um par de coordenadas e devolve na hora, sem chamar Nominatim nenhum. Isso não muda a
+decisão a seguir — o volume que ainda precisa buscar por TEXTO continua grande —, mas
+conferir se esse atalho já cobre uma fatia relevante do lote "aproximados" antes de
+apresentar as opções.
 
 Me apresenta as opções com custo e esforço de cada uma — manter o Nominatim com lote
-menor, migrar o lote pro Photon (que já está lá como reserva, geo.ts:128), um provedor
-pago, ou mover pro servidor com fila —, a sua recomendação com o porquê, e o que muda
-na tela em cada caso.
+menor, migrar o lote pro Photon (que já está lá como reserva), um provedor pago, ou
+mover pro servidor com fila —, a sua recomendação com o porquê, e o que muda na tela em
+cada caso.
 
 Depois que eu escolher, implementamos junto com duas coisas que valem em qualquer
 cenário:
@@ -495,5 +520,6 @@ cenário:
 
 ---
 
-_Gerado a partir do relatório de auditoria. Nenhum arquivo de `src/` foi alterado
-na sessão que produziu este documento._
+_Gerado a partir do relatório de auditoria, extraído automaticamente do HTML
+publicado (não redigitado). Nenhum arquivo de `src/` foi alterado ao gerar ou
+atualizar este documento._
