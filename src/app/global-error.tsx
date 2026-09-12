@@ -26,7 +26,7 @@ export default function ErroGlobal({
     <html lang="pt-BR" className="h-full">
       <body className="h-full antialiased">
         <title>Erro — Inovva Group</title>
-        <main className="min-h-screen flex items-center justify-center p-6">
+        <main className="min-h-dvh flex items-center justify-center p-6">
           <div className="glass rounded-2xl border border-line p-10 text-center max-w-md">
             <p className="font-semibold text-ink">O aplicativo não conseguiu iniciar</p>
             <p className="text-sm text-ink-muted mt-1">

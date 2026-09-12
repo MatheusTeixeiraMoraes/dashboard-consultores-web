@@ -31,7 +31,7 @@ export default function ErroRaiz({
   }, [error])
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
+    <main className="min-h-dvh flex items-center justify-center p-6">
       <div className="glass rounded-2xl border border-line p-10 text-center max-w-md">
         <div className="w-14 h-14 rounded-2xl bg-bad-bg flex items-center justify-center mx-auto mb-4">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--color-bad)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

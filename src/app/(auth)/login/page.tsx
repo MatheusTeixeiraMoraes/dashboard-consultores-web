@@ -23,7 +23,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-dvh flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
 
         {/* Aqui a logo COMPLETA (com o nome), não só o símbolo: é a única tela

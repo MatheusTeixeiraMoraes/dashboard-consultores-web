@@ -26,7 +26,7 @@ export default async function ConvitePage({ params }: { params: Promise<{ token:
   const problema = !convite ? 'Link inválido.' : estado !== 'valido' ? MOTIVO[estado!] : null
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-dvh flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <Image
