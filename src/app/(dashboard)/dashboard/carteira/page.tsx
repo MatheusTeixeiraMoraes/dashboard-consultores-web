@@ -65,7 +65,7 @@ export default async function CarteiraPage() {
   // Histórico de dono por seller — só as 3 colunas que a comparação usa, e só
   // dos snapshots que ela vai olhar.
   //
-  // O `.order()` NÃO é enfeite: `buscarTudo` dispara as páginas em paralelo, e
+  // `ordenarPor` NÃO é enfeite: `buscarTudo` dispara as páginas em paralelo, e
   // sem ORDER BY o Postgres não garante ordem estável entre OFFSET/LIMIT
   // independentes — dá para uma linha aparecer em duas páginas e outra em
   // nenhuma, corrompendo o diff em silêncio. `(data_referencia, seller_id)` é
@@ -74,14 +74,13 @@ export default async function CarteiraPage() {
   // aparece uma vez em cada snapshot.
   const alvos = [datas.atual, datas.anterior].filter((d): d is string => !!d)
   const linhas: LinhaCarteira[] = alvos.length
-    ? await buscarTudo<LinhaCarteira>((opcoes, de, ate) =>
-        supabase
-          .from('mp_carteira')
-          .select('seller_id, consultor_nome, data_referencia', opcoes)
-          .in('data_referencia', alvos)
-          .order('data_referencia', { ascending: true })
-          .order('seller_id', { ascending: true })
-          .range(de, ate),
+    ? await buscarTudo<LinhaCarteira>(
+        opcoes =>
+          supabase
+            .from('mp_carteira')
+            .select('seller_id, consultor_nome, data_referencia', opcoes)
+            .in('data_referencia', alvos),
+        [{ coluna: 'data_referencia', ascending: true }, { coluna: 'seller_id', ascending: true }],
       )
     : []
 

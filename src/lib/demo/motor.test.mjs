@@ -110,8 +110,9 @@ await ta('gte/lte filtram faixa de datas', async () => {
 console.log('\n— o helper buscarTudo (paginação real das telas de carteira) —')
 
 await ta('buscarTudo traz TODAS as linhas, não só as 1000 da 1ª página', async () => {
-  const tudo = await buscarTudo((opcoes, de, ate) =>
-    supabase.from('mp_carteira').select('seller_id, consultor_nome, data_referencia', opcoes).range(de, ate),
+  const tudo = await buscarTudo(
+    opcoes => supabase.from('mp_carteira').select('seller_id, consultor_nome, data_referencia', opcoes),
+    ['data_referencia', 'seller_id'],
   )
   const total = (await supabase.from('mp_carteira').select('*', { count: 'exact', head: true })).count
   assert.equal(tudo.length, total, 'buscarTudo perdeu linhas na paginação')
@@ -137,17 +138,20 @@ await ta('Visão Geral', async () => {
     'geral/resultados',
   )
 
-  const clientes = await buscarTudo((o, de, ate) =>
-    supabase.from('clientes').select('consultor_nome, seller_nome, seller_id', o)
-      .eq('em_carteira', true).range(de, ate))
+  const clientes = await buscarTudo(
+    o => supabase.from('clientes').select('consultor_nome, seller_nome, seller_id', o).eq('em_carteira', true),
+    'seller_id',
+  )
   assert.ok(clientes.length > 0, 'geral/clientes vazio')
 })
 
 await ta('Clientes', async () => {
-  const clientes = await buscarTudo((o, de, ate) =>
-    supabase.from('clientes').select(
+  const clientes = await buscarTudo(
+    o => supabase.from('clientes').select(
       'id, consultor_nome, seller_id, seller_nome, seller_telefone, seller_email, doc_tipo, cpf_cnpj, cidade, bairro, endereco_completo, lat, lng, status_atualizacao', o)
-      .eq('em_carteira', true).order('seller_nome', { ascending: true }).range(de, ate))
+      .eq('em_carteira', true),
+    [{ coluna: 'seller_nome', ascending: true }, 'seller_id'],
+  )
   assert.ok(clientes.length > 0, 'clientes vazio')
 
   const mp = await supabase.from('mp_carteira').select('data_referencia')
@@ -161,10 +165,12 @@ await ta('Clientes', async () => {
 })
 
 await ta('Radar e Roteirizar (só quem tem GPS)', async () => {
-  const comGeo = await buscarTudo((o, de, ate) =>
-    supabase.from('clientes').select(
+  const comGeo = await buscarTudo(
+    o => supabase.from('clientes').select(
       'seller_id, seller_nome, seller_telefone, consultor_nome, cidade, bairro, endereco_completo, lat, lng', o)
-      .eq('em_carteira', true).not('lat', 'is', null).not('lng', 'is', null).range(de, ate))
+      .eq('em_carteira', true).not('lat', 'is', null).not('lng', 'is', null),
+    'seller_id',
+  )
   assert.ok(comGeo.length > 0, 'radar vazio — o mapa abriria sem pino')
   assert.ok(comGeo.every(c => typeof c.lat === 'number' && typeof c.lng === 'number'))
 })
@@ -173,15 +179,18 @@ await ta('Acionáveis', async () => {
   const dataRef = (await supabase.from('mp_carteira').select('data_referencia')
     .order('data_referencia', { ascending: false }).limit(1).maybeSingle()).data.data_referencia
 
-  const carteira = await buscarTudo((o, de, ate) =>
-    supabase.from('mp_carteira').select(
+  const carteira = await buscarTudo(
+    o => supabase.from('mp_carteira').select(
       'seller_id, consultor_nome, status, quartil, prio, tpv_mes_atual, tpv_mes_passado, status_credito, mcc, recorrencia, ultimo_contato, valor_1x, valor_parc, qtd_acionaveis', o)
-      .eq('data_referencia', dataRef).order('prio', { ascending: true, nullsFirst: false }).range(de, ate))
+      .eq('data_referencia', dataRef),
+    [{ coluna: 'prio', ascending: true, nullsFirst: false }, 'seller_id'],
+  )
   assert.ok(carteira.length > 0, 'acionaveis/carteira vazio')
 
-  const acionaveis = await buscarTudo((o, de, ate) =>
-    supabase.from('mp_acionaveis').select('seller_id, acionavel, consultor_nome', o)
-      .eq('data_referencia', dataRef).range(de, ate))
+  const acionaveis = await buscarTudo(
+    o => supabase.from('mp_acionaveis').select('seller_id, acionavel, consultor_nome', o).eq('data_referencia', dataRef),
+    ['seller_id', 'acionavel'],
+  )
   assert.ok(acionaveis.length > 0, 'acionaveis vazio — a fila abriria sem tarefa')
 })
 

@@ -25,14 +25,17 @@ export default async function RadarPage() {
   const supabase = await createClient()
 
   // Só clientes com coordenada entram no Radar. RLS escopa por papel/nome.
-  const clientes = await buscarTudo<ClienteRadar>((opcoes, de, ate) =>
-    supabase
-      .from('clientes')
-      .select('seller_id, seller_nome, seller_telefone, consultor_nome, cidade, bairro, endereco_completo, lat, lng, coordenada_origem', opcoes)
-      .eq('em_carteira', true)
-      .not('lat', 'is', null)
-      .not('lng', 'is', null)
-      .range(de, ate),
+  // `seller_id` como ordem: é `unique` em `clientes` (2026-07-15_clientes_carteira.sql),
+  // então basta ele para a ordem TOTAL que buscarTudo exige.
+  const clientes = await buscarTudo<ClienteRadar>(
+    opcoes =>
+      supabase
+        .from('clientes')
+        .select('seller_id, seller_nome, seller_telefone, consultor_nome, cidade, bairro, endereco_completo, lat, lng, coordenada_origem', opcoes)
+        .eq('em_carteira', true)
+        .not('lat', 'is', null)
+        .not('lng', 'is', null),
+    'seller_id',
   )
 
   const podeVerTodos = profile.role === 'admin' || profile.role === 'dono' || profile.role === 'lider'

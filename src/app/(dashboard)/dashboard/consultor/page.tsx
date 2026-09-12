@@ -59,9 +59,12 @@ export default async function ConsultorPage() {
       .eq('data_referencia', latestDate),
     // Busca todo mundo de uma vez (admin/dono/lider veem tudo via RLS) e conta
     // por consultor no servidor, em vez de uma ida por consultor selecionado.
+    // Filtrado num único `data_referencia`, `seller_id` sozinho já é ordem
+    // TOTAL — mesmo sem estar entre as colunas selecionadas.
     dataCarteira
-      ? buscarTudo<{ consultor_nome: string }>((opcoes, de, ate) =>
-          supabase.from('mp_carteira').select('consultor_nome', opcoes).eq('data_referencia', dataCarteira).range(de, ate),
+      ? buscarTudo<{ consultor_nome: string }>(
+          opcoes => supabase.from('mp_carteira').select('consultor_nome', opcoes).eq('data_referencia', dataCarteira),
+          'seller_id',
         )
       : Promise.resolve([]),
     supabase.from('metas_acionaveis_faixas').select('min_carteira, meta_tarefas'),

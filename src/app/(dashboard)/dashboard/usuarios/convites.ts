@@ -57,17 +57,25 @@ export async function listarConsultoresDaPlanilha(): Promise<{
     // O score é a fonte boa: única que traz nome E id_carteira na mesma linha.
     // `clientes` entra por cima para quem tem carteira de campo mas ainda não
     // pontuou — esse fica sem id_carteira, e a tela avisa.
+    // `score_consultor_resultados` não tem `unique` declarado além de `id`
+    // (supabase/schema.sql) — sem uma coluna de negócio garantidamente única
+    // aqui, o desempate é o `id` (chave primária) mesmo, para não chutar.
     const doScore = latestDate
-      ? await buscarTudo<{ consultor_nome: string; id_carteira: string }>((opcoes, de, ate) =>
-          supabase
-            .from('score_consultor_resultados')
-            .select('consultor_nome, id_carteira', opcoes)
-            .eq('data_referencia', latestDate)
-            .range(de, ate),
+      ? await buscarTudo<{ consultor_nome: string; id_carteira: string }>(
+          opcoes =>
+            supabase
+              .from('score_consultor_resultados')
+              .select('consultor_nome, id_carteira', opcoes)
+              .eq('data_referencia', latestDate),
+          'id',
         )
       : []
-    const dosClientes = await buscarTudo<{ consultor_nome: string }>((opcoes, de, ate) =>
-      supabase.from('clientes').select('consultor_nome', opcoes).eq('em_carteira', true).range(de, ate),
+    // `consultor_nome` sozinho repete (um consultor tem vários clientes) —
+    // `seller_id` é `unique` em `clientes`, ordem TOTAL mesmo sem estar
+    // entre as colunas selecionadas.
+    const dosClientes = await buscarTudo<{ consultor_nome: string }>(
+      opcoes => supabase.from('clientes').select('consultor_nome', opcoes).eq('em_carteira', true),
+      'seller_id',
     )
     const { data: perfis } = await supabase.from('profiles').select('nome')
 

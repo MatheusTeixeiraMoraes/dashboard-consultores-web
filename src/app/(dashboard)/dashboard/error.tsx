@@ -5,7 +5,7 @@ import { useEffect } from 'react'
 /**
  * Rede de segurança das 20 telas de /dashboard.
  *
- * Por que ela precisa existir: `buscarTudo` (src/lib/supabase/buscar-tudo.ts:45)
+ * Por que ela precisa existir: `buscarTudo` (src/lib/supabase/buscar-tudo.ts:134)
  * lança exceção de propósito — engolir o erro e devolver lista vazia faria a
  * tela dizer "Nenhum cliente ainda" quando o banco só falhou, que é mentira
  * pior que um erro na cara. Só que, sem NENHUM error.tsx no app, esse throw

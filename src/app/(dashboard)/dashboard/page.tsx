@@ -74,18 +74,23 @@ export default async function GeralPage() {
           .select('id_carteira, consultor_nome, pilar_key, score_planilha')
           .eq('data_referencia', latestDate)
       : Promise.resolve({ data: [] as ResultadoRow[] }),
-    buscarTudo<{ consultor_nome: string; seller_nome: string; seller_id: string }>((opcoes, de, ate) =>
-      supabase.from('clientes')
-        .select('consultor_nome, seller_nome, seller_id', opcoes)
-        .eq('em_carteira', true)
-        .range(de, ate),
+    // `seller_id` é `unique` em `clientes` — ordem TOTAL sozinho.
+    buscarTudo<{ consultor_nome: string; seller_nome: string; seller_id: string }>(
+      opcoes =>
+        supabase.from('clientes')
+          .select('consultor_nome, seller_nome, seller_id', opcoes)
+          .eq('em_carteira', true),
+      'seller_id',
     ),
+    // Filtrado num único `data_referencia`: `seller_id` sozinho já é ordem
+    // TOTAL aqui (o `unique` da tabela é `data_referencia + seller_id`).
     dataCarteira
-      ? buscarTudo<{ consultor_nome: string; tpv_mes_atual: number | null; status: string | null }>((opcoes, de, ate) =>
-          supabase.from('mp_carteira')
-            .select('consultor_nome, tpv_mes_atual, status', opcoes)
-            .eq('data_referencia', dataCarteira)
-            .range(de, ate),
+      ? buscarTudo<{ consultor_nome: string; tpv_mes_atual: number | null; status: string | null }>(
+          opcoes =>
+            supabase.from('mp_carteira')
+              .select('consultor_nome, tpv_mes_atual, status', opcoes)
+              .eq('data_referencia', dataCarteira),
+          'seller_id',
         )
       : Promise.resolve([]),
     supabase.from('score_geral_faixas').select('limite_critico, meta_objetivo').maybeSingle(),

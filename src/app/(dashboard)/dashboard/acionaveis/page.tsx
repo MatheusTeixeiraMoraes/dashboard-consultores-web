@@ -56,20 +56,26 @@ export default async function AcionaveisPage() {
    * Como `buscarTudo` já custa duas ondas de rede cada, isso era uma onda
    * inteira de graça em toda abertura da tela. */
   const [carteira, acoes, cadastro] = await Promise.all([
-    buscarTudo<CarteiraMP>((opcoes, de, ate) =>
-      supabase
-        .from('mp_carteira')
-        .select('seller_id, consultor_nome, status, quartil, prio, tpv_mes_atual, tpv_mes_passado, status_credito, mcc, ultimo_contato, valor_1x, valor_parc, qtd_acionaveis', opcoes)
-        .eq('data_referencia', dataReferencia)
-        .order('prio', { ascending: true, nullsFirst: false })
-        .range(de, ate),
+    // `prio` empata em massa (ranking dentro do quartil, e nulo entra por
+    // último) — filtrado num único `data_referencia`, `seller_id` como
+    // desempate já fecha a ordem TOTAL.
+    buscarTudo<CarteiraMP>(
+      opcoes =>
+        supabase
+          .from('mp_carteira')
+          .select('seller_id, consultor_nome, status, quartil, prio, tpv_mes_atual, tpv_mes_passado, status_credito, mcc, ultimo_contato, valor_1x, valor_parc, qtd_acionaveis', opcoes)
+          .eq('data_referencia', dataReferencia),
+      [{ coluna: 'prio', ascending: true, nullsFirst: false }, 'seller_id'],
     ),
-    buscarTudo<{ seller_id: string; acionavel: string; consultor_nome: string }>((opcoes, de, ate) =>
-      supabase
-        .from('mp_acionaveis')
-        .select('seller_id, acionavel, consultor_nome', opcoes)
-        .eq('data_referencia', dataReferencia)
-        .range(de, ate),
+    // Um seller tem várias linhas aqui (uma por acionável) — filtrado num
+    // único `data_referencia`, o `unique` da tabela vira `(seller_id, acionavel)`.
+    buscarTudo<{ seller_id: string; acionavel: string; consultor_nome: string }>(
+      opcoes =>
+        supabase
+          .from('mp_acionaveis')
+          .select('seller_id, acionavel, consultor_nome', opcoes)
+          .eq('data_referencia', dataReferencia),
+      ['seller_id', 'acionavel'],
     ),
     // Identificação do cliente: a Planilha Geral só traz o ID SELLER. Buscamos
     // nome e telefone na base de rotas APENAS para exibir — nada é escrito lá, e
@@ -78,12 +84,13 @@ export default async function AcionaveisPage() {
     // faria cliente sem reconciliar perder nome/telefone e cair para o ID cru.
     // `lat`/`lng` entram só como sim/não: o botão "Montar rota" precisa saber
     // quem tem coordenada, senão manda para o Roteirizar quem não vira parada.
+    // `seller_id` é `unique` em `clientes` — ordem TOTAL sozinho.
     buscarTudo<{ seller_id: string; seller_nome: string; seller_telefone: string | null; cidade: string; bairro: string; lat: number | null; lng: number | null }>(
-      (opcoes, de, ate) =>
+      opcoes =>
         supabase
           .from('clientes')
-          .select('seller_id, seller_nome, seller_telefone, cidade, bairro, lat, lng', opcoes)
-          .range(de, ate),
+          .select('seller_id, seller_nome, seller_telefone, cidade, bairro, lat, lng', opcoes),
+      'seller_id',
     ),
   ])
 

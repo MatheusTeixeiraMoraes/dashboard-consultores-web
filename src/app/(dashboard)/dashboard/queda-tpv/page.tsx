@@ -68,15 +68,17 @@ export default async function QuedaTpvPage() {
    * badge de tendência de 3 meses (que já vêm de `linhas`, sem custo extra)
    * contam a mesma história de tendência sem pagar essa busca. */
   const [linhas, cadastro, acoes] = await Promise.all([
-    buscarTudo<LinhaTPV>((opcoes, de, ate) =>
-      supabase
-        .from('mp_carteira')
-        .select(
-          'seller_id, consultor_nome, status, mcc, tpv_mes_atual, tpv_mes_passado, ultimo_contato, oportunidade_1x, valor_1x, ating_1x, revertido_1x, oportunidade_parc, valor_parc, ating_parc, revertido_parc, tpv_outras_contas, pesquisa_recente, tpv_mesma_data_mes_passado, tpv_m2, tpv_m3, dias_sem_transacionar, tpv_m3_vs_m1, tpv_m2_vs_m1, tpv_m0_vs_mesma_data',
-          opcoes,
-        )
-        .eq('data_referencia', dataReferencia)
-        .range(de, ate),
+    // Filtrado num único `data_referencia`, `seller_id` sozinho já é ordem TOTAL.
+    buscarTudo<LinhaTPV>(
+      opcoes =>
+        supabase
+          .from('mp_carteira')
+          .select(
+            'seller_id, consultor_nome, status, mcc, tpv_mes_atual, tpv_mes_passado, ultimo_contato, oportunidade_1x, valor_1x, ating_1x, revertido_1x, oportunidade_parc, valor_parc, ating_parc, revertido_parc, tpv_outras_contas, pesquisa_recente, tpv_mesma_data_mes_passado, tpv_m2, tpv_m3, dias_sem_transacionar, tpv_m3_vs_m1, tpv_m2_vs_m1, tpv_m0_vs_mesma_data',
+            opcoes,
+          )
+          .eq('data_referencia', dataReferencia),
+      'seller_id',
     ),
     // Nome e telefone vêm da base de rotas só para exibir — as duas bases seguem
     // separadas, nada é escrito de volta.
@@ -86,15 +88,21 @@ export default async function QuedaTpvPage() {
     // Filtrar aqui por `em_carteira` é outro critério — cliente tirado da
     // carteira à mão, ou snapshot ainda não reconciliado, perderia nome e
     // telefone e voltaria a aparecer pelo ID cru.
+    // `seller_id` é `unique` em `clientes` — ordem TOTAL sozinho.
     buscarTudo<{ seller_id: string; seller_nome: string; seller_telefone: string | null; cidade: string; bairro: string }>(
-      (opcoes, de, ate) =>
-        supabase.from('clientes').select('seller_id, seller_nome, seller_telefone, cidade, bairro', opcoes).range(de, ate),
+      opcoes =>
+        supabase.from('clientes').select('seller_id, seller_nome, seller_telefone, cidade, bairro', opcoes),
+      'seller_id',
     ),
     // Quem já tem alguma ação comercial atribuída neste snapshot — a tela usa
     // isto só para sinalizar quem caiu SEM nada em andamento. A fila de
     // trabalho em si (mural por acionável) já existe em /dashboard/acionaveis.
-    buscarTudo<{ seller_id: string }>((opcoes, de, ate) =>
-      supabase.from('mp_acionaveis').select('seller_id', opcoes).eq('data_referencia', dataReferencia).range(de, ate),
+    // Um seller tem várias linhas (uma por acionável): filtrado num único
+    // `data_referencia`, o desempate vira `(seller_id, acionavel)`.
+    buscarTudo<{ seller_id: string }>(
+      opcoes =>
+        supabase.from('mp_acionaveis').select('seller_id', opcoes).eq('data_referencia', dataReferencia),
+      ['seller_id', 'acionavel'],
     ),
   ])
 

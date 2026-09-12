@@ -33,16 +33,18 @@ export default async function ClientesPage() {
     // fica no banco (com o cadastro), mas some do painel — a Planilha Geral manda.
     // Lista as colunas em vez de `select('*')`: a tela não usa created_at,
     // created_by nem updated_at, e cada lote de 1000 linhas vira payload.
-    buscarTudo<Cliente>((opcoes, de, ate) =>
-      supabase
-        .from('clientes')
-        .select(
-          'id, consultor_nome, seller_id, seller_nome, seller_telefone, seller_email, doc_tipo, cpf_cnpj, cidade, bairro, endereco_completo, lat, lng, status_atualizacao, coordenada_origem',
-          opcoes,
-        )
-        .eq('em_carteira', true)
-        .order('seller_nome', { ascending: true })
-        .range(de, ate),
+    // `seller_nome` repete (mais de um cliente pode ter o mesmo nome) —
+    // `seller_id` (unique em clientes) desempata e fecha a ordem TOTAL.
+    buscarTudo<Cliente>(
+      opcoes =>
+        supabase
+          .from('clientes')
+          .select(
+            'id, consultor_nome, seller_id, seller_nome, seller_telefone, seller_email, doc_tipo, cpf_cnpj, cidade, bairro, endereco_completo, lat, lng, status_atualizacao, coordenada_origem',
+            opcoes,
+          )
+          .eq('em_carteira', true),
+      [{ coluna: 'seller_nome', ascending: true }, 'seller_id'],
     ),
 
     // Ficha técnica vinda da Planilha Geral do MP: TPV, situação, prioridade,

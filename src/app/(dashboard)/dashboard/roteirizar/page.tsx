@@ -16,14 +16,16 @@ export default async function RoteirizarPage() {
    * tela pagaria a soma das duas (ver o mesmo raciocínio na página de Clientes). */
   const [clientes, { dataMP, fichaTecnica }] = await Promise.all([
     // Clientes geocodados da carteira (para adicionar paradas manualmente).
-    buscarTudo<ClienteRadar>((opcoes, de, ate) =>
-      supabase
-        .from('clientes')
-        .select('seller_id, seller_nome, seller_telefone, consultor_nome, cidade, bairro, endereco_completo, lat, lng, coordenada_origem', opcoes)
-        .eq('em_carteira', true)
-        .not('lat', 'is', null)
-        .not('lng', 'is', null)
-        .range(de, ate),
+    // `seller_id` como ordem: é `unique` em `clientes`, ordem TOTAL sozinho.
+    buscarTudo<ClienteRadar>(
+      opcoes =>
+        supabase
+          .from('clientes')
+          .select('seller_id, seller_nome, seller_telefone, consultor_nome, cidade, bairro, endereco_completo, lat, lng, coordenada_origem', opcoes)
+          .eq('em_carteira', true)
+          .not('lat', 'is', null)
+          .not('lng', 'is', null),
+      'seller_id',
     ),
 
     // Situação, prioridade e segmento vêm daqui: são os eixos por onde o

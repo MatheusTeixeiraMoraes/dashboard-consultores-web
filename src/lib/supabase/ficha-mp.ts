@@ -52,12 +52,14 @@ export async function carregarFichaMP(supabase: Supabase): Promise<FichaCarregad
   const fichaTecnica: Record<string, FichaMP> = {}
   if (!dataMP) return { dataMP, fichaTecnica }
 
-  const linhas = await buscarTudo<FichaMP & { seller_id: string }>((opcoes, de, ate) =>
-    supabase
-      .from('mp_carteira')
-      .select('seller_id, status, quartil, prio, tpv_mes_atual, tpv_mes_passado, status_credito, mcc, recorrencia, ultimo_contato, qtd_acionaveis', opcoes)
-      .eq('data_referencia', dataMP)
-      .range(de, ate),
+  // Filtrado num único `data_referencia`, `seller_id` sozinho já é ordem TOTAL.
+  const linhas = await buscarTudo<FichaMP & { seller_id: string }>(
+    opcoes =>
+      supabase
+        .from('mp_carteira')
+        .select('seller_id, status, quartil, prio, tpv_mes_atual, tpv_mes_passado, status_credito, mcc, recorrencia, ultimo_contato, qtd_acionaveis', opcoes)
+        .eq('data_referencia', dataMP),
+    'seller_id',
   )
   for (const m of linhas) fichaTecnica[m.seller_id] = m
 
