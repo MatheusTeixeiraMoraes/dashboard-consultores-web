@@ -40,6 +40,15 @@ export default function Shell({
     return () => document.removeEventListener('keydown', aoTeclar)
   }, [menuAberto, fechar])
 
+  // Trava a rolagem do fundo enquanto a gaveta está aberta (mobile) — sem
+  // isto o corpo da página ainda balança/rola (bounce do iOS) atrás do véu.
+  useEffect(() => {
+    if (!menuAberto) return
+    const anterior = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = anterior }
+  }, [menuAberto])
+
   return (
     <div className="flex h-full">
       {/* Não desenha nada: só mantém esta aba honesta se o modo demo mudar

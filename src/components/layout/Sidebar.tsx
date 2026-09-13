@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -173,9 +174,57 @@ export default function Sidebar({
 }) {
   const pathname = usePathname()
   const visible = NAV.filter(item => item.roles.includes(role))
+  const asideRef = useRef<HTMLElement>(null)
+
+  /* `aberto` só existe abaixo de `md` — dali pra cima a gaveta é sempre
+   * visível (md:translate-x-0 vence) e NUNCA pode virar inert: o botão que
+   * abre a gaveta é `md:hidden` (Topbar), então no desktop `aberto` não tem
+   * como virar true — se a gente aplicasse inert em cima só de `!aberto`, o
+   * menu inteiro travaria pra sempre em telas grandes.
+   */
+  const [ehGaveta, setEhGaveta] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)')
+    const atualizar = () => setEhGaveta(mq.matches)
+    atualizar()
+    mq.addEventListener('change', atualizar)
+    return () => mq.removeEventListener('change', atualizar)
+  }, [])
+
+  // Enquanto escondida atrás de -translate-x-full, a gaveta continua no DOM e
+  // focável — sem isto o Tab percorre até 15 links invisíveis antes de chegar
+  // no conteúdo. `inert` é suportado nativamente pelo React 19.
+  const inerte = ehGaveta && !aberto
+
+  // Prende o foco DENTRO da gaveta enquanto aberta — sem isto o Tab escapa
+  // pro conteúdo atrás do véu, que devia estar inacessível enquanto ela cobre
+  // a tela.
+  useEffect(() => {
+    if (!aberto || !ehGaveta) return
+    const aside = asideRef.current
+    if (!aside) return
+    const focaveis = () => Array.from(aside.querySelectorAll<HTMLElement>('a[href], button:not(:disabled)'))
+    focaveis()[0]?.focus()
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return
+      const els = focaveis()
+      if (els.length === 0) return
+      const primeiro = els[0]
+      const ultimo = els[els.length - 1]
+      if (e.shiftKey && document.activeElement === primeiro) {
+        e.preventDefault(); ultimo.focus()
+      } else if (!e.shiftKey && document.activeElement === ultimo) {
+        e.preventDefault(); primeiro.focus()
+      }
+    }
+    document.addEventListener('keydown', aoTeclar)
+    return () => document.removeEventListener('keydown', aoTeclar)
+  }, [aberto, ehGaveta])
 
   return (
     <aside
+      ref={asideRef}
+      inert={inerte}
       className={`fixed left-0 top-0 h-full w-60 bg-shell backdrop-blur-xl flex flex-col z-40 border-r border-line
         transition-transform duration-200 ease-out md:translate-x-0
         ${aberto ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}`}
