@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { voltarParaMinhaConta } from '@/app/(dashboard)/dashboard/usuarios/delegacao'
 import { delegacaoNoCookie } from '@/lib/delegacao'
@@ -20,6 +20,27 @@ export default function BarraDelegacao({ adminNome, alvoNome, registroId }: {
   const router = useRouter()
   const [pendente, iniciar] = useTransition()
   const [erro, setErro] = useState<string | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
+
+  /* Publica a própria altura em `--delegacao-h`, na raiz do documento — é
+   * como o resto do app (o `main` da casca, e as barras de ação fixas de
+   * Clientes/Acionáveis/Radar) sabe quanto espaço reservar embaixo pra não
+   * ficar por baixo desta faixa. A altura varia (o texto quebra em 2 linhas
+   * em tela estreita), daí o ResizeObserver em vez de medir só uma vez.
+   * Some ao desmontar: sem isso a última medida ficaria presa mesmo depois
+   * que a delegação termina. */
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const publicar = () => document.documentElement.style.setProperty('--delegacao-h', `${el.offsetHeight}px`)
+    publicar()
+    const ro = new ResizeObserver(publicar)
+    ro.observe(el)
+    return () => {
+      ro.disconnect()
+      document.documentElement.style.removeProperty('--delegacao-h')
+    }
+  }, [])
 
   /* Conserta a divergência entre abas.
    *
@@ -49,6 +70,7 @@ export default function BarraDelegacao({ adminNome, alvoNome, registroId }: {
      e o safe-area cobre o gesto de home do iPhone. */
   return (
     <div
+      ref={ref}
       className="fixed bottom-0 left-0 right-0 z-50 bg-warn-fill text-white px-4 py-2 flex items-center justify-between gap-3 flex-wrap shadow-[0_-4px_16px_rgba(0,0,0,0.2)]"
       style={{ paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}
     >

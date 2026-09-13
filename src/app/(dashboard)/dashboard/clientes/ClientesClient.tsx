@@ -907,7 +907,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
 
       {/* Barra de ações da seleção */}
       {selecao.size > 0 && (
-        <div className="fixed bottom-0 left-0 md:left-60 right-0 glass-blur border-t border-line px-4 md:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-2 sm:gap-3 flex-wrap z-30 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
+        <div className="fixed bottom-[var(--delegacao-h,0px)] left-0 md:left-60 right-0 glass-blur border-t border-line px-4 md:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-2 sm:gap-3 flex-wrap z-30 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
           <span className="text-sm font-semibold text-ink">{selecao.size} selecionado{selecao.size !== 1 ? 's' : ''}</span>
           {/* Quantos deles viram parada de verdade: sem GPS não há para onde ir. */}
           {selecionados.length > roteaveis.length && (

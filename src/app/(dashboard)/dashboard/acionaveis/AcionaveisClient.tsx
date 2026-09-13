@@ -287,7 +287,7 @@ export default function AcionaveisClient({ dataReferencia, carteira, acoes, fich
 
       {/* Ação em massa — mesmo padrão de Clientes e Radar */}
       {sel.size > 0 && (
-        <div className="fixed bottom-0 left-0 md:left-60 right-0 glass-blur border-t border-line px-4 md:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-3 z-30 flex-wrap">
+        <div className="fixed bottom-[var(--delegacao-h,0px)] left-0 md:left-60 right-0 glass-blur border-t border-line px-4 md:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-3 z-30 flex-wrap">
           <span className="text-sm font-semibold text-ink">{sel.size} selecionado{sel.size !== 1 ? 's' : ''}</span>
           <button onClick={() => setSel(new Set())} className="text-sm text-ink-muted hover:underline">Limpar</button>
           <button onClick={mandarProRoteirizar}

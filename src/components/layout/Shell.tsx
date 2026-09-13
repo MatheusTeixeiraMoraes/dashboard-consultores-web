@@ -62,7 +62,14 @@ export default function Shell({
 
       <div className="flex-1 flex flex-col min-w-0 md:ml-60">
         <Topbar profile={profile} abrirMenu={() => setMenuAberto(true)} demoAtivo={demoAtivo} />
-        <main className="flex-1 p-4 md:p-6 overflow-auto">{children}</main>
+        <main className="flex-1 p-4 md:p-6 overflow-auto">
+          {children}
+          {/* Reserva o espaço da faixa de delegação (BarraDelegacao publica a
+              própria altura em --delegacao-h). Sem isto o último item da
+              lista fica escondido atrás dela sempre que há delegação em
+              curso. 0px quando não há faixa — sem efeito visual nenhum. */}
+          <div aria-hidden style={{ height: 'var(--delegacao-h, 0px)' }} />
+        </main>
       </div>
     </div>
   )
