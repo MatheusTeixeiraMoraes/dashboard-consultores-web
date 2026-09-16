@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { usePathname } from 'next/navigation'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import SincronizarDemo from './SincronizarDemo'
@@ -31,6 +32,19 @@ export default function Shell({
 }) {
   const [menuAberto, setMenuAberto] = useState(false)
   const fechar = useCallback(() => setMenuAberto(false), [])
+  const pathname = usePathname()
+  const mainRef = useRef<HTMLElement>(null)
+
+  /* Quem rola é o `main` (overflow-auto), não o documento — html/body ficam
+   * travados em height:100%. A restauração de rolagem do App Router age
+   * sobre a JANELA, então não enxerga este contêiner: `main` é o MESMO nó
+   * DOM em toda navegação dentro da casca (só `children` troca), e sem isto
+   * a posição de rolagem da tela anterior atravessa pra tela nova — abrir
+   * Agenda depois de descer uma lista longa em Clientes abria no meio, não
+   * no topo. Confirmado ao vivo antes de corrigir (era bug de verdade). */
+  useEffect(() => {
+    mainRef.current?.scrollTo(0, 0)
+  }, [pathname])
 
   // Esc fecha, como todo menu modal.
   useEffect(() => {
@@ -71,7 +85,7 @@ export default function Shell({
 
       <div className="flex-1 flex flex-col min-w-0 md:ml-60">
         <Topbar profile={profile} abrirMenu={() => setMenuAberto(true)} demoAtivo={demoAtivo} />
-        <main className="flex-1 p-4 md:p-6 overflow-auto">
+        <main ref={mainRef} className="flex-1 p-4 md:p-6 overflow-auto">
           {children}
           {/* Reserva o espaço da faixa de delegação (BarraDelegacao publica a
               própria altura em --delegacao-h). Sem isto o último item da
