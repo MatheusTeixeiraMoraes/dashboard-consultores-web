@@ -94,10 +94,6 @@ export default async function GeralPage() {
     supabase.from('consultor_aliases').select('nome_normalizado, id_carteira'),
   ])
   const faixas: ScoreGeralFaixas = faixasScore ?? SCORE_GERAL_FAIXAS_PADRAO
-  // Grafia alternativa (planilha de carteira) → id_carteira canônico (planilha
-  // de score). Cadastrado à mão quando as duas fontes divergem no nome — ver
-  // consultor_aliases na migration 2026-09-21.
-  const idCarteiraPorAlias = new Map((aliasesData ?? []).map(a => [a.nome_normalizado, a.id_carteira]))
 
   const metaMap: Record<string, { meta: number; unidade: string }> = Object.fromEntries(
     (pilaresConfig ?? []).map(p => [p.pilar_key, { meta: p.meta, unidade: p.unidade }])
@@ -114,10 +110,20 @@ export default async function GeralPage() {
     c.total += r.score_planilha
   }
 
+  // Nome normalizado → id_carteira: o nome como o score já conhece (bate
+  // direto) mais os aliases cadastrados à mão para quando a carteira usa outra
+  // grafia (ver consultor_aliases, migration 2026-09-21). As duas fontes de
+  // carteira (clientes/mp_carteira) podem ter os DOIS nomes ao mesmo tempo —
+  // parte dos clientes já migrada para o nome novo, parte ainda no antigo —
+  // por isso o merge precisa reconhecer ambos, não só a grafia alternativa.
+  const idCarteiraPorNome = new Map<string, string>()
+  for (const [id, c] of consultoresMap) idCarteiraPorNome.set(norm(c.nome), id)
+  for (const a of aliasesData ?? []) idCarteiraPorNome.set(a.nome_normalizado, a.id_carteira)
+
   const carteiras = new Map<string, CarteiraResumo & { nome: string }>()
   const pega = (nome: string) => {
     const nk = norm(nome)
-    const k = idCarteiraPorAlias.get(nk) ?? nk
+    const k = idCarteiraPorNome.get(nk) ?? nk
     let c = carteiras.get(k)
     if (!c) { c = { nome, clientes: 0, pendentes: 0, tpv: 0, status: {} }; carteiras.set(k, c) }
     return c
