@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getProfile } from '@/lib/supabase/profile'
 import { buscarTudo } from '@/lib/supabase/buscar-tudo'
+import { carregarCanonizadorDeConsultor } from '@/lib/supabase/consultor-canonico'
 import { redirect } from 'next/navigation'
 import AcionaveisClient from './AcionaveisClient'
 
@@ -55,7 +56,7 @@ export default async function AcionaveisPage() {
    * `await` solto depois — esperava as duas primeiras terminarem sem motivo.
    * Como `buscarTudo` já custa duas ondas de rede cada, isso era uma onda
    * inteira de graça em toda abertura da tela. */
-  const [carteira, acoes, cadastro] = await Promise.all([
+  const [carteiraBruta, acoesBrutas, cadastro, canonizar] = await Promise.all([
     // `prio` empata em massa (ranking dentro do quartil, e nulo entra por
     // último) — filtrado num único `data_referencia`, `seller_id` como
     // desempate já fecha a ordem TOTAL.
@@ -92,7 +93,12 @@ export default async function AcionaveisPage() {
           .select('seller_id, seller_nome, seller_telefone, cidade, bairro, lat, lng', opcoes),
       'seller_id',
     ),
+    carregarCanonizadorDeConsultor(supabase),
   ])
+  // Canonizado para o filtro de consultor (no client) não separar duas
+  // grafias da mesma pessoa — ver consultor-canonico.ts.
+  const carteira = carteiraBruta.map(c => ({ ...c, consultor_nome: canonizar(c.consultor_nome) }))
+  const acoes = acoesBrutas.map(a => ({ ...a, consultor_nome: canonizar(a.consultor_nome) }))
 
   const naCarteira = new Set(carteira.map(c => c.seller_id))
   const fichas: Record<string, Ficha> = {}

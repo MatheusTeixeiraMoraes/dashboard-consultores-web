@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getProfile } from '@/lib/supabase/profile'
 import { buscarTudo } from '@/lib/supabase/buscar-tudo'
+import { carregarCanonizadorDeConsultor } from '@/lib/supabase/consultor-canonico'
 import { redirect } from 'next/navigation'
 import { compararCarteira, type LinhaCarteira, type RelatorioCarteira } from '@/lib/carteira'
 import CarteiraClient from './CarteiraClient'
@@ -37,7 +38,7 @@ export default async function CarteiraPage() {
    * duas datas mais recentes" estaria ERRADO — com upload quinzenal isso
    * compararia quinzena com quinzena, e a REGRA-MÃE de lib/carteira.ts é
    * comparar MÊS com mês. */
-  const [datas, { data: perfis }] = await Promise.all([
+  const [datas, { data: perfis }, canonizar] = await Promise.all([
     (async (): Promise<{ atual: string | null; anterior: string | null }> => {
       const { data: maisRecente } = await supabase
         .from('mp_carteira')
@@ -60,6 +61,7 @@ export default async function CarteiraPage() {
       return { atual, anterior: anteriorRow?.data_referencia ?? null }
     })(),
     supabase.from('profiles').select('nome'),
+    carregarCanonizadorDeConsultor(supabase),
   ])
 
   // Histórico de dono por seller — só as 3 colunas que a comparação usa, e só
@@ -73,15 +75,19 @@ export default async function CarteiraPage() {
   // tabela; ordenar só por seller_id não bastaria, porque o mesmo seller
   // aparece uma vez em cada snapshot.
   const alvos = [datas.atual, datas.anterior].filter((d): d is string => !!d)
+  // Canonizado logo na leitura: `compararCarteira` compara consultor_nome cru
+  // entre os dois snapshots, e mp_carteira pode ter mais de uma grafia da
+  // mesma pessoa ao mesmo tempo — sem isso, a troca de formato de nome vira
+  // uma falsa "carteira inteira transferida" (ver src/lib/carteira.ts).
   const linhas: LinhaCarteira[] = alvos.length
-    ? await buscarTudo<LinhaCarteira>(
+    ? (await buscarTudo<LinhaCarteira>(
         opcoes =>
           supabase
             .from('mp_carteira')
             .select('seller_id, consultor_nome, data_referencia', opcoes)
             .in('data_referencia', alvos),
         [{ coluna: 'data_referencia', ascending: true }, { coluna: 'seller_id', ascending: true }],
-      )
+      )).map(l => ({ ...l, consultor_nome: canonizar(l.consultor_nome) }))
     : []
 
   /* Continua passando por compararCarteira em vez de montar o relatório aqui:

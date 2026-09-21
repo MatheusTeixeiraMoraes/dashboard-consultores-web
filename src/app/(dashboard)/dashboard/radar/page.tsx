@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getProfile } from '@/lib/supabase/profile'
 import { buscarTudo } from '@/lib/supabase/buscar-tudo'
+import { carregarCanonizadorDeConsultor } from '@/lib/supabase/consultor-canonico'
 import { redirect } from 'next/navigation'
 import RadarClient from './RadarClient'
 
@@ -27,16 +28,22 @@ export default async function RadarPage() {
   // Só clientes com coordenada entram no Radar. RLS escopa por papel/nome.
   // `seller_id` como ordem: é `unique` em `clientes` (2026-07-15_clientes_carteira.sql),
   // então basta ele para a ordem TOTAL que buscarTudo exige.
-  const clientes = await buscarTudo<ClienteRadar>(
-    opcoes =>
-      supabase
-        .from('clientes')
-        .select('seller_id, seller_nome, seller_telefone, consultor_nome, cidade, bairro, endereco_completo, lat, lng, coordenada_origem', opcoes)
-        .eq('em_carteira', true)
-        .not('lat', 'is', null)
-        .not('lng', 'is', null),
-    'seller_id',
-  )
+  const [clientesBrutos, canonizar] = await Promise.all([
+    buscarTudo<ClienteRadar>(
+      opcoes =>
+        supabase
+          .from('clientes')
+          .select('seller_id, seller_nome, seller_telefone, consultor_nome, cidade, bairro, endereco_completo, lat, lng, coordenada_origem', opcoes)
+          .eq('em_carteira', true)
+          .not('lat', 'is', null)
+          .not('lng', 'is', null),
+      'seller_id',
+    ),
+    carregarCanonizadorDeConsultor(supabase),
+  ])
+  // Canonizado para o filtro de consultor (abaixo, no client) não tratar duas
+  // grafias da mesma pessoa como dois consultores — ver consultor-canonico.ts.
+  const clientes = clientesBrutos.map(c => ({ ...c, consultor_nome: canonizar(c.consultor_nome) }))
 
   const podeVerTodos = profile.role === 'admin' || profile.role === 'dono' || profile.role === 'lider'
 

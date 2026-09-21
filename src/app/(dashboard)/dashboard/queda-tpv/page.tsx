@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getProfile } from '@/lib/supabase/profile'
 import { buscarTudo } from '@/lib/supabase/buscar-tudo'
+import { carregarCanonizadorDeConsultor } from '@/lib/supabase/consultor-canonico'
 import { redirect } from 'next/navigation'
 import QuedaTpvClient from './QuedaTpvClient'
 
@@ -67,7 +68,7 @@ export default async function QuedaTpvPage() {
    * mil linhas / 1,3 MB no dia 18. Cortada: o % de variação colorido e o
    * badge de tendência de 3 meses (que já vêm de `linhas`, sem custo extra)
    * contam a mesma história de tendência sem pagar essa busca. */
-  const [linhas, cadastro, acoes] = await Promise.all([
+  const [linhasBrutas, cadastro, acoes, canonizar] = await Promise.all([
     // Filtrado num único `data_referencia`, `seller_id` sozinho já é ordem TOTAL.
     buscarTudo<LinhaTPV>(
       opcoes =>
@@ -104,7 +105,11 @@ export default async function QuedaTpvPage() {
         supabase.from('mp_acionaveis').select('seller_id', opcoes).eq('data_referencia', dataReferencia),
       ['seller_id', 'acionavel'],
     ),
+    carregarCanonizadorDeConsultor(supabase),
   ])
+  // Canonizado para o filtro/ranking de consultor (no client) não separar
+  // duas grafias da mesma pessoa — ver consultor-canonico.ts.
+  const linhas = linhasBrutas.map(l => ({ ...l, consultor_nome: canonizar(l.consultor_nome) }))
 
   const sellersComAcao = [...new Set(acoes.map(a => a.seller_id))]
 

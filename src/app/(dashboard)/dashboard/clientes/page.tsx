@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getProfile } from '@/lib/supabase/profile'
 import { buscarTudo } from '@/lib/supabase/buscar-tudo'
 import { carregarFichaMP } from '@/lib/supabase/ficha-mp'
+import { carregarCanonizadorDeConsultor } from '@/lib/supabase/consultor-canonico'
 import { redirect } from 'next/navigation'
 import type { Cliente } from '@/lib/types'
 import ClientesClient from './ClientesClient'
@@ -27,7 +28,7 @@ export default async function ClientesPage() {
    * anterior — só a ficha depende da data, e essa dependência continua dentro
    * da própria frente. Agora o custo é o da frente mais lenta.
    */
-  const [clientes, mp, nomesConsultores] = await Promise.all([
+  const [clientesBrutos, mp, nomesConsultores, canonizar] = await Promise.all([
     // A RLS já escopa: consultor recebe só os seus (por nome); gestão recebe tudo.
     // `em_carteira`: só quem está na Planilha Geral atual. Quem saiu da carteira
     // fica no banco (com o cadastro), mas some do painel — a Planilha Geral manda.
@@ -62,9 +63,13 @@ export default async function ClientesPage() {
         .order('nome', { ascending: true })
       return [...new Set((data ?? []).map(p => p.nome).filter((n): n is string => !!n))]
     })(),
+    carregarCanonizadorDeConsultor(supabase),
   ])
 
   const { dataMP, fichaTecnica } = mp
+  // Canonizado para o filtro de consultor (no client) não separar duas
+  // grafias da mesma pessoa — ver consultor-canonico.ts.
+  const clientes = clientesBrutos.map(c => ({ ...c, consultor_nome: canonizar(c.consultor_nome) }))
 
   return (
     <ClientesClient

@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getProfile } from '@/lib/supabase/profile'
 import { buscarTudo } from '@/lib/supabase/buscar-tudo'
 import { carregarFichaMP } from '@/lib/supabase/ficha-mp'
+import { carregarCanonizadorDeConsultor } from '@/lib/supabase/consultor-canonico'
 import { redirect } from 'next/navigation'
 import type { ClienteRadar } from '../radar/page'
 import RoteirizarClient from './RoteirizarClient'
@@ -14,7 +15,7 @@ export default async function RoteirizarPage() {
 
   /* Carteira e ficha do MP em paralelo — uma não depende da outra, e em fila a
    * tela pagaria a soma das duas (ver o mesmo raciocínio na página de Clientes). */
-  const [clientes, { dataMP, fichaTecnica }] = await Promise.all([
+  const [clientesBrutos, { dataMP, fichaTecnica }, canonizar] = await Promise.all([
     // Clientes geocodados da carteira (para adicionar paradas manualmente).
     // `seller_id` como ordem: é `unique` em `clientes`, ordem TOTAL sozinho.
     buscarTudo<ClienteRadar>(
@@ -32,7 +33,11 @@ export default async function RoteirizarPage() {
     // consultor escolhe quem visitar, e sem a ficha o Roteirizar só sabia
     // filtrar por geografia.
     carregarFichaMP(supabase),
+    carregarCanonizadorDeConsultor(supabase),
   ])
+  // Canonizado para o filtro de consultor não separar duas grafias da mesma
+  // pessoa — ver consultor-canonico.ts.
+  const clientes = clientesBrutos.map(c => ({ ...c, consultor_nome: canonizar(c.consultor_nome) }))
 
   return (
     <RoteirizarClient
