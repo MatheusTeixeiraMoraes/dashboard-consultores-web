@@ -78,6 +78,11 @@ export async function listarConsultoresDaPlanilha(): Promise<{
       'seller_id',
     )
     const { data: perfis } = await supabase.from('profiles').select('nome')
+    // Grafias já resolvidas via consultor_aliases (ver GeralPage) não devem
+    // continuar acusando "carteira repetida" — o admin já disse que é a mesma
+    // pessoa, o aviso ficaria mudo para sempre sem isso.
+    const { data: aliases } = await supabase.from('consultor_aliases').select('nome_normalizado')
+    const nomesComAlias = new Set((aliases ?? []).map(a => a.nome_normalizado))
 
     const porChave = new Map<string, { nome: string; id_carteira: string | null }>()
     for (const s of doScore) {
@@ -107,7 +112,7 @@ export async function listarConsultoresDaPlanilha(): Promise<{
         nome: v.nome,
         id_carteira: v.id_carteira,
         temUsuario: comUsuario.has(chave),
-        carteiraRepetida: !!v.id_carteira && (contagemCarteira.get(v.id_carteira) ?? 0) > 1,
+        carteiraRepetida: !!v.id_carteira && (contagemCarteira.get(v.id_carteira) ?? 0) > 1 && !nomesComAlias.has(chave),
         qtdClientes: clientesPorNome.get(chave) ?? 0,
       }))
       // Quem ainda não tem acesso primeiro: é o motivo de a tela existir.

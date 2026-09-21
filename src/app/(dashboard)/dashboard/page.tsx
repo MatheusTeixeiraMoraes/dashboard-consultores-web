@@ -2,13 +2,10 @@ import { createClient } from '@/lib/supabase/server'
 import { getProfile } from '@/lib/supabase/profile'
 import { buscarTudo } from '@/lib/supabase/buscar-tudo'
 import { precisaIdentificar } from '@/lib/texto'
+import { normalizarNome as norm } from '@/lib/convites'
 import { redirect } from 'next/navigation'
 import GeralClient from './GeralClient'
 import { SCORE_GERAL_FAIXAS_PADRAO, type ScoreGeralFaixas } from '@/lib/types'
-
-// Os nomes vêm de duas planilhas diferentes (pontuação × Ação Oportunidades),
-// então a junção ignora caixa/acento — mesma regra do cliente_e_meu no banco.
-const norm = (s: string) => (s ?? '').normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase()
 
 /** Números de carteira de um consultor, agregados das duas fontes. */
 export interface CarteiraResumo {
@@ -64,7 +61,7 @@ export default async function GeralPage() {
    * que já saiu da primeira onda. Antes essas quatro buscas rodavam em três ondas
    * em fila; nenhuma depende do resultado de outra, então cabem todas juntas. */
   type ResultadoRow = { id_carteira: string; consultor_nome: string; pilar_key: string; score_planilha: number }
-  const [{ data: pilaresConfig }, { data: resultadosData }, clientes, linhasCarteira, { data: faixasScore }] = await Promise.all([
+  const [{ data: pilaresConfig }, { data: resultadosData }, clientes, linhasCarteira, { data: faixasScore }, { data: aliasesData }] = await Promise.all([
     latestDate
       ? supabase.from('pillar_config').select('pilar_key, meta, unidade')
       : Promise.resolve({ data: [] as { pilar_key: string; meta: number; unidade: string }[] }),
@@ -94,8 +91,13 @@ export default async function GeralPage() {
         )
       : Promise.resolve([]),
     supabase.from('score_geral_faixas').select('limite_critico, meta_objetivo').maybeSingle(),
+    supabase.from('consultor_aliases').select('nome_normalizado, id_carteira'),
   ])
   const faixas: ScoreGeralFaixas = faixasScore ?? SCORE_GERAL_FAIXAS_PADRAO
+  // Grafia alternativa (planilha de carteira) → id_carteira canônico (planilha
+  // de score). Cadastrado à mão quando as duas fontes divergem no nome — ver
+  // consultor_aliases na migration 2026-09-21.
+  const idCarteiraPorAlias = new Map((aliasesData ?? []).map(a => [a.nome_normalizado, a.id_carteira]))
 
   const metaMap: Record<string, { meta: number; unidade: string }> = Object.fromEntries(
     (pilaresConfig ?? []).map(p => [p.pilar_key, { meta: p.meta, unidade: p.unidade }])
@@ -114,7 +116,8 @@ export default async function GeralPage() {
 
   const carteiras = new Map<string, CarteiraResumo & { nome: string }>()
   const pega = (nome: string) => {
-    const k = norm(nome)
+    const nk = norm(nome)
+    const k = idCarteiraPorAlias.get(nk) ?? nk
     let c = carteiras.get(k)
     if (!c) { c = { nome, clientes: 0, pendentes: 0, tpv: 0, status: {} }; carteiras.set(k, c) }
     return c
@@ -134,17 +137,25 @@ export default async function GeralPage() {
   }
 
   // --- Junta: score + carteira, e quem só existe numa das fontes também entra ---
+  // `id` (id_carteira do score) é a mesma chave que um alias aponta, então
+  // tentar por `id` primeiro casa a carteira mesmo quando a grafia do nome
+  // mudou entre as duas planilhas; o nome normalizado continua como fallback
+  // para quem nunca precisou de alias.
+  const chavesUsadas = new Set<string>()
   const ranking = Array.from(consultoresMap.entries())
-    .map(([id, c]) => ({
-      id: id as string | null,
-      nome: c.nome,
-      total: Math.min(c.total, 10) as number | null,
-      scores: c.scores,
-      carteira: carteiras.get(norm(c.nome)) ?? null,
-    }))
-  const comScore = new Set(ranking.map(r => norm(r.nome)))
+    .map(([id, c]) => {
+      const chave = carteiras.has(id) ? id : norm(c.nome)
+      chavesUsadas.add(chave)
+      return {
+        id: id as string | null,
+        nome: c.nome,
+        total: Math.min(c.total, 10) as number | null,
+        scores: c.scores,
+        carteira: carteiras.get(chave) ?? null,
+      }
+    })
   for (const [k, v] of carteiras) {
-    if (!comScore.has(k)) {
+    if (!chavesUsadas.has(k)) {
       ranking.push({ id: null, nome: v.nome, total: null, scores: {}, carteira: v })
     }
   }
