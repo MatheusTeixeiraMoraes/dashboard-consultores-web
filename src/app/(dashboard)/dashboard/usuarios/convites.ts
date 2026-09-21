@@ -81,7 +81,7 @@ export async function listarConsultoresDaPlanilha(): Promise<{
     // Grafias já resolvidas via consultor_aliases (ver GeralPage) não devem
     // continuar acusando "carteira repetida" — o admin já disse que é a mesma
     // pessoa, o aviso ficaria mudo para sempre sem isso.
-    const { data: aliases } = await supabase.from('consultor_aliases').select('nome_normalizado')
+    const { data: aliases } = await supabase.from('consultor_aliases').select('nome_normalizado, id_carteira')
     const nomesComAlias = new Set((aliases ?? []).map(a => a.nome_normalizado))
 
     const porChave = new Map<string, { nome: string; id_carteira: string | null }>()
@@ -89,12 +89,30 @@ export async function listarConsultoresDaPlanilha(): Promise<{
       const chave = normalizarNome(s.consultor_nome)
       if (chave && !porChave.has(chave)) porChave.set(chave, { nome: s.consultor_nome, id_carteira: s.id_carteira ?? null })
     }
+
+    // Nome normalizado → id_carteira: o que o score já conhece (bate direto)
+    // + os aliases manuais. Usado só para levar clientes/perfis de uma grafia
+    // alternativa para a MESMA entrada da grafia que já está em porChave —
+    // nunca para apagar uma grafia diferente que veio do score (essa continua
+    // como entrada própria, e é o que carteiraRepetida detecta).
+    const idCarteiraConhecido = new Map<string, string>()
+    for (const [chave, v] of porChave) if (v.id_carteira) idCarteiraConhecido.set(chave, v.id_carteira)
+    for (const a of aliases ?? []) idCarteiraConhecido.set(a.nome_normalizado, a.id_carteira)
+    const chavePorIdCarteira = new Map<string, string>()
+    for (const [chave, v] of porChave) if (v.id_carteira && !chavePorIdCarteira.has(v.id_carteira)) chavePorIdCarteira.set(v.id_carteira, chave)
+    const chaveCanonica = (nome: string) => {
+      const nk = normalizarNome(nome)
+      const id = idCarteiraConhecido.get(nk)
+      return (id && chavePorIdCarteira.get(id)) || nk
+    }
+
     const clientesPorNome = new Map<string, number>()
     for (const c of dosClientes) {
-      const chave = normalizarNome(c.consultor_nome)
-      if (!chave) continue
+      const nk = normalizarNome(c.consultor_nome)
+      if (!nk) continue
+      const chave = chaveCanonica(c.consultor_nome)
       clientesPorNome.set(chave, (clientesPorNome.get(chave) ?? 0) + 1)
-      if (!porChave.has(chave)) porChave.set(chave, { nome: c.consultor_nome, id_carteira: null })
+      if (!porChave.has(chave)) porChave.set(chave, { nome: c.consultor_nome, id_carteira: idCarteiraConhecido.get(nk) ?? null })
     }
 
     // Duas grafias com a MESMA carteira são a mesma pessoa escrita de dois
@@ -105,7 +123,14 @@ export async function listarConsultoresDaPlanilha(): Promise<{
       if (id_carteira) contagemCarteira.set(id_carteira, (contagemCarteira.get(id_carteira) ?? 0) + 1)
     }
 
-    const comUsuario = new Set((perfis ?? []).map((p: Pick<Profile, 'nome'>) => normalizarNome(p.nome)).filter(Boolean))
+    // Mesma resolução para "já tem login": o profile pode ter sido criado
+    // quando a planilha ainda usava a grafia antiga (o convite grava o nome
+    // de então), então comparar string crua contra o nome atual do score
+    // volta a mostrar "sem acesso" para quem já tem conta — ver caso do
+    // Rivaldo, 21/09/2026.
+    const comUsuario = new Set(
+      (perfis ?? []).map((p: Pick<Profile, 'nome'>) => (p.nome ? chaveCanonica(p.nome) : '')).filter(Boolean),
+    )
 
     const consultores = [...porChave.entries()]
       .map(([chave, v]) => ({

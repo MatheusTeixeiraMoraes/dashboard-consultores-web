@@ -99,9 +99,14 @@ export default async function CarteiraPage() {
   const relatorio: RelatorioCarteira = compararCarteira(linhas)
 
   // Carteira ATUAL: contagem por consultor no último snapshot.
-  const consultoresComLogin = new Set<string>()
+  //
+  // `canonizar` também no nome do profile: o convite grava o nome que a
+  // planilha usava no momento em que foi aceito, então um profile antigo
+  // ("RIVALDO BATISTA") continua na grafia velha mesmo depois do score passar
+  // a usar a nova — comparar string crua voltaria a acusar "sem login" para
+  // quem já tem conta (caso do Rivaldo, 21/09/2026).
   const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
-  for (const p of perfis ?? []) if (p.nome) consultoresComLogin.add(norm(p.nome))
+  const consultoresComLogin = new Set((perfis ?? []).map(p => p.nome ? norm(canonizar(p.nome)) : '').filter(Boolean))
 
   const carteiraAtual: ConsultorCarteira[] = []
   if (relatorio.dataAtual) {
