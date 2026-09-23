@@ -1,7 +1,7 @@
 'use client'
 
 import { precisaIdentificar, enderecoExibivel } from '@/lib/texto'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import 'leaflet/dist/leaflet.css'
 import 'leaflet.markercluster/dist/MarkerCluster.css'
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
@@ -31,64 +31,21 @@ export default function RadarMapa({ pos, raio, clientes, onToggle }: Props) {
   const circleRef = useRef<Circle | null>(null)
   const meRef = useRef<CircleMarker | null>(null)
   const onToggleRef = useRef(onToggle)
-  onToggleRef.current = onToggle
+  useEffect(() => { onToggleRef.current = onToggle })
 
-  // Inicializa o mapa uma vez.
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      const L = (await import('leaflet')).default
-      await import('leaflet.markercluster')
-      const div = divRef.current
-      // Guarda contra StrictMode/re-init (Leaflet lança se o container já tem mapa).
-      if (cancelled || !div || mapRef.current || (div as unknown as { _leaflet_id?: number })._leaflet_id) return
+  // Vira true só depois que o mapa está pronto pra desenhar (ver o efeito de
+  // redesenho, embaixo). Sem isto, se o GPS respondesse antes do bundle do
+  // Leaflet baixar, o redesenho perdia a corrida: seu efeito rodava antes,
+  // via cedo (mapRef.current ainda null) e nunca era refeito, e o desenhar()
+  // daqui de dentro capturava um `pos`/`raio`/`clientes` congelado do
+  // primeiro render (closure do mount) — o mapa ficava com o estado inicial
+  // até alguém mexer no raio ou num filtro.
+  const [pronto, setPronto] = useState(false)
 
-      LRef.current = L
-      const map = L.map(div, { zoomControl: false }).setView([pos.lat, pos.lng], 13)
-      L.control.zoom({ position: 'bottomright' }).addTo(map)
-
-      // Duas bases, alternáveis pelo seletor no canto:
-      // - Mapa: tiles claros do CARTO (a identidade "mapa de dia").
-      // - Satélite: imagem aérea do Esri (sem chave) + ruas e rótulos por cima,
-      //   o mesmo "híbrido" do Google Maps. Padrão = satélite (mais realista).
-      const esri = (servico: string, opts: object = {}) =>
-        L.tileLayer(`https://server.arcgisonline.com/ArcGIS/rest/services/${servico}/MapServer/tile/{z}/{y}/{x}`, { maxZoom: 19, ...opts })
-      const claro = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '© OpenStreetMap © CARTO', maxZoom: 19,
-      })
-      const satelite = L.layerGroup([
-        esri('World_Imagery', { attribution: 'Imagery © Esri, Maxar, Earthstar Geographics' }),
-        esri('Reference/World_Transportation'),
-        esri('Reference/World_Boundaries_and_Places'),
-      ])
-      satelite.addTo(map)
-      L.control.layers({ 'Satélite': satelite, 'Mapa': claro }, undefined, { position: 'topright' }).addTo(map)
-      const cluster = L.markerClusterGroup({
-        maxClusterRadius: 60,
-        disableClusteringAtZoom: 17,
-        iconCreateFunction: c => L.divIcon({
-          html: `<div class="radar-cluster">${c.getChildCount()}</div>`,
-          className: '', iconSize: [38, 38],
-        }),
-      })
-      map.addLayer(cluster)
-      mapRef.current = map
-      clusterRef.current = cluster
-      desenhar()
-    })()
-    return () => {
-      cancelled = true
-      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Redesenha quando posição/raio/clientes mudam.
-  useEffect(() => {
-    desenhar()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pos, raio, clientes])
-
+  // Declarada ANTES dos efeitos que a chamam — não por estilo, é o que o
+  // ESLint (react-hooks/immutability) exige: mesmo com hoisting de function
+  // declaration cobrindo em runtime, o linter acusa "accessed before
+  // declared" quando o texto do efeito vem primeiro.
   function desenhar() {
     const L = LRef.current
     const map = mapRef.current
@@ -167,6 +124,67 @@ export default function RadarMapa({ pos, raio, clientes, onToggle }: Props) {
       cluster.addLayer(marker)
     }
   }
+
+  // Inicializa o mapa uma vez.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const L = (await import('leaflet')).default
+      await import('leaflet.markercluster')
+      const div = divRef.current
+      // Guarda contra StrictMode/re-init (Leaflet lança se o container já tem mapa).
+      if (cancelled || !div || mapRef.current || (div as unknown as { _leaflet_id?: number })._leaflet_id) return
+
+      LRef.current = L
+      const map = L.map(div, { zoomControl: false }).setView([pos.lat, pos.lng], 13)
+      L.control.zoom({ position: 'bottomright' }).addTo(map)
+
+      // Duas bases, alternáveis pelo seletor no canto:
+      // - Mapa: tiles claros do CARTO (a identidade "mapa de dia").
+      // - Satélite: imagem aérea do Esri (sem chave) + ruas e rótulos por cima,
+      //   o mesmo "híbrido" do Google Maps. Padrão = satélite (mais realista).
+      const esri = (servico: string, opts: object = {}) =>
+        L.tileLayer(`https://server.arcgisonline.com/ArcGIS/rest/services/${servico}/MapServer/tile/{z}/{y}/{x}`, { maxZoom: 19, ...opts })
+      const claro = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap © CARTO', maxZoom: 19,
+      })
+      const satelite = L.layerGroup([
+        esri('World_Imagery', { attribution: 'Imagery © Esri, Maxar, Earthstar Geographics' }),
+        esri('Reference/World_Transportation'),
+        esri('Reference/World_Boundaries_and_Places'),
+      ])
+      satelite.addTo(map)
+      L.control.layers({ 'Satélite': satelite, 'Mapa': claro }, undefined, { position: 'topright' }).addTo(map)
+      const cluster = L.markerClusterGroup({
+        maxClusterRadius: 60,
+        disableClusteringAtZoom: 17,
+        iconCreateFunction: c => L.divIcon({
+          html: `<div class="radar-cluster">${c.getChildCount()}</div>`,
+          className: '', iconSize: [38, 38],
+        }),
+      })
+      map.addLayer(cluster)
+      mapRef.current = map
+      clusterRef.current = cluster
+      if (!cancelled) setPronto(true)
+    })()
+    return () => {
+      cancelled = true
+      setPronto(false)
+      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Redesenha quando o mapa fica pronto, e sempre que posição/raio/clientes
+  // mudam depois disso. `pronto` nas dependências é o que garante o desenho
+  // inicial com o estado MAIS RECENTE (não o do primeiro render) assim que o
+  // Leaflet termina de carregar.
+  useEffect(() => {
+    if (!pronto) return
+    desenhar()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pronto, pos, raio, clientes])
 
   // 26rem = altura fixa do que fica acima/abaixo do mapa (topbar, título,
   // controles, respiro da barra de seleção). Medido no browser, não chutado.
