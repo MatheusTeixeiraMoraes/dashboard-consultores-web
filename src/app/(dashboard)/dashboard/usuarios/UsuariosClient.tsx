@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import Modal from '@/components/Modal'
 import type { Profile, UserRole } from '@/lib/types'
 import { canManageUsers, canDelegateInto } from '@/lib/types'
 import { gerarLinkAcesso, revogarLink, excluirLink, listarConsultoresDaPlanilha } from './convites'
@@ -796,104 +797,88 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
       )}
 
       {/* Modal de criação */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
-          <div className="glass-blur rounded-2xl shadow-xl w-full max-w-md">
-            <div className="px-6 py-5 border-b border-line flex items-center justify-between">
-              <h2 className="text-base font-bold text-ink">Novo Usuário</h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="text-ink-faint hover:text-ink-dim transition-colors"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-
-            <form onSubmit={handleCreate} className="px-6 py-5 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-ink-dim mb-1.5">Nome completo</label>
-                <input
-                  required
-                  className="w-full border border-field-line rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  value={createForm.nome}
-                  onChange={e => setCreateForm(f => ({ ...f, nome: e.target.value }))}
-                  placeholder="Ex: João Silva"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-ink-dim mb-1.5">E-mail</label>
-                <input
-                  required
-                  type="email"
-                  className="w-full border border-field-line rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  value={createForm.email}
-                  onChange={e => setCreateForm(f => ({ ...f, email: e.target.value }))}
-                  placeholder="joao@email.com"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-ink-dim mb-1.5">Cargo</label>
-                  <select
-                    className="w-full border border-field-line rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    value={createForm.role}
-                    onChange={e => setCreateForm(f => ({ ...f, role: e.target.value as UserRole }))}
-                  >
-                    {rolesDisponiveis.map(r => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-ink-dim mb-1.5">ID Carteira <span className="font-normal text-ink-faint">(opcional)</span></label>
-                  <input
-                    className="w-full border border-field-line rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    value={createForm.id_carteira}
-                    onChange={e => setCreateForm(f => ({ ...f, id_carteira: e.target.value }))}
-                    placeholder="ex: 12345"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-ink-dim mb-1.5">Senha temporária</label>
-                <input
-                  required
-                  type="password"
-                  minLength={8}
-                  className="w-full border border-field-line rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  value={createForm.senha}
-                  onChange={e => setCreateForm(f => ({ ...f, senha: e.target.value }))}
-                  placeholder="Mínimo 8 caracteres"
-                />
-              </div>
-
-              {createErr && (
-                <p className="text-sm text-bad bg-bad-bg rounded-xl px-3 py-2">{createErr}</p>
-              )}
-
-              <div className="flex gap-3 pt-1">
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="flex-1 bg-primary hover:bg-primary-dk text-white text-sm font-medium py-2.5 rounded-xl transition-colors disabled:opacity-60"
-                >
-                  {creating ? 'Criando...' : 'Criar usuário'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2.5 text-sm font-medium text-ink-muted border border-line rounded-xl hover:bg-card-2 transition-colors"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </form>
+      <Modal aberto={showModal} aoFechar={() => setShowModal(false)} titulo="Novo Usuário" maxWidth="md">
+        <form onSubmit={handleCreate} className="px-6 py-5 space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-ink-dim mb-1.5">Nome completo</label>
+            <input
+              required
+              className="w-full border border-field-line rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              value={createForm.nome}
+              onChange={e => setCreateForm(f => ({ ...f, nome: e.target.value }))}
+              placeholder="Ex: João Silva"
+            />
           </div>
-        </div>
-      )}
+
+          <div>
+            <label className="block text-xs font-semibold text-ink-dim mb-1.5">E-mail</label>
+            <input
+              required
+              type="email"
+              className="w-full border border-field-line rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              value={createForm.email}
+              onChange={e => setCreateForm(f => ({ ...f, email: e.target.value }))}
+              placeholder="joao@email.com"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-ink-dim mb-1.5">Cargo</label>
+              <select
+                className="w-full border border-field-line rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                value={createForm.role}
+                onChange={e => setCreateForm(f => ({ ...f, role: e.target.value as UserRole }))}
+              >
+                {rolesDisponiveis.map(r => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-ink-dim mb-1.5">ID Carteira <span className="font-normal text-ink-faint">(opcional)</span></label>
+              <input
+                className="w-full border border-field-line rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                value={createForm.id_carteira}
+                onChange={e => setCreateForm(f => ({ ...f, id_carteira: e.target.value }))}
+                placeholder="ex: 12345"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-ink-dim mb-1.5">Senha temporária</label>
+            <input
+              required
+              type="password"
+              minLength={8}
+              className="w-full border border-field-line rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              value={createForm.senha}
+              onChange={e => setCreateForm(f => ({ ...f, senha: e.target.value }))}
+              placeholder="Mínimo 8 caracteres"
+            />
+          </div>
+
+          {createErr && (
+            <p className="text-sm text-bad bg-bad-bg rounded-xl px-3 py-2">{createErr}</p>
+          )}
+
+          <div className="flex gap-3 pt-1">
+            <button
+              type="submit"
+              disabled={creating}
+              className="flex-1 bg-primary hover:bg-primary-dk text-white text-sm font-medium py-2.5 rounded-xl transition-colors disabled:opacity-60"
+            >
+              {creating ? 'Criando...' : 'Criar usuário'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowModal(false)}
+              className="px-4 py-2.5 text-sm font-medium text-ink-muted border border-line rounded-xl hover:bg-card-2 transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </Modal>
     </>
   )
 }
