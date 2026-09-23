@@ -372,11 +372,14 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
             </>
           ) : (
             <>
-              <button onClick={() => refazer(r)} disabled={refazendo === r.id} className="text-good font-medium hover:underline disabled:opacity-50">
+              {/* p-2 -m-2: cresce a área de toque sem mexer no desenho nem
+                  no espaçamento entre os 3 — estavam colados, sem área
+                  clicável nenhuma além do texto, e Excluir é destrutivo. */}
+              <button onClick={() => refazer(r)} disabled={refazendo === r.id} className="text-good font-medium hover:underline disabled:opacity-50 p-2 -m-2">
                 {refazendo === r.id ? 'Refazendo…' : 'Refazer'}
               </button>
-              <button onClick={() => { setEditando(r.id); setNomeEdit(r.nome_rota) }} className="text-primary font-medium hover:underline">Renomear</button>
-              <button onClick={() => setConfirmar(r.id)} className="text-bad font-medium hover:underline">Excluir</button>
+              <button onClick={() => { setEditando(r.id); setNomeEdit(r.nome_rota) }} className="text-primary font-medium hover:underline p-2 -m-2">Renomear</button>
+              <button onClick={() => setConfirmar(r.id)} className="text-bad font-medium hover:underline p-2 -m-2">Excluir</button>
             </>
           )}
         </div>
@@ -433,11 +436,15 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
         {tabs}
         {view === 'semana' && semana.length > 0 && (
           <div className="flex items-center gap-2">
-            <button onClick={() => setSemanaOffset(o => o - 1)} className="w-8 h-8 grid place-items-center rounded-lg border border-field-line text-ink-muted hover:bg-card-2">‹</button>
+            {/* w-10 h-10 (40px), não w-8 (32px): mesmo padrão de alvo de
+                toque do BotaoContato — aqui é um botão de verdade (com
+                borda própria), não um link de texto, então o ajuste é no
+                próprio tamanho, não numa área invisível por cima. */}
+            <button onClick={() => setSemanaOffset(o => o - 1)} className="w-10 h-10 grid place-items-center rounded-lg border border-field-line text-ink-muted hover:bg-card-2">‹</button>
             <span className="text-sm font-medium text-ink tabular-nums min-w-[150px] text-center">
               {semana[0].getDate()} {MESES[semana[0].getMonth()]} – {semana[6].getDate()} {MESES[semana[6].getMonth()]} {semana[6].getFullYear()}
             </span>
-            <button onClick={() => setSemanaOffset(o => o + 1)} className="w-8 h-8 grid place-items-center rounded-lg border border-field-line text-ink-muted hover:bg-card-2">›</button>
+            <button onClick={() => setSemanaOffset(o => o + 1)} className="w-10 h-10 grid place-items-center rounded-lg border border-field-line text-ink-muted hover:bg-card-2">›</button>
             {semanaOffset !== 0 && <button onClick={() => setSemanaOffset(0)} className="text-xs text-primary-lt font-medium hover:underline px-1">Hoje</button>}
           </div>
         )}

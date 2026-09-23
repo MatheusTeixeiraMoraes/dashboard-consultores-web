@@ -721,8 +721,17 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
               // com 751px numa tela de 360.
               <div key={c.id} className={`glass rounded-2xl border p-4 flex flex-col min-w-0 transition-colors ${marcado ? 'border-primary/60' : 'border-line'}`}>
                 <div className="flex items-start gap-2.5">
-                  <input type="checkbox" checked={marcado} onChange={() => alternarSelecao(c.id)} title="Selecionar"
-                    className="accent-primary w-4 h-4 mt-1 flex-shrink-0 cursor-pointer" />
+                  {/* <label> envolvente cresce a ÁREA de toque sem mexer no
+                      desenho: a caixa de 16px é o gesto principal pra montar
+                      rota em campo, e era pequena demais pro dedo. p-2 -m-2
+                      cresce o alvo simetricamente (padding pra fora, margem
+                      negativa cancelando o deslocamento nos vizinhos); -mt-1
+                      compensa só o topo pra manter o mesmo alinhamento com o
+                      avatar que o mt-1 original dava ao checkbox sozinho. */}
+                  <label title="Selecionar" className="p-2 -m-2 -mt-1 flex-shrink-0 cursor-pointer">
+                    <input type="checkbox" checked={marcado} onChange={() => alternarSelecao(c.id)}
+                      className="accent-primary w-4 h-4 block cursor-pointer" />
+                  </label>
                   <span className={`w-9 h-9 rounded-full grid place-items-center text-white text-sm font-semibold flex-shrink-0 ${corAvatar(c.seller_id)}`}>
                     {inicial(c)}
                   </span>
@@ -773,7 +782,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                     )}
                     {!gps && (geoLinha === c.id
                       ? <span className="ml-auto flex-shrink-0 inline-flex items-center gap-1 text-[11px]"><Spinner /> …</span>
-                      : <button onClick={() => geocodarLinha(c)} className="ml-auto flex-shrink-0 text-[11px] font-semibold text-warn hover:underline">
+                      : <button onClick={() => geocodarLinha(c)} className="ml-auto flex-shrink-0 text-[11px] font-semibold text-warn hover:underline p-2 -m-2">
                           sem GPS · geocodar
                         </button>)}
                   </Linha>
