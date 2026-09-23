@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import Modal from '@/components/Modal'
 import {
   otimizarRota, entregarAoRoteirizar, MAX_PARADAS_ROTA,
   type Ponto, type ClienteSelecionado,
@@ -135,89 +136,89 @@ export default function GerarRota({
   const inp = 'w-full text-sm bg-field border border-field-line rounded-xl px-3 py-2 text-ink placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-primary'
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center p-4 z-50 overflow-y-auto" onClick={aoFechar}>
-      <div className="glass-blur rounded-2xl w-full max-w-md my-8 shadow-xl" onClick={e => e.stopPropagation()}>
-        <div className="px-5 py-4 border-b border-line flex items-center justify-between">
-          <h2 className="font-bold text-ink">
-            Gerar rota — {paradas.length.toLocaleString('pt-BR')} cliente{paradas.length !== 1 ? 's' : ''}
-          </h2>
-          <button onClick={aoFechar} className="text-ink-faint hover:text-ink-dim text-xl leading-none">×</button>
-        </div>
-
-        <div className="p-5 space-y-4">
-          {/* Quem ficou de fora aparece antes de qualquer campo: é a diferença
-              entre o que a pessoa marcou e o que vai virar visita. */}
-          {(semGps > 0 || pendentes > 0 || excedeu || aproximados.length > 0) && (
-            <div className="text-xs bg-warn-bg text-warn rounded-lg px-3 py-2.5 space-y-1">
-              {aproximados.length > 0 && (
-                <p>
-                  <b>{aproximados.length.toLocaleString('pt-BR')}</b>{' '}
-                  {aproximados.length === 1 ? 'parada entra' : 'paradas entram'} com{' '}
-                  <b>GPS aproximado</b> (o ponto é o centro do bairro, não o endereço):{' '}
-                  {aproximados.slice(0, 3).map(c => c.seller_nome || c.seller_id).join(', ')}
-                  {aproximados.length > 3 && ` e mais ${aproximados.length - 3}`}.
-                </p>
-              )}
-              {semGps > 0 && (
-                <p>
-                  <b>{semGps.toLocaleString('pt-BR')}</b> sem GPS {semGps === 1 ? 'ficou' : 'ficaram'} de fora —
-                  use “geocodar” na lista para achar as coordenadas.
-                </p>
-              )}
-              {pendentes > 0 && (
-                <p>
-                  <b>{pendentes.toLocaleString('pt-BR')}</b> pendente{pendentes !== 1 ? 's' : ''} de identificação
-                  {pendentes === 1 ? ' ficou' : ' ficaram'} de fora — identifique antes de marcar visita.
-                </p>
-              )}
-              {excedeu && (
-                <p>
-                  Uma rota aceita {MAX_PARADAS_ROTA} paradas: entram as {MAX_PARADAS_ROTA} primeiras
-                  de {roteaveis.length.toLocaleString('pt-BR')}. Monte o resto numa segunda rota.
-                </p>
-              )}
-            </div>
-          )}
-
-          {paradas.length === 0 ? (
-            <p className="text-sm text-ink-muted">
-              Nenhum dos selecionados pode virar parada ainda. Resolva o GPS ou a identificação e tente de novo.
-            </p>
-          ) : (
-            <>
-              <div>
-                <label className="text-xs font-semibold text-ink-muted mb-1.5 block">Nome da rota</label>
-                <input value={nomeRota} onChange={e => setNomeRota(e.target.value)}
-                  placeholder="Ex.: Visitas Boa Viagem" className={inp} />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-ink-muted mb-1.5 block">Dia da visita</label>
-                <input type="date" value={dataVisita} onChange={e => setDataVisita(e.target.value)} className={inp} />
-                <p className="text-[11px] text-ink-faint mt-1">
-                  {paradas.length} cliente{paradas.length !== 1 ? 's' : ''} {paradas.length !== 1 ? 'vão' : 'vai'} para
-                  este dia na Agenda, já na melhor ordem de visita.
-                </p>
-              </div>
-
-              {erro && <p className="text-xs text-bad bg-bad-bg rounded-lg px-3 py-2">{erro}</p>}
-
-              <button onClick={criarNaAgenda} disabled={criando}
-                className="w-full bg-primary hover:bg-primary-dk disabled:opacity-50 text-white text-sm font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2">
-                {criando && <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-white/60 border-t-transparent rounded-full" />}
-                {criando ? 'Otimizando o trajeto…' : 'Criar rota na Agenda'}
-              </button>
-
-              <p className="text-[11px] text-ink-faint text-center">
-                Quer escolher a partida ou mexer na ordem?{' '}
-                <button onClick={abrirNoRoteirizar} className="text-primary-lt font-medium hover:underline">
-                  Abrir no Roteirizar
-                </button>
+    // GerarRota não tem estado próprio de aberto/fechado — quem monta/
+    // desmonta é o pai (`{rotaAberta && <GerarRota .../>}`), então aberto é
+    // sempre true aqui: a própria existência do componente já significa
+    // "mostrar".
+    <Modal
+      aberto
+      aoFechar={aoFechar}
+      titulo={`Gerar rota — ${paradas.length.toLocaleString('pt-BR')} cliente${paradas.length !== 1 ? 's' : ''}`}
+      maxWidth="md"
+    >
+      <div className="p-5 space-y-4">
+        {/* Quem ficou de fora aparece antes de qualquer campo: é a diferença
+            entre o que a pessoa marcou e o que vai virar visita. */}
+        {(semGps > 0 || pendentes > 0 || excedeu || aproximados.length > 0) && (
+          <div className="text-xs bg-warn-bg text-warn rounded-lg px-3 py-2.5 space-y-1">
+            {aproximados.length > 0 && (
+              <p>
+                <b>{aproximados.length.toLocaleString('pt-BR')}</b>{' '}
+                {aproximados.length === 1 ? 'parada entra' : 'paradas entram'} com{' '}
+                <b>GPS aproximado</b> (o ponto é o centro do bairro, não o endereço):{' '}
+                {aproximados.slice(0, 3).map(c => c.seller_nome || c.seller_id).join(', ')}
+                {aproximados.length > 3 && ` e mais ${aproximados.length - 3}`}.
               </p>
-            </>
-          )}
-        </div>
+            )}
+            {semGps > 0 && (
+              <p>
+                <b>{semGps.toLocaleString('pt-BR')}</b> sem GPS {semGps === 1 ? 'ficou' : 'ficaram'} de fora —
+                use “geocodar” na lista para achar as coordenadas.
+              </p>
+            )}
+            {pendentes > 0 && (
+              <p>
+                <b>{pendentes.toLocaleString('pt-BR')}</b> pendente{pendentes !== 1 ? 's' : ''} de identificação
+                {pendentes === 1 ? ' ficou' : ' ficaram'} de fora — identifique antes de marcar visita.
+              </p>
+            )}
+            {excedeu && (
+              <p>
+                Uma rota aceita {MAX_PARADAS_ROTA} paradas: entram as {MAX_PARADAS_ROTA} primeiras
+                de {roteaveis.length.toLocaleString('pt-BR')}. Monte o resto numa segunda rota.
+              </p>
+            )}
+          </div>
+        )}
+
+        {paradas.length === 0 ? (
+          <p className="text-sm text-ink-muted">
+            Nenhum dos selecionados pode virar parada ainda. Resolva o GPS ou a identificação e tente de novo.
+          </p>
+        ) : (
+          <>
+            <div>
+              <label className="text-xs font-semibold text-ink-muted mb-1.5 block">Nome da rota</label>
+              <input value={nomeRota} onChange={e => setNomeRota(e.target.value)}
+                placeholder="Ex.: Visitas Boa Viagem" className={inp} />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-ink-muted mb-1.5 block">Dia da visita</label>
+              <input type="date" value={dataVisita} onChange={e => setDataVisita(e.target.value)} className={inp} />
+              <p className="text-[11px] text-ink-faint mt-1">
+                {paradas.length} cliente{paradas.length !== 1 ? 's' : ''} {paradas.length !== 1 ? 'vão' : 'vai'} para
+                este dia na Agenda, já na melhor ordem de visita.
+              </p>
+            </div>
+
+            {erro && <p className="text-xs text-bad bg-bad-bg rounded-lg px-3 py-2">{erro}</p>}
+
+            <button onClick={criarNaAgenda} disabled={criando}
+              className="w-full bg-primary hover:bg-primary-dk disabled:opacity-50 text-white text-sm font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2">
+              {criando && <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-white/60 border-t-transparent rounded-full" />}
+              {criando ? 'Otimizando o trajeto…' : 'Criar rota na Agenda'}
+            </button>
+
+            <p className="text-[11px] text-ink-faint text-center">
+              Quer escolher a partida ou mexer na ordem?{' '}
+              <button onClick={abrirNoRoteirizar} className="text-primary-lt font-medium hover:underline">
+                Abrir no Roteirizar
+              </button>
+            </p>
+          </>
+        )}
       </div>
-    </div>
+    </Modal>
   )
 }
