@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
+import Modal from '@/components/Modal'
 import MultiFiltro from '@/components/MultiFiltro'
 import { BotaoWhatsApp, BotaoMapa, urlWhatsApp } from '@/components/BotaoContato'
 import { findCol } from '@/lib/pilares'
@@ -932,138 +933,130 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
       )}
 
       {/* Modal cadastro/edição */}
-      {modalAberto && (
-        <div className="fixed inset-0 bg-black/40 flex items-start justify-center p-4 z-50 overflow-y-auto" onClick={() => setModalAberto(false)}>
-          <div className="glass-blur rounded-2xl w-full max-w-lg my-8 shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="px-5 py-4 border-b border-line flex items-center justify-between">
-              <h2 className="font-bold text-ink">
-                {!editando ? 'Novo cliente' : precisaEnriquecer(editando) ? 'Identificar cliente' : 'Editar cliente'}
-              </h2>
-              <button onClick={() => setModalAberto(false)} className="text-ink-faint hover:text-ink-dim text-xl leading-none">×</button>
+      <Modal
+        aberto={modalAberto}
+        aoFechar={() => setModalAberto(false)}
+        titulo={!editando ? 'Novo cliente' : precisaEnriquecer(editando) ? 'Identificar cliente' : 'Editar cliente'}
+        maxWidth="lg"
+      >
+        <div className="p-5 space-y-3">
+          {editando && precisaEnriquecer(editando) && (
+            <div className="text-xs bg-warn-bg text-warn rounded-lg px-3 py-2.5 flex items-start gap-2">
+              <span className="mt-0.5 flex-shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+              </span>
+              <span>
+                Busque o ID <button type="button" onClick={() => copiarId(editando.seller_id)} className="font-mono font-semibold underline underline-offset-2 hover:text-ink">#{editando.seller_id}</button> no
+                painel do Mercado Pago e preencha nome, CPF/CNPJ e telefone deste cliente.
+                {copiado === editando.seller_id && <span className="font-semibold"> · copiado</span>}
+              </span>
             </div>
-            <div className="p-5 space-y-3">
-              {editando && precisaEnriquecer(editando) && (
-                <div className="text-xs bg-warn-bg text-warn rounded-lg px-3 py-2.5 flex items-start gap-2">
-                  <span className="mt-0.5 flex-shrink-0">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
-                  </span>
-                  <span>
-                    Busque o ID <button type="button" onClick={() => copiarId(editando.seller_id)} className="font-mono font-semibold underline underline-offset-2 hover:text-ink">#{editando.seller_id}</button> no
-                    painel do Mercado Pago e preencha nome, CPF/CNPJ e telefone deste cliente.
-                    {copiado === editando.seller_id && <span className="font-semibold"> · copiado</span>}
-                  </span>
-                </div>
-              )}
-              {podeGerir && (
-                <Campo label="Consultor responsável">
-                  <input list="consultores-list" value={form.consultor_nome} onChange={e => set('consultor_nome')(e.target.value)} className={inputCls} placeholder="Nome do consultor" />
-                  <datalist id="consultores-list">{nomesConsultores.map(n => <option key={n} value={n} />)}</datalist>
-                </Campo>
-              )}
-              <div className="grid grid-cols-2 gap-3">
-                <Campo label="Seller ID *"><input value={form.seller_id} onChange={e => set('seller_id')(e.target.value)} className={inputCls} disabled={!!editando} /></Campo>
-                <Campo label="Nome do cliente"><input value={form.seller_nome} onChange={e => set('seller_nome')(e.target.value)} className={inputCls} /></Campo>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Campo label="Telefone (WhatsApp)"><input value={form.seller_telefone} onChange={e => set('seller_telefone')(e.target.value)} className={inputCls} placeholder="(11) 90000-0000" /></Campo>
-                <Campo label="E-mail"><input value={form.seller_email} onChange={e => set('seller_email')(e.target.value)} className={inputCls} /></Campo>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Campo label="Documento">
-                  <select value={form.doc_tipo} onChange={e => set('doc_tipo')(e.target.value)} className={inputCls}>
-                    <option value="">—</option><option value="CPF">CPF</option><option value="CNPJ">CNPJ</option>
-                  </select>
-                </Campo>
-                <Campo label="CPF / CNPJ"><input value={form.cpf_cnpj} onChange={e => set('cpf_cnpj')(e.target.value)} className={inputCls} /></Campo>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Campo label="Cidade"><input value={form.cidade} onChange={e => set('cidade')(e.target.value)} className={inputCls} /></Campo>
-                <Campo label="Bairro"><input value={form.bairro} onChange={e => set('bairro')(e.target.value)} className={inputCls} /></Campo>
-              </div>
-              <Campo label="Endereço completo">
-                <input value={form.endereco_completo} onChange={e => set('endereco_completo')(e.target.value)} className={inputCls} placeholder="Rua, número, cidade" />
-              </Campo>
-              <div className="flex items-end gap-2 flex-wrap">
-                <div className="flex-1 min-w-[180px]">
-                  <Campo label="Coordenadas">
-                    <input
-                      value={form.lat || form.lng ? `${form.lat}, ${form.lng}` : ''}
-                      onChange={e => {
-                        const [lat = '', lng = ''] = e.target.value.split(',').map(s => s.trim())
-                        setForm(f => ({ ...f, lat, lng, coordenada_origem: 'exata' }))
-                      }}
-                      className={inputCls}
-                      placeholder="-23.55, -46.63"
-                    />
-                  </Campo>
-                </div>
-                <button onClick={geocodarForm} disabled={geoForm} className="border border-good/40 text-good text-xs font-semibold px-3 py-2 rounded-xl whitespace-nowrap disabled:opacity-50">
-                  {geoForm ? '…' : 'Buscar do endereço'}
-                </button>
-                <button type="button" onClick={() => setMapaAberto(v => !v)} className="border border-primary/40 text-primary text-xs font-semibold px-3 py-2 rounded-xl whitespace-nowrap">
-                  {mapaAberto ? 'Ocultar mapa' : 'Ver no mapa'}
-                </button>
-              </div>
-              {mapaAberto && (
-                <div className="space-y-1">
-                  <PinMapa
-                    lat={paraNum(form.lat)}
-                    lng={paraNum(form.lng)}
-                    onChange={(lat, lng) => setForm(f => ({ ...f, lat: lat.toFixed(6), lng: lng.toFixed(6), coordenada_origem: 'exata' }))}
-                  />
-                  <p className="text-[11px] text-ink-faint">Arraste o alfinete ou clique no mapa para ajustar a posição exata.</p>
-                </div>
-              )}
-              <p className="text-[11px] text-ink-faint">Sem coordenadas o cliente não aparece no Radar. Copie do Google Maps (formato &quot;lat, lng&quot;), use &quot;Buscar do endereço&quot; ou ajuste no mapa.</p>
-              {erro && <p className="text-xs text-bad bg-bad-bg rounded-lg px-3 py-2">{erro}</p>}
-            </div>
-            <div className="px-5 py-4 border-t border-line flex justify-end gap-2">
-              <button onClick={() => setModalAberto(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-ink-dim hover:bg-card-2">Cancelar</button>
-              <button onClick={salvar} disabled={salvando} className="bg-primary hover:bg-primary-dk disabled:opacity-60 text-white text-sm font-semibold px-5 py-2 rounded-xl">
-                {salvando ? 'Salvando…' : editando ? 'Salvar alterações' : 'Cadastrar'}
-              </button>
-            </div>
+          )}
+          {podeGerir && (
+            <Campo label="Consultor responsável">
+              <input list="consultores-list" value={form.consultor_nome} onChange={e => set('consultor_nome')(e.target.value)} className={inputCls} placeholder="Nome do consultor" />
+              <datalist id="consultores-list">{nomesConsultores.map(n => <option key={n} value={n} />)}</datalist>
+            </Campo>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <Campo label="Seller ID *"><input value={form.seller_id} onChange={e => set('seller_id')(e.target.value)} className={inputCls} disabled={!!editando} /></Campo>
+            <Campo label="Nome do cliente"><input value={form.seller_nome} onChange={e => set('seller_nome')(e.target.value)} className={inputCls} /></Campo>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Campo label="Telefone (WhatsApp)"><input value={form.seller_telefone} onChange={e => set('seller_telefone')(e.target.value)} className={inputCls} placeholder="(11) 90000-0000" /></Campo>
+            <Campo label="E-mail"><input value={form.seller_email} onChange={e => set('seller_email')(e.target.value)} className={inputCls} /></Campo>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Campo label="Documento">
+              <select value={form.doc_tipo} onChange={e => set('doc_tipo')(e.target.value)} className={inputCls}>
+                <option value="">—</option><option value="CPF">CPF</option><option value="CNPJ">CNPJ</option>
+              </select>
+            </Campo>
+            <Campo label="CPF / CNPJ"><input value={form.cpf_cnpj} onChange={e => set('cpf_cnpj')(e.target.value)} className={inputCls} /></Campo>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Campo label="Cidade"><input value={form.cidade} onChange={e => set('cidade')(e.target.value)} className={inputCls} /></Campo>
+            <Campo label="Bairro"><input value={form.bairro} onChange={e => set('bairro')(e.target.value)} className={inputCls} /></Campo>
+          </div>
+          <Campo label="Endereço completo">
+            <input value={form.endereco_completo} onChange={e => set('endereco_completo')(e.target.value)} className={inputCls} placeholder="Rua, número, cidade" />
+          </Campo>
+          <div className="flex items-end gap-2 flex-wrap">
+            <div className="flex-1 min-w-[180px]">
+              <Campo label="Coordenadas">
+                <input
+                  value={form.lat || form.lng ? `${form.lat}, ${form.lng}` : ''}
+                  onChange={e => {
+                    const [lat = '', lng = ''] = e.target.value.split(',').map(s => s.trim())
+                    setForm(f => ({ ...f, lat, lng, coordenada_origem: 'exata' }))
+                  }}
+                  className={inputCls}
+                  placeholder="-23.55, -46.63"
+                />
+              </Campo>
+            </div>
+            <button onClick={geocodarForm} disabled={geoForm} className="border border-good/40 text-good text-xs font-semibold px-3 py-2 rounded-xl whitespace-nowrap disabled:opacity-50">
+              {geoForm ? '…' : 'Buscar do endereço'}
+            </button>
+            <button type="button" onClick={() => setMapaAberto(v => !v)} className="border border-primary/40 text-primary text-xs font-semibold px-3 py-2 rounded-xl whitespace-nowrap">
+              {mapaAberto ? 'Ocultar mapa' : 'Ver no mapa'}
+            </button>
+          </div>
+          {mapaAberto && (
+            <div className="space-y-1">
+              <PinMapa
+                lat={paraNum(form.lat)}
+                lng={paraNum(form.lng)}
+                onChange={(lat, lng) => setForm(f => ({ ...f, lat: lat.toFixed(6), lng: lng.toFixed(6), coordenada_origem: 'exata' }))}
+              />
+              <p className="text-[11px] text-ink-faint">Arraste o alfinete ou clique no mapa para ajustar a posição exata.</p>
+            </div>
+          )}
+          <p className="text-[11px] text-ink-faint">Sem coordenadas o cliente não aparece no Radar. Copie do Google Maps (formato &quot;lat, lng&quot;), use &quot;Buscar do endereço&quot; ou ajuste no mapa.</p>
+          {erro && <p className="text-xs text-bad bg-bad-bg rounded-lg px-3 py-2">{erro}</p>}
         </div>
-      )}
+        <div className="px-5 py-4 border-t border-line flex justify-end gap-2">
+          <button onClick={() => setModalAberto(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-ink-dim hover:bg-card-2">Cancelar</button>
+          <button onClick={salvar} disabled={salvando} className="bg-primary hover:bg-primary-dk disabled:opacity-60 text-white text-sm font-semibold px-5 py-2 rounded-xl">
+            {salvando ? 'Salvando…' : editando ? 'Salvar alterações' : 'Cadastrar'}
+          </button>
+        </div>
+      </Modal>
 
       {/* Diálogo WhatsApp em massa */}
-      {waOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-start justify-center p-4 z-50 overflow-y-auto" onClick={() => setWaOpen(false)}>
-          <div className="glass-blur rounded-2xl w-full max-w-lg my-8 shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="px-5 py-4 border-b border-line flex items-center justify-between">
-              <h2 className="font-bold text-ink">WhatsApp — {selecionados.length} cliente{selecionados.length !== 1 ? 's' : ''}</h2>
-              <button onClick={() => setWaOpen(false)} className="text-ink-faint hover:text-ink-dim text-xl leading-none">×</button>
-            </div>
-            <div className="p-5 space-y-3">
-              <Campo label="Mensagem (use {nome} para o nome do cliente)">
-                <textarea value={waMsg} onChange={e => setWaMsg(e.target.value)} rows={3} className={`${inputCls} resize-none`} />
-              </Campo>
-              <p className="text-[11px] text-ink-faint">
-                O WhatsApp não permite disparo automático em massa. Abra a conversa de cada cliente abaixo — a mensagem já vai preenchida.
-              </p>
-              <div className="max-h-64 overflow-y-auto divide-y divide-line border border-line rounded-xl">
-                {selecionados.map(c => {
-                  const link = urlWhatsApp(c.seller_telefone, waMsg.replace(/\{nome\}/g, c.seller_nome || 'cliente'))
-                  return (
-                    <div key={c.id} className="flex items-center gap-3 px-3 py-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-ink truncate">{c.seller_nome || `#${c.seller_id}`}</p>
-                        <p className="text-[11px] text-ink-faint">{c.seller_telefone || 'sem telefone'}</p>
-                      </div>
-                      {link ? (
-                        <a href={link} target="_blank" rel="noopener noreferrer" className="bg-good text-white text-xs font-semibold px-3 py-1.5 rounded-lg">Abrir</a>
-                      ) : (
-                        <span className="text-[11px] text-ink-faint">sem telefone</span>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
+      <Modal
+        aberto={waOpen}
+        aoFechar={() => setWaOpen(false)}
+        titulo={`WhatsApp — ${selecionados.length} cliente${selecionados.length !== 1 ? 's' : ''}`}
+        maxWidth="lg"
+      >
+        <div className="p-5 space-y-3">
+          <Campo label="Mensagem (use {nome} para o nome do cliente)">
+            <textarea value={waMsg} onChange={e => setWaMsg(e.target.value)} rows={3} className={`${inputCls} resize-none`} />
+          </Campo>
+          <p className="text-[11px] text-ink-faint">
+            O WhatsApp não permite disparo automático em massa. Abra a conversa de cada cliente abaixo — a mensagem já vai preenchida.
+          </p>
+          <div className="max-h-64 overflow-y-auto divide-y divide-line border border-line rounded-xl">
+            {selecionados.map(c => {
+              const link = urlWhatsApp(c.seller_telefone, waMsg.replace(/\{nome\}/g, c.seller_nome || 'cliente'))
+              return (
+                <div key={c.id} className="flex items-center gap-3 px-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-ink truncate">{c.seller_nome || `#${c.seller_id}`}</p>
+                    <p className="text-[11px] text-ink-faint">{c.seller_telefone || 'sem telefone'}</p>
+                  </div>
+                  {link ? (
+                    <a href={link} target="_blank" rel="noopener noreferrer" className="bg-good text-white text-xs font-semibold px-3 py-1.5 rounded-lg">Abrir</a>
+                  ) : (
+                    <span className="text-[11px] text-ink-faint">sem telefone</span>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   )
 
