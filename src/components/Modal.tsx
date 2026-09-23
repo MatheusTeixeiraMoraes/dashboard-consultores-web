@@ -9,8 +9,14 @@ const MAX_W = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg', xl: 'max-w-xl' }
 interface ModalProps {
   aberto: boolean
   aoFechar: () => void
-  titulo: string
+  /** Título simples — vira o cabeçalho padrão (título + X). Ignorado se
+   * `cabecalho` for passado. */
+  titulo?: string
   subtitulo?: string
+  /** Cabeçalho por inteiro, pra quando título+X não bastam (ex.: avatar,
+   * botões extras ao lado do X). Substitui o cabeçalho padrão — quem
+   * fornece cuida do próprio botão de fechar. */
+  cabecalho?: React.ReactNode
   maxWidth?: keyof typeof MAX_W
   /** Fecha ao clicar fora do painel. Default true — era o comportamento de
    * 4 dos 6 modais antigos; os 2 de Usuários que não fechavam assim viram
@@ -43,7 +49,7 @@ interface ModalProps {
  * JSX abre um <dialog> comum, sem backdrop, sem foco preso e sem top layer.
  */
 export default function Modal({
-  aberto, aoFechar, titulo, subtitulo, maxWidth = 'md', fecharAoClicarFora = true, children,
+  aberto, aoFechar, titulo, subtitulo, cabecalho, maxWidth = 'md', fecharAoClicarFora = true, children,
 }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null)
 
@@ -83,17 +89,19 @@ export default function Modal({
       onClick={e => { if (fecharAoClicarFora && e.target === ref.current) aoFechar() }}
       className={`fixed inset-0 m-auto p-0 border-0 backdrop:bg-black/40 glass-blur rounded-2xl shadow-xl w-full ${MAX_W[maxWidth]} max-h-[85dvh] flex flex-col`}
     >
-      <div className="px-6 py-5 border-b border-line flex items-center justify-between flex-shrink-0">
-        <div className="min-w-0">
-          <h2 className="text-base font-bold text-ink">{titulo}</h2>
-          {subtitulo && <p className="text-xs text-ink-muted mt-0.5">{subtitulo}</p>}
+      {cabecalho ?? (
+        <div className="px-6 py-5 border-b border-line flex items-center justify-between flex-shrink-0">
+          <div className="min-w-0">
+            <h2 className="text-base font-bold text-ink">{titulo}</h2>
+            {subtitulo && <p className="text-xs text-ink-muted mt-0.5">{subtitulo}</p>}
+          </div>
+          <button onClick={aoFechar} aria-label="Fechar" className="text-ink-faint hover:text-ink-dim transition-colors flex-shrink-0 ml-3">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
         </div>
-        <button onClick={aoFechar} aria-label="Fechar" className="text-ink-faint hover:text-ink-dim transition-colors flex-shrink-0 ml-3">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
-      </div>
+      )}
       <div className="overflow-y-auto min-h-0 flex-1">{children}</div>
     </dialog>
   )

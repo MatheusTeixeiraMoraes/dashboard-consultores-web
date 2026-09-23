@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import Modal from '@/components/Modal'
 import MultiFiltro from '@/components/MultiFiltro'
 import { BotaoWhatsApp, BotaoMapa } from '@/components/BotaoContato'
 import { compararRitmo, faixaTPV, ROTULO_FAIXA, type FaixaTPV } from '@/lib/tpv'
@@ -347,6 +348,14 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
     () => enriquecidas.find(l => l.seller_id === detalheId) ?? null,
     [enriquecidas, detalheId],
   )
+
+  // Calculado uma vez só e usado tanto no cabeçalho custom do Modal quanto no
+  // corpo — os dois precisam do mesmo nome de exibição.
+  const fichaDetalhe = clienteDetalhe ? fichas[clienteDetalhe.seller_id] : undefined
+  const nomeDetalhe = clienteDetalhe
+    ? (precisaIdentificar(fichaDetalhe?.nome ?? '', clienteDetalhe.seller_id)
+        ? `#${clienteDetalhe.seller_id}` : (fichaDetalhe?.nome ?? `#${clienteDetalhe.seller_id}`))
+    : ''
 
   const consultores = useMemo(
     () => [...new Set(linhas.map(l => l.consultor_nome).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
@@ -761,178 +770,171 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
       {/* Painel de detalhe: tudo sobre UM cliente, incluindo o que a lista não
           carrega mais (quartil, crédito, recorrência, endereço) — busca só ao
           abrir, não pesa a lista inteira. */}
-      {detalheId && (
-        <div className="fixed inset-0 bg-black/40 flex items-start justify-center p-4 z-50 overflow-y-auto"
-          onClick={() => setDetalheId(null)}>
-          <div className="glass-blur rounded-2xl border border-line max-w-xl w-full my-8" onClick={e => e.stopPropagation()}>
-            {!clienteDetalhe ? (
-              <div className="p-10 text-center text-sm text-ink-muted">Cliente não encontrado nesta página.</div>
-            ) : (() => {
-              const fd = fichas[clienteDetalhe.seller_id]
-              const nomeDetalhe = precisaIdentificar(fd?.nome ?? '', clienteDetalhe.seller_id)
-                ? `#${clienteDetalhe.seller_id}` : (fd?.nome ?? `#${clienteDetalhe.seller_id}`)
-              return (
-                <>
-                  <div className="flex items-start justify-between gap-3 p-5 border-b border-line">
-                    <div className="flex gap-3 min-w-0">
-                      <span className={`w-11 h-11 rounded-full grid place-items-center text-white text-base font-semibold flex-shrink-0 ${corAvatar(clienteDetalhe.seller_id)}`}>
-                        {inicial(nomeDetalhe)}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-base font-semibold text-ink truncate">{nomeDetalhe}</p>
-                        <p className="text-xs text-ink-faint truncate">#{clienteDetalhe.seller_id} · {clienteDetalhe.consultor_nome}</p>
-                        {(fd?.local || detalheExtra?.endereco_completo) && (
-                          <p className="text-xs text-ink-muted mt-0.5 truncate">{detalheExtra?.endereco_completo || fd?.local}</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <BotaoWhatsApp telefone={fd?.telefone} nome={nomeDetalhe} />
-                      {detalheExtra && <BotaoMapa lat={detalheExtra.lat} lng={detalheExtra.lng} nome={nomeDetalhe} />}
-                      <button onClick={() => setDetalheId(null)} aria-label="Fechar"
-                        className="text-ink-faint hover:text-ink-dim text-2xl leading-none w-8 h-8 grid place-items-center flex-shrink-0">×</button>
-                    </div>
-                  </div>
-
-                  <div className="p-5 space-y-5">
-                    <section>
-                      <p className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide mb-2">TPV · últimos 3 meses</p>
-                      <div className="flex items-end gap-5 flex-wrap mb-3">
-                        <Sparkline pontos={clienteDetalhe.pontosTrimestre} alto />
-                        <div className="flex gap-4 flex-wrap">
-                          {([
-                            ['M-3', clienteDetalhe.tpv_m3], ['M-2', clienteDetalhe.tpv_m2],
-                            ['M-1', clienteDetalhe.tpv_mes_passado], ['Este mês (proj.)', clienteDetalhe.projecaoMes],
-                          ] as [string, number | null][]).map(([rot, v]) => (
-                            <div key={rot}>
-                              <p className="text-[10px] text-ink-faint">{rot}</p>
-                              <p className="text-sm font-semibold text-ink tabular-nums">{v != null ? brl(v) : '—'}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-card-2 rounded-xl px-3 py-2">
-                          <p className="text-[11px] text-ink-faint">Ritmo diário</p>
-                          <p className="text-sm font-semibold tabular-nums text-ink">{brl(clienteDetalhe.ritmoAtual)}/dia</p>
-                          <p className={`text-xs tabular-nums font-medium ${CorFaixa[clienteDetalhe.faixa]}`}>
-                            {clienteDetalhe.variacao == null ? '—' : pct(clienteDetalhe.variacao)} vs mês passado
-                          </p>
-                        </div>
-                        <div className="bg-card-2 rounded-xl px-3 py-2">
-                          <p className="text-[11px] text-ink-faint">Hoje vs {clienteDetalhe.rotuloReferencia}</p>
-                          <p className="text-sm font-semibold tabular-nums text-ink">
-                            {clienteDetalhe.tpv_mes_atual != null ? brl(clienteDetalhe.tpv_mes_atual) : '—'}
-                          </p>
-                          <p className="text-xs tabular-nums text-ink-faint">
-                            era {clienteDetalhe.referenciaComparavel != null ? brl(clienteDetalhe.referenciaComparavel) : '—'}
-                          </p>
-                        </div>
-                      </div>
-                      {clienteDetalhe.tendencia && (
-                        <p className={`text-xs mt-3 px-3 py-2 rounded-lg leading-relaxed ${
-                          clienteDetalhe.tendencia === 'queda-cronica' ? 'bg-bad-bg text-bad'
-                          : clienteDetalhe.tendencia === 'recuperando' || clienteDetalhe.tendencia === 'crescimento-sustentado' ? 'bg-good-bg text-good'
-                          : 'bg-warn-bg text-warn'
-                        }`}>
-                          <strong>{RotuloTendencia[clienteDetalhe.tendencia]}</strong> — {ExplicacaoTendencia[clienteDetalhe.tendencia]}
-                        </p>
-                      )}
-
-                      {/* Os 3 comparativos prontos do MP, com o número — não só
-                          a categoria derivada. Mesma regra de sinal confirmada
-                          contra a planilha real: período mais recente menos
-                          período mais antigo (positivo = cresceu, negativo =
-                          caiu). */}
-                      <div className="mt-3 space-y-1.5">
-                        <p className="text-[10px] text-ink-faint">Comparativos · mais recente − mais antigo (positivo = cresceu, negativo = caiu)</p>
-                        {([
-                          ['TPV M3 vs M1', clienteDetalhe.tpv_m3_vs_m1, '3 meses atrás → mês passado'],
-                          ['TPV M2 vs M1', clienteDetalhe.tpv_m2_vs_m1, '2 meses atrás → mês passado'],
-                          ['TPV M0 vs mesma data mês anterior', clienteDetalhe.tpv_m0_vs_mesma_data, 'este mês até hoje → mesmo intervalo no mês passado'],
-                        ] as [string, number | null, string][]).map(([rot, v, sub]) => (
-                          <div key={rot} className="flex items-center justify-between gap-3 bg-card-2 rounded-lg px-3 py-2">
-                            <div className="min-w-0">
-                              <p className="text-xs text-ink-dim">{rot}</p>
-                              <p className="text-[10px] text-ink-faint truncate">{sub}</p>
-                            </div>
-                            <p className={`text-sm font-semibold tabular-nums flex-shrink-0 ${
-                              v == null ? 'text-ink-faint' : v < 0 ? 'text-bad' : v > 0 ? 'text-good' : 'text-ink-muted'
-                            }`}>
-                              {v == null ? '—' : `${v >= 0 ? '+' : '-'}${brl(Math.abs(v))}`}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-
-                    {(clienteDetalhe.oportunidade_1x || clienteDetalhe.oportunidade_parc) && (
-                      <section>
-                        <p className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide mb-2">Oportunidade de reversão</p>
-                        <div className="space-y-2">
-                          {clienteDetalhe.oportunidade_1x && (
-                            <div className="flex items-center justify-between bg-primary/8 rounded-xl px-3 py-2 text-sm">
-                              <span className="text-ink-dim">À vista</span>
-                              <span className="tabular-nums text-ink">
-                                {brl(clienteDetalhe.valor_1x ?? 0)}
-                                {clienteDetalhe.ating_1x != null && ` · ${Math.round(clienteDetalhe.ating_1x * 100)}% capturado`}
-                                {clienteDetalhe.revertido_1x && <span className="text-good font-medium"> · revertida</span>}
-                              </span>
-                            </div>
-                          )}
-                          {clienteDetalhe.oportunidade_parc && (
-                            <div className="flex items-center justify-between bg-primary/8 rounded-xl px-3 py-2 text-sm">
-                              <span className="text-ink-dim">Parcelado</span>
-                              <span className="tabular-nums text-ink">
-                                {brl(clienteDetalhe.valor_parc ?? 0)}
-                                {clienteDetalhe.ating_parc != null && ` · ${Math.round(clienteDetalhe.ating_parc * 100)}% capturado`}
-                                {clienteDetalhe.revertido_parc && <span className="text-good font-medium"> · revertida</span>}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </section>
-                    )}
-
-                    <section>
-                      <p className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide mb-2">Situação e contexto</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-3">
-                        <Campo rotulo="Status" valor={clienteDetalhe.status ?? '—'} />
-                        <Campo rotulo="Segmento" valor={clienteDetalhe.mcc ?? '—'} />
-                        <Campo rotulo="Prioridade MP" valor={carregandoDetalhe ? '…' : (detalheExtra?.quartil ?? '—')} />
-                        <Campo rotulo="Crédito" valor={carregandoDetalhe ? '…' : (detalheExtra?.status_credito ?? '—')} />
-                        <Campo rotulo="Recorrência" valor={carregandoDetalhe ? '…' : (detalheExtra?.recorrencia ?? '—')} />
-                        <Campo rotulo="Multicontas" valor={carregandoDetalhe ? '…' : (detalheExtra?.multicontas != null ? String(detalheExtra.multicontas) : '—')} />
-                        <Campo rotulo="Sem transacionar"
-                          valor={clienteDetalhe.dias_sem_transacionar != null ? `${clienteDetalhe.dias_sem_transacionar}d` : '—'}
-                          sub={!carregandoDetalhe && detalheExtra?.dt_ultima_transacao ? `última em ${dataBR(detalheExtra.dt_ultima_transacao)}` : null} />
-                        <Campo rotulo="Sem contato" valor={clienteDetalhe.diasSemContato != null ? `${clienteDetalhe.diasSemContato}d` : 'nunca'} />
-                        <Campo rotulo="Sem pesquisa" valor={clienteDetalhe.diasSemPesquisa != null ? `${clienteDetalhe.diasSemPesquisa}d` : 'nunca'} />
-                      </div>
-                      {clienteDetalhe.vazandoFora && (
-                        <p className="text-xs text-ink-dim bg-card-2 rounded-lg px-3 py-2 mt-3">
-                          Processa <strong className="tabular-nums">{brl(clienteDetalhe.tpv_outras_contas ?? 0)}</strong> em
-                          outras contas MP — mais do que processa aqui.
-                        </p>
-                      )}
-                      {clienteDetalhe.semAcao && (
-                        <p className="text-xs text-warn bg-warn-bg rounded-lg px-3 py-2 mt-2">
-                          Nenhuma ação comercial atribuída a este cliente ainda.
-                        </p>
-                      )}
-                    </section>
-
-                    <a href="/dashboard/acionaveis"
-                      className="inline-flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/15 rounded-lg px-3 py-2 transition-colors">
-                      Ver na fila de Acionáveis →
-                    </a>
-                  </div>
-                </>
-              )
-            })()}
+      <Modal
+        aberto={!!detalheId}
+        aoFechar={() => setDetalheId(null)}
+        maxWidth="xl"
+        cabecalho={!clienteDetalhe ? <></> : (
+          <div className="flex items-start justify-between gap-3 p-5 border-b border-line flex-shrink-0">
+            <div className="flex gap-3 min-w-0">
+              <span className={`w-11 h-11 rounded-full grid place-items-center text-white text-base font-semibold flex-shrink-0 ${corAvatar(clienteDetalhe.seller_id)}`}>
+                {inicial(nomeDetalhe)}
+              </span>
+              <div className="min-w-0">
+                <p className="text-base font-semibold text-ink truncate">{nomeDetalhe}</p>
+                <p className="text-xs text-ink-faint truncate">#{clienteDetalhe.seller_id} · {clienteDetalhe.consultor_nome}</p>
+                {(fichaDetalhe?.local || detalheExtra?.endereco_completo) && (
+                  <p className="text-xs text-ink-muted mt-0.5 truncate">{detalheExtra?.endereco_completo || fichaDetalhe?.local}</p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <BotaoWhatsApp telefone={fichaDetalhe?.telefone} nome={nomeDetalhe} />
+              {detalheExtra && <BotaoMapa lat={detalheExtra.lat} lng={detalheExtra.lng} nome={nomeDetalhe} />}
+              <button onClick={() => setDetalheId(null)} aria-label="Fechar"
+                className="text-ink-faint hover:text-ink-dim text-2xl leading-none w-8 h-8 grid place-items-center flex-shrink-0">×</button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      >
+        {!clienteDetalhe ? (
+          <div className="p-10 text-center text-sm text-ink-muted">Cliente não encontrado nesta página.</div>
+        ) : (
+          <div className="p-5 space-y-5">
+            <section>
+              <p className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide mb-2">TPV · últimos 3 meses</p>
+              <div className="flex items-end gap-5 flex-wrap mb-3">
+                <Sparkline pontos={clienteDetalhe.pontosTrimestre} alto />
+                <div className="flex gap-4 flex-wrap">
+                  {([
+                    ['M-3', clienteDetalhe.tpv_m3], ['M-2', clienteDetalhe.tpv_m2],
+                    ['M-1', clienteDetalhe.tpv_mes_passado], ['Este mês (proj.)', clienteDetalhe.projecaoMes],
+                  ] as [string, number | null][]).map(([rot, v]) => (
+                    <div key={rot}>
+                      <p className="text-[10px] text-ink-faint">{rot}</p>
+                      <p className="text-sm font-semibold text-ink tabular-nums">{v != null ? brl(v) : '—'}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-card-2 rounded-xl px-3 py-2">
+                  <p className="text-[11px] text-ink-faint">Ritmo diário</p>
+                  <p className="text-sm font-semibold tabular-nums text-ink">{brl(clienteDetalhe.ritmoAtual)}/dia</p>
+                  <p className={`text-xs tabular-nums font-medium ${CorFaixa[clienteDetalhe.faixa]}`}>
+                    {clienteDetalhe.variacao == null ? '—' : pct(clienteDetalhe.variacao)} vs mês passado
+                  </p>
+                </div>
+                <div className="bg-card-2 rounded-xl px-3 py-2">
+                  <p className="text-[11px] text-ink-faint">Hoje vs {clienteDetalhe.rotuloReferencia}</p>
+                  <p className="text-sm font-semibold tabular-nums text-ink">
+                    {clienteDetalhe.tpv_mes_atual != null ? brl(clienteDetalhe.tpv_mes_atual) : '—'}
+                  </p>
+                  <p className="text-xs tabular-nums text-ink-faint">
+                    era {clienteDetalhe.referenciaComparavel != null ? brl(clienteDetalhe.referenciaComparavel) : '—'}
+                  </p>
+                </div>
+              </div>
+              {clienteDetalhe.tendencia && (
+                <p className={`text-xs mt-3 px-3 py-2 rounded-lg leading-relaxed ${
+                  clienteDetalhe.tendencia === 'queda-cronica' ? 'bg-bad-bg text-bad'
+                  : clienteDetalhe.tendencia === 'recuperando' || clienteDetalhe.tendencia === 'crescimento-sustentado' ? 'bg-good-bg text-good'
+                  : 'bg-warn-bg text-warn'
+                }`}>
+                  <strong>{RotuloTendencia[clienteDetalhe.tendencia]}</strong> — {ExplicacaoTendencia[clienteDetalhe.tendencia]}
+                </p>
+              )}
+
+              {/* Os 3 comparativos prontos do MP, com o número — não só
+                  a categoria derivada. Mesma regra de sinal confirmada
+                  contra a planilha real: período mais recente menos
+                  período mais antigo (positivo = cresceu, negativo =
+                  caiu). */}
+              <div className="mt-3 space-y-1.5">
+                <p className="text-[10px] text-ink-faint">Comparativos · mais recente − mais antigo (positivo = cresceu, negativo = caiu)</p>
+                {([
+                  ['TPV M3 vs M1', clienteDetalhe.tpv_m3_vs_m1, '3 meses atrás → mês passado'],
+                  ['TPV M2 vs M1', clienteDetalhe.tpv_m2_vs_m1, '2 meses atrás → mês passado'],
+                  ['TPV M0 vs mesma data mês anterior', clienteDetalhe.tpv_m0_vs_mesma_data, 'este mês até hoje → mesmo intervalo no mês passado'],
+                ] as [string, number | null, string][]).map(([rot, v, sub]) => (
+                  <div key={rot} className="flex items-center justify-between gap-3 bg-card-2 rounded-lg px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="text-xs text-ink-dim">{rot}</p>
+                      <p className="text-[10px] text-ink-faint truncate">{sub}</p>
+                    </div>
+                    <p className={`text-sm font-semibold tabular-nums flex-shrink-0 ${
+                      v == null ? 'text-ink-faint' : v < 0 ? 'text-bad' : v > 0 ? 'text-good' : 'text-ink-muted'
+                    }`}>
+                      {v == null ? '—' : `${v >= 0 ? '+' : '-'}${brl(Math.abs(v))}`}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {(clienteDetalhe.oportunidade_1x || clienteDetalhe.oportunidade_parc) && (
+              <section>
+                <p className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide mb-2">Oportunidade de reversão</p>
+                <div className="space-y-2">
+                  {clienteDetalhe.oportunidade_1x && (
+                    <div className="flex items-center justify-between bg-primary/8 rounded-xl px-3 py-2 text-sm">
+                      <span className="text-ink-dim">À vista</span>
+                      <span className="tabular-nums text-ink">
+                        {brl(clienteDetalhe.valor_1x ?? 0)}
+                        {clienteDetalhe.ating_1x != null && ` · ${Math.round(clienteDetalhe.ating_1x * 100)}% capturado`}
+                        {clienteDetalhe.revertido_1x && <span className="text-good font-medium"> · revertida</span>}
+                      </span>
+                    </div>
+                  )}
+                  {clienteDetalhe.oportunidade_parc && (
+                    <div className="flex items-center justify-between bg-primary/8 rounded-xl px-3 py-2 text-sm">
+                      <span className="text-ink-dim">Parcelado</span>
+                      <span className="tabular-nums text-ink">
+                        {brl(clienteDetalhe.valor_parc ?? 0)}
+                        {clienteDetalhe.ating_parc != null && ` · ${Math.round(clienteDetalhe.ating_parc * 100)}% capturado`}
+                        {clienteDetalhe.revertido_parc && <span className="text-good font-medium"> · revertida</span>}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+
+            <section>
+              <p className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide mb-2">Situação e contexto</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-3">
+                <Campo rotulo="Status" valor={clienteDetalhe.status ?? '—'} />
+                <Campo rotulo="Segmento" valor={clienteDetalhe.mcc ?? '—'} />
+                <Campo rotulo="Prioridade MP" valor={carregandoDetalhe ? '…' : (detalheExtra?.quartil ?? '—')} />
+                <Campo rotulo="Crédito" valor={carregandoDetalhe ? '…' : (detalheExtra?.status_credito ?? '—')} />
+                <Campo rotulo="Recorrência" valor={carregandoDetalhe ? '…' : (detalheExtra?.recorrencia ?? '—')} />
+                <Campo rotulo="Multicontas" valor={carregandoDetalhe ? '…' : (detalheExtra?.multicontas != null ? String(detalheExtra.multicontas) : '—')} />
+                <Campo rotulo="Sem transacionar"
+                  valor={clienteDetalhe.dias_sem_transacionar != null ? `${clienteDetalhe.dias_sem_transacionar}d` : '—'}
+                  sub={!carregandoDetalhe && detalheExtra?.dt_ultima_transacao ? `última em ${dataBR(detalheExtra.dt_ultima_transacao)}` : null} />
+                <Campo rotulo="Sem contato" valor={clienteDetalhe.diasSemContato != null ? `${clienteDetalhe.diasSemContato}d` : 'nunca'} />
+                <Campo rotulo="Sem pesquisa" valor={clienteDetalhe.diasSemPesquisa != null ? `${clienteDetalhe.diasSemPesquisa}d` : 'nunca'} />
+              </div>
+              {clienteDetalhe.vazandoFora && (
+                <p className="text-xs text-ink-dim bg-card-2 rounded-lg px-3 py-2 mt-3">
+                  Processa <strong className="tabular-nums">{brl(clienteDetalhe.tpv_outras_contas ?? 0)}</strong> em
+                  outras contas MP — mais do que processa aqui.
+                </p>
+              )}
+              {clienteDetalhe.semAcao && (
+                <p className="text-xs text-warn bg-warn-bg rounded-lg px-3 py-2 mt-2">
+                  Nenhuma ação comercial atribuída a este cliente ainda.
+                </p>
+              )}
+            </section>
+
+            <a href="/dashboard/acionaveis"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/15 rounded-lg px-3 py-2 transition-colors">
+              Ver na fila de Acionáveis →
+            </a>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
