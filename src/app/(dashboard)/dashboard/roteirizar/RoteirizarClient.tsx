@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import MultiFiltro from '@/components/MultiFiltro'
@@ -86,6 +86,10 @@ export default function RoteirizarClient({ clientes, meuNome, fichaTecnica, data
   const [fQuartil, setFQuartil] = useState<Set<string>>(new Set())
   const [fMcc, setFMcc] = useState<Set<string>>(new Set())
   const [pagina, setPagina] = useState(0)
+  // Abaixo de md, os chips de filtro colapsam num botão único que abre esta
+  // folha — mesma barra e mesmo motivo de ClientesClient.tsx.
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false)
+  const filtrosRef = useRef<HTMLDivElement>(null)
 
   // Coordenada e ficha de cadastro por seller_id — a base desta tela é a fonte
   // da verdade sobre onde o cliente fica.
@@ -200,6 +204,32 @@ export default function RoteirizarClient({ clientes, meuNome, fichaTecnica, data
     setFSituacao(new Set()); setFQuartil(new Set()); setFMcc(new Set())
     setPagina(0)
   }
+
+  // Um array só, pra renderizar os mesmos <MultiFiltro> duas vezes (chips no
+  // desktop, empilhados na folha do celular) sem repetir a lista de props em
+  // dois lugares do JSX — mesmo padrão de ClientesClient.tsx.
+  const eixosFiltro = [
+    consultores.length > 1 && { label: 'Consultores', opcoes: consultores, sel: fConsultores, onChange: (v: Set<string>) => { setFConsultores(v); setPagina(0) } },
+    { label: 'Cidades', opcoes: cidades, sel: fCidades, onChange: (v: Set<string>) => { setFCidades(v); setPagina(0) } },
+    { label: 'Bairros', opcoes: bairros, sel: fBairros, onChange: (v: Set<string>) => { setFBairros(v); setPagina(0) } },
+    temFicha && { label: 'Situação', opcoes: SITUACOES_MP, sel: fSituacao, onChange: (v: Set<string>) => { setFSituacao(v); setPagina(0) } },
+    temFicha && { label: 'Prioridade', opcoes: PRIORIDADES_MP, sel: fQuartil, onChange: (v: Set<string>) => { setFQuartil(v); setPagina(0) } },
+    temFicha && { label: 'Segmento', opcoes: mccs, sel: fMcc, onChange: (v: Set<string>) => { setFMcc(v); setPagina(0) } },
+  ].filter((f): f is { label: string; opcoes: string[]; sel: Set<string>; onChange: (s: Set<string>) => void } => !!f)
+  // Conta EIXOS com pelo menos uma opção marcada, não o total de opções —
+  // "3" faz sentido (3 tipos de filtro ligados); somar 15 bairros não faria.
+  const eixosAtivos = eixosFiltro.filter(f => f.sel.size > 0).length
+
+  // Fecha a folha de filtros clicando fora — mesmo padrão que o MultiFiltro
+  // já usa pra cada chip individual.
+  useEffect(() => {
+    if (!filtrosAbertos) return
+    function fora(e: MouseEvent) {
+      if (filtrosRef.current && !filtrosRef.current.contains(e.target as Node)) setFiltrosAbertos(false)
+    }
+    document.addEventListener('mousedown', fora)
+    return () => document.removeEventListener('mousedown', fora)
+  }, [filtrosAbertos])
 
   function toggleStop(c: ClienteRadar) {
     setResultado(null)
@@ -468,16 +498,24 @@ export default function RoteirizarClient({ clientes, meuNome, fichaTecnica, data
               <input value={fBusca} onChange={e => { setFBusca(e.target.value); setPagina(0) }}
                 placeholder="Buscar por ID do cliente ou nome…"
                 className={`${inp} flex-1 min-w-[220px]`} />
-              {consultores.length > 1 && (
-                <MultiFiltro label="Consultores" opcoes={consultores} sel={fConsultores} onChange={v => { setFConsultores(v); setPagina(0) }} />
-              )}
-              <MultiFiltro label="Cidades" opcoes={cidades} sel={fCidades} onChange={v => { setFCidades(v); setPagina(0) }} />
-              <MultiFiltro label="Bairros" opcoes={bairros} sel={fBairros} onChange={v => { setFBairros(v); setPagina(0) }} />
-              {temFicha && <>
-                <MultiFiltro label="Situação" opcoes={SITUACOES_MP} sel={fSituacao} onChange={v => { setFSituacao(v); setPagina(0) }} />
-                <MultiFiltro label="Prioridade" opcoes={PRIORIDADES_MP} sel={fQuartil} onChange={v => { setFQuartil(v); setPagina(0) }} />
-                <MultiFiltro label="Segmento" opcoes={mccs} sel={fMcc} onChange={v => { setFMcc(v); setPagina(0) }} />
-              </>}
+              {/* A partir de md, os chips ficam soltos na barra, como sempre
+                  foi. hidden md:contents: o wrapper não deve virar UM item
+                  de flex — continuam filhos diretos do flex-wrap da barra. */}
+              <div className="hidden md:contents">
+                {eixosFiltro.map(f => <MultiFiltro key={f.label} {...f} />)}
+              </div>
+
+              {/* Abaixo de md, os chips viram este botão único. Cidades e
+                  Bairros são incondicionais — eixosFiltro nunca vem vazio. */}
+              <button onClick={() => setFiltrosAbertos(true)}
+                className={`md:hidden flex items-center gap-1.5 border rounded-lg px-2.5 py-1.5 text-sm whitespace-nowrap transition-colors ${
+                  eixosAtivos > 0 ? 'border-primary/60 bg-primary/15 text-ink' : 'border-field-line bg-field text-ink-muted hover:text-ink'
+                }`}>
+                Filtros
+                {eixosAtivos > 0 && (
+                  <span className="bg-primary text-white text-[10px] font-bold rounded-full px-1.5 min-w-[17px] text-center">{eixosAtivos}</span>
+                )}
+              </button>
               {temFiltro && (
                 <button onClick={limparFiltros} className="text-xs text-ink-muted hover:text-ink px-1.5">Limpar filtros</button>
               )}
@@ -486,6 +524,29 @@ export default function RoteirizarClient({ clientes, meuNome, fichaTecnica, data
                 + Selecionar todos ({filtrados.length.toLocaleString('pt-BR')})
               </button>
             </div>
+
+            {/* Folha do celular com os filtros empilhados — mesmo padrão de
+                ClientesClient.tsx, mesmo motivo (R13). */}
+            {filtrosAbertos && (
+              <div ref={filtrosRef} className="md:hidden glass-blur border border-line shadow-2xl overflow-hidden fixed inset-x-3 bottom-3 z-50 rounded-2xl pb-[env(safe-area-inset-bottom)]">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-line">
+                  <p className="font-semibold text-ink text-sm">Filtros{eixosAtivos > 0 ? ` (${eixosAtivos})` : ''}</p>
+                  <button onClick={() => setFiltrosAbertos(false)} className="text-ink-faint hover:text-ink-dim p-2 -m-2" aria-label="Fechar">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="flex flex-col gap-2 p-3 max-h-[60vh] overflow-y-auto">
+                  {eixosFiltro.map(f => <MultiFiltro key={f.label} {...f} />)}
+                </div>
+                {eixosAtivos > 0 && (
+                  <button onClick={limparFiltros} className="w-full border-t border-line px-3 py-2.5 text-xs text-ink-muted hover:text-ink">
+                    Limpar filtros
+                  </button>
+                )}
+              </div>
+            )}
 
             {filtrados.length === 0 ? (
               <p className="text-sm text-ink-faint text-center py-10">Nenhum cliente com esses filtros.</p>
