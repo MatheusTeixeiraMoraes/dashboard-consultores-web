@@ -349,7 +349,10 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
           <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-line bg-card-2">
-                <th className="text-left px-5 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider">Nome / E-mail</th>
+                {/* sticky: rolando pra ver Ações, era o Nome/E-mail (quem é
+                    a linha) que sumia. bg-surface (opaco) — bg-card-2 é
+                    translúcido a 75%, deixa passar o conteúdo por baixo. */}
+                <th className="sticky left-0 z-10 text-left px-5 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider bg-surface">Nome / E-mail</th>
                 <th className="text-left px-5 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider">Cargo</th>
                 <th className="text-left px-5 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider">ID Carteira</th>
                 <th className="text-left px-5 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider">Ações</th>
@@ -367,9 +370,9 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
                 const isDel      = deleting === u.id
 
                 return (
-                  <tr key={u.id} className="hover:bg-card-2 transition-colors">
+                  <tr key={u.id} className="group hover:bg-card-2 transition-colors">
                     {/* Nome / e-mail */}
-                    <td className="px-5 py-3.5">
+                    <td className="sticky left-0 z-10 px-5 py-3.5 bg-surface group-hover:bg-card-2">
                       {isEditing ? (
                         <input
                           className="border border-field-line rounded-lg px-2 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-primary"

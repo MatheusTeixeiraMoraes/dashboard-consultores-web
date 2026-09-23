@@ -185,8 +185,14 @@ export default function CompararClient({ dates, idCarteira }: { dates: string[];
           <table className="w-full min-w-[680px] text-sm">
             <thead>
               <tr className="border-b border-line bg-card-2">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-ink-muted uppercase tracking-wider w-6">#</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-ink-muted uppercase tracking-wider">Consultor</th>
+                {/* sticky nas 2 primeiras colunas juntas (# + Consultor): rolando
+                    pra ver o Δ de um pilar mais à direita, é o nome que não pode
+                    sumir. left-14 na segunda = largura real da primeira (w-6 +
+                    px-4 de cada lado = 56px), senão as duas colidem ao rolar.
+                    bg-surface (opaco), não bg-card-2 (translúcido a 75% — o
+                    vidro do tema deixaria o conteúdo passar por baixo). */}
+                <th className="sticky left-0 z-10 text-left px-4 py-3 text-xs font-semibold text-ink-muted uppercase tracking-wider w-6 bg-surface">#</th>
+                <th className="sticky left-14 z-10 text-left px-4 py-3 text-xs font-semibold text-ink-muted uppercase tracking-wider bg-surface">Consultor</th>
                 <th className="text-center px-3 py-3 text-xs font-semibold text-ink-muted uppercase tracking-wider">{formatDateBR(dateA)}</th>
                 <th className="text-center px-3 py-3 text-xs font-semibold text-ink-muted uppercase tracking-wider">{formatDateBR(dateB)}</th>
                 <th className="text-center px-3 py-3 text-xs font-semibold text-ink-muted uppercase tracking-wider">Δ Total</th>
@@ -199,9 +205,9 @@ export default function CompararClient({ dates, idCarteira }: { dates: string[];
             </thead>
             <tbody className="divide-y divide-line">
               {rows.map((row, i) => (
-                <tr key={row.id} className="hover:bg-card-2 transition-colors">
-                  <td className="px-4 py-3 text-xs text-ink-faint font-medium">{i + 1}</td>
-                  <td className="px-4 py-3">
+                <tr key={row.id} className="group hover:bg-card-2 transition-colors">
+                  <td className="sticky left-0 z-10 px-4 py-3 text-xs text-ink-faint font-medium bg-surface group-hover:bg-card-2">{i + 1}</td>
+                  <td className="sticky left-14 z-10 px-4 py-3 bg-surface group-hover:bg-card-2">
                     <p className="font-medium text-ink">{row.nome}</p>
                     <p className="text-[11px] text-ink-faint">Cart. {row.id}</p>
                   </td>

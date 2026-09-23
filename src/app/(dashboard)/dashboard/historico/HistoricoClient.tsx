@@ -127,7 +127,10 @@ export default function HistoricoClient({ rows: initialRows, role }: { rows: Upl
           <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b border-line bg-card-2">
-                <th className="text-left px-4 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider">Pilar</th>
+                {/* sticky: rolando pra ver "Ação" no fim da linha, era o
+                    Pilar (o que identifica a linha) que sumia. bg-surface
+                    (opaco) — bg-card-2 é translúcido a 75%, deixa passar. */}
+                <th className="sticky left-0 z-10 text-left px-4 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider bg-surface">Pilar</th>
                 <th className="text-left px-4 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider">Arquivo</th>
                 <th className="text-center px-4 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider">Ref.</th>
                 <th className="text-center px-4 py-3 font-semibold text-ink-muted text-xs uppercase tracking-wider">Registros</th>
@@ -142,8 +145,8 @@ export default function HistoricoClient({ rows: initialRows, role }: { rows: Upl
                 const isConfirming = confirmId === row.id
                 const isDeleting = deleting === row.id
                 return (
-                  <tr key={row.id} className="hover:bg-card-2 transition-colors">
-                    <td className="px-4 py-3">
+                  <tr key={row.id} className="group hover:bg-card-2 transition-colors">
+                    <td className="sticky left-0 z-10 px-4 py-3 bg-surface group-hover:bg-card-2">
                       <span
                         className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg"
                         style={{ background: `${color}18`, color }}
