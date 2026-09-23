@@ -59,6 +59,20 @@ interface ModalProps {
  * verdade (que só showModal() põe), e a especificidade do seletor com
  * atributo já garante que ele vence o `hidden` de base — sem depender de
  * ordem de classe nem de JS extra pra sincronizar os dois.
+ *
+ * O <dialog> NÃO leva `flex-col`/`max-height` diretamente — isso é bug
+ * conhecido do WebKit/Safari: quando é o próprio elemento <dialog> que
+ * calcula altura intrínseca (limitada por max-height) E distribui espaço
+ * pra um filho com flex-grow, o Safari erra a conta e o filho de
+ * flex-grow (o corpo rolável) colapsa a zero — some, mesmo a rede
+ * mostrando o cabeçalho normalmente (que não depende dessa conta, só
+ * senta no próprio conteúdo). Reproduzido ao vivo: Chrome desktop
+ * renderizava perfeito, Safari do iPhone escondia o corpo dos 6 modais.
+ * A saída é tirar esse cálculo de dentro do <dialog>: ele vira só uma
+ * casca de centralização em VIEWPORT CHEIA (sem max-height própria,
+ * então sem a conta que o Safari erra), e quem tem flex-col+max-height é
+ * um <div> comum dentro dele — layout que todo navegador, Safari incluso,
+ * já resolve certo há anos fora de <dialog>.
  */
 export default function Modal({
   aberto, aoFechar, titulo, subtitulo, cabecalho, maxWidth = 'md', fecharAoClicarFora = true, children,
@@ -99,22 +113,24 @@ export default function Modal({
     <dialog
       ref={ref}
       onClick={e => { if (fecharAoClicarFora && e.target === ref.current) aoFechar() }}
-      className={`hidden open:flex flex-col fixed inset-0 m-auto p-0 border-0 backdrop:bg-black/40 glass-blur rounded-2xl shadow-xl w-full ${MAX_W[maxWidth]} max-h-[85dvh]`}
+      className="hidden open:flex items-center justify-center fixed inset-0 m-0 p-4 w-full h-full max-w-none max-h-none bg-transparent border-0 backdrop:bg-black/40"
     >
-      {cabecalho ?? (
-        <div className="px-6 py-5 border-b border-line flex items-center justify-between flex-shrink-0">
-          <div className="min-w-0">
-            <h2 className="text-base font-bold text-ink">{titulo}</h2>
-            {subtitulo && <p className="text-xs text-ink-muted mt-0.5">{subtitulo}</p>}
+      <div className={`glass-blur rounded-2xl shadow-xl w-full ${MAX_W[maxWidth]} max-h-[85dvh] flex flex-col`}>
+        {cabecalho ?? (
+          <div className="px-6 py-5 border-b border-line flex items-center justify-between flex-shrink-0">
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-ink">{titulo}</h2>
+              {subtitulo && <p className="text-xs text-ink-muted mt-0.5">{subtitulo}</p>}
+            </div>
+            <button onClick={aoFechar} aria-label="Fechar" className="text-ink-faint hover:text-ink-dim transition-colors flex-shrink-0 ml-3">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
           </div>
-          <button onClick={aoFechar} aria-label="Fechar" className="text-ink-faint hover:text-ink-dim transition-colors flex-shrink-0 ml-3">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
-      )}
-      <div className="overflow-y-auto min-h-0 flex-1">{children}</div>
+        )}
+        <div className="overflow-y-auto min-h-0 flex-1">{children}</div>
+      </div>
     </dialog>
   )
 }
