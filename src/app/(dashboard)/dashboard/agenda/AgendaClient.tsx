@@ -415,7 +415,12 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mb-5">
+      {/* grid-cols-2 lg:grid-cols-3 — mesmo padrão de KPI que
+          GeralClient.tsx/ClientesClient.tsx/RadarClient.tsx (lá com 4
+          itens, aqui com 3). Sem breakpoint nenhum (como estava), "Km
+          percorridos" com "1.234,5 km" não cabia nos ~64px de texto útil
+          que sobravam de 3 colunas fixas num iPhone SE. */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
         <KPI label="Rotas" valor={String(kpis.rotas)} />
         <KPI label="Km percorridos" valor={kpis.km.toFixed(1).replace('.', ',')} sufixo=" km" />
         <KPI label="Horas em rota" valor={kpis.horas.toFixed(1).replace('.', ',')} sufixo=" h" />
