@@ -91,7 +91,10 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
   const [view, setView] = useState<'semana' | 'lista'>('semana')
   const [semanaOffset, setSemanaOffset] = useState(0)
   // `hoje` só no cliente: new Date() no SSR daria mismatch de hidratação.
+  // Exceção legítima ao lint de setState-em-efeito — não tem como derivar
+  // isto durante o render, já que o valor não existe até montar no cliente.
   const [hoje, setHoje] = useState<Date | null>(null)
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setHoje(new Date()), [])
 
   const kpis = useMemo(() => {

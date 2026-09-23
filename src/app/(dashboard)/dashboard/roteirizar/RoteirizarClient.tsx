@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import MultiFiltro from '@/components/MultiFiltro'
@@ -128,6 +128,10 @@ export default function RoteirizarClient({ clientes, meuNome, fichaTecnica, data
     if (validos.length > MAX_PARADAS_ROTA) {
       avisos.push(`Uma rota aceita ${MAX_PARADAS_ROTA} paradas — entraram os ${MAX_PARADAS_ROTA} primeiros dos ${validos.length}. Monte o resto numa segunda rota.`)
     }
+    // Roda só na montagem (deps [] embaixo), consumindo uma entrega de
+    // localStorage que não existe no servidor — não dá pra mover isto pra
+    // fora do efeito.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (avisos.length > 0) setErro(avisos.join(' '))
     if (validos.length === 0) return
 
@@ -137,9 +141,6 @@ export default function RoteirizarClient({ clientes, meuNome, fichaTecnica, data
     // entrega é consumida (e apagada) de uma vez só.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // Volta à primeira página quando o filtro muda (senão pararia numa página vazia).
-  useEffect(() => { setPagina(0) }, [fBusca, fCidades, fBairros, fConsultores, fSituacao, fQuartil, fMcc])
 
   const idsNaRota = useMemo(() => new Set(stops.map(s => s.seller_id)), [stops])
 
@@ -197,23 +198,29 @@ export default function RoteirizarClient({ clientes, meuNome, fichaTecnica, data
   function limparFiltros() {
     setFBusca(''); setFCidades(new Set()); setFBairros(new Set()); setFConsultores(new Set())
     setFSituacao(new Set()); setFQuartil(new Set()); setFMcc(new Set())
+    setPagina(0)
   }
 
   function toggleStop(c: ClienteRadar) {
     setResultado(null)
-    setStops(prev => prev.some(s => s.seller_id === c.seller_id)
+    const jaEstava = stops.some(s => s.seller_id === c.seller_id)
+    if (!jaEstava && stops.length >= MAX_PARADAS_ROTA) {
+      setErro(`Máximo de ${MAX_PARADAS_ROTA} clientes por rota.`)
+      return
+    }
+    setStops(prev => jaEstava
       ? prev.filter(s => s.seller_id !== c.seller_id)
-      : (prev.length >= MAX_PARADAS_ROTA ? (setErro(`Máximo de ${MAX_PARADAS_ROTA} clientes por rota.`), prev) : [...prev, paraSelecionado(c)]))
+      : [...prev, paraSelecionado(c)])
   }
 
   function selecionarTodos() {
-    setErro(''); setResultado(null)
-    setStops(prev => {
-      const jaTem = new Set(prev.map(s => s.seller_id))
-      const novos = filtrados.filter(c => !jaTem.has(c.seller_id)).map(paraSelecionado)
-      if (prev.length + novos.length > MAX_PARADAS_ROTA) setErro(`Selecionei os primeiros ${MAX_PARADAS_ROTA} (limite por rota).`)
-      return [...prev, ...novos].slice(0, MAX_PARADAS_ROTA)
-    })
+    setResultado(null)
+    const jaTem = new Set(stops.map(s => s.seller_id))
+    const novos = filtrados.filter(c => !jaTem.has(c.seller_id)).map(paraSelecionado)
+    setErro(stops.length + novos.length > MAX_PARADAS_ROTA
+      ? `Selecionei os primeiros ${MAX_PARADAS_ROTA} (limite por rota).`
+      : '')
+    setStops([...stops, ...novos].slice(0, MAX_PARADAS_ROTA))
   }
 
   function removeStop(id: string) {
@@ -458,18 +465,18 @@ export default function RoteirizarClient({ clientes, meuNome, fichaTecnica, data
 
             {/* Toolbar de filtros */}
             <div className="flex items-center gap-2 flex-wrap mb-3">
-              <input value={fBusca} onChange={e => setFBusca(e.target.value)}
+              <input value={fBusca} onChange={e => { setFBusca(e.target.value); setPagina(0) }}
                 placeholder="Buscar por ID do cliente ou nome…"
                 className={`${inp} flex-1 min-w-[220px]`} />
               {consultores.length > 1 && (
-                <MultiFiltro label="Consultores" opcoes={consultores} sel={fConsultores} onChange={setFConsultores} />
+                <MultiFiltro label="Consultores" opcoes={consultores} sel={fConsultores} onChange={v => { setFConsultores(v); setPagina(0) }} />
               )}
-              <MultiFiltro label="Cidades" opcoes={cidades} sel={fCidades} onChange={setFCidades} />
-              <MultiFiltro label="Bairros" opcoes={bairros} sel={fBairros} onChange={setFBairros} />
+              <MultiFiltro label="Cidades" opcoes={cidades} sel={fCidades} onChange={v => { setFCidades(v); setPagina(0) }} />
+              <MultiFiltro label="Bairros" opcoes={bairros} sel={fBairros} onChange={v => { setFBairros(v); setPagina(0) }} />
               {temFicha && <>
-                <MultiFiltro label="Situação" opcoes={SITUACOES_MP} sel={fSituacao} onChange={setFSituacao} />
-                <MultiFiltro label="Prioridade" opcoes={PRIORIDADES_MP} sel={fQuartil} onChange={setFQuartil} />
-                <MultiFiltro label="Segmento" opcoes={mccs} sel={fMcc} onChange={setFMcc} />
+                <MultiFiltro label="Situação" opcoes={SITUACOES_MP} sel={fSituacao} onChange={v => { setFSituacao(v); setPagina(0) }} />
+                <MultiFiltro label="Prioridade" opcoes={PRIORIDADES_MP} sel={fQuartil} onChange={v => { setFQuartil(v); setPagina(0) }} />
+                <MultiFiltro label="Segmento" opcoes={mccs} sel={fMcc} onChange={v => { setFMcc(v); setPagina(0) }} />
               </>}
               {temFiltro && (
                 <button onClick={limparFiltros} className="text-xs text-ink-muted hover:text-ink px-1.5">Limpar filtros</button>

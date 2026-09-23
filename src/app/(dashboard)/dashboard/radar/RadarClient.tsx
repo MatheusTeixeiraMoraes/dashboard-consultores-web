@@ -34,7 +34,7 @@ interface Props {
   meuNome: string
 }
 
-export default function RadarClient({ clientes, podeVerTodos, meuNome }: Props) {
+export default function RadarClient({ clientes, podeVerTodos }: Props) {
   const router = useRouter()
 
   const [pos, setPos] = useState<Ponto | null>(null)
@@ -53,9 +53,13 @@ export default function RadarClient({ clientes, podeVerTodos, meuNome }: Props) 
   const [buscandoManual, setBuscandoManual] = useState(false)
 
   // Restaura o raio. A view não é restaurada — ver viewMode acima.
+  // Exceção legítima ao lint de setState-em-efeito: localStorage não existe
+  // no servidor, então não dá pra ler isto durante o render nem num
+  // initializer de useState — só depois de montar no cliente.
   useEffect(() => {
     try {
       const p = JSON.parse(localStorage.getItem(CHAVE_PREF) || '{}')
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (typeof p.raio === 'number') setRaio(p.raio)
     } catch { /* ignore */ }
   }, [])
@@ -86,6 +90,11 @@ export default function RadarClient({ clientes, podeVerTodos, meuNome }: Props) 
     )
   }, [])
 
+  // O lint aponta lerGps() como "setState em efeito", mas os setState de
+  // dentro dela (setPos/setGeoStatus/setGeoMsg) rodam nos callbacks
+  // assíncronos do getCurrentPosition — nunca de forma síncrona durante
+  // este efeito. Falso positivo da análise estática.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { lerGps() }, [lerGps])
 
   // Alternativa quando o GPS falha/está bloqueado: definir a posição por endereço.

@@ -49,14 +49,6 @@ function formatDateBR(iso: string) {
   return `${d}/${m}/${y}`
 }
 
-function formatDateTimeBR(iso: string) {
-  const dt = new Date(iso)
-  return dt.toLocaleString('pt-BR', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
-}
-
 export default function HistoricoClient({ rows: initialRows, role }: { rows: UploadRow[]; role: UserRole }) {
   const [rows, setRows] = useState(initialRows)
   const [deleting, setDeleting] = useState<string | null>(null)
