@@ -85,7 +85,14 @@ export default function Shell({
 
       <div className="flex-1 flex flex-col min-w-0 md:ml-60">
         <Topbar profile={profile} abrirMenu={() => setMenuAberto(true)} demoAtivo={demoAtivo} />
-        <main ref={mainRef} className="flex-1 p-4 md:p-6 overflow-auto">
+        {/* overflow-x-clip: rede de segurança. Antes desta sessão não havia
+            NENHUMA barreira contra vazamento lateral em lugar nenhum do
+            app — um filtro ou card mal calculado empurrava a PÁGINA INTEIRA
+            pro lado (visto de verdade em AtividadeClient.tsx, os inputs de
+            data). `clip`, não `hidden`: não cria novo contexto de scroll
+            nem interfere no overflow-y (que continua auto, controlado pelo
+            overflow geral abaixo). */}
+        <main ref={mainRef} className="flex-1 p-4 md:p-6 overflow-auto overflow-x-clip">
           {children}
           {/* Reserva o espaço da faixa de delegação (BarraDelegacao publica a
               própria altura em --delegacao-h). Sem isto o último item da

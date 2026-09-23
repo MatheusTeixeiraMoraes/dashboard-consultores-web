@@ -217,7 +217,13 @@ export default function AtividadeClient({ eventos }: { eventos: EventoAtividade[
           />
         </div>
         <div className="ml-auto flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1 text-xs bg-field border border-field-line rounded-lg px-2 py-1.5">
+          {/* flex-wrap próprio: os dois <input type="date"> não encolhem no
+              toque (globals.css força 16px pra evitar o zoom do iOS, e o
+              controle nativo de data já tem largura mínima própria em cima
+              disso) — sem isto, "De [data] até [data] ✕" sozinho já passava
+              da largura de um iPhone SE, mesmo com o grupo pai quebrando
+              linha por fora. */}
+          <div className="flex items-center gap-1 text-xs bg-field border border-field-line rounded-lg px-2 py-1.5 flex-wrap">
             <span className="text-ink-faint">De</span>
             <input
               type="date" value={dataInicio} max={dataFim || undefined}
