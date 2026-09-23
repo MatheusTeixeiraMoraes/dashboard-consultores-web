@@ -616,185 +616,178 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
       </div>
 
       {/* Modal do link de acesso */}
-      {showLink && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
-          <div className="glass-blur rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col">
-            <div className="px-6 py-5 border-b border-line flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-bold text-ink">Gerar link de acesso</h2>
-                <p className="text-xs text-ink-muted mt-0.5">
-                  {tipoLink === 'consultor'
-                    ? 'Escolha pelo nome da planilha — o vínculo vai junto no link.'
-                    : 'Líder não sai da planilha: escreva o nome como ele deve aparecer no painel.'}
-                </p>
-              </div>
-              <button onClick={() => setShowLink(false)} className="text-ink-faint hover:text-ink-dim transition-colors">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+      <Modal
+        aberto={showLink}
+        aoFechar={() => setShowLink(false)}
+        titulo="Gerar link de acesso"
+        subtitulo={tipoLink === 'consultor'
+          ? 'Escolha pelo nome da planilha — o vínculo vai junto no link.'
+          : 'Líder não sai da planilha: escreva o nome como ele deve aparecer no painel.'}
+        maxWidth="lg"
+      >
+        {linkPronto ? (
+          <div className="px-6 py-5">
+            <p className="text-sm text-ink mb-1">
+              Link de <span className="font-semibold">{linkPronto.nome}</span>
+            </p>
+            <p className="text-xs text-ink-muted mb-3">
+              Copie agora e mande para essa pessoa. Ele não vai aparecer de novo.
+            </p>
+            <div className="flex gap-2">
+              <input
+                readOnly
+                value={linkPronto.url}
+                onFocus={e => e.currentTarget.select()}
+                className="flex-1 bg-field border border-field-line rounded-xl px-3 py-2 text-xs text-ink font-mono"
+              />
+              <button
+                onClick={() => copiar(linkPronto.url)}
+                className="bg-primary hover:bg-primary-dk text-white text-sm font-medium px-4 rounded-xl transition-colors"
+              >
+                {copiado ? 'Copiado!' : 'Copiar'}
               </button>
             </div>
+            {linkErr && <p className="text-xs text-bad mt-2">{linkErr}</p>}
+            <div className="flex gap-3 pt-5">
+              <button
+                onClick={() => { setLinkPronto(null); setCopiado(false) }}
+                className="flex-1 text-sm font-medium text-ink-dim border border-line rounded-xl py-2.5 hover:bg-card-2 transition-colors"
+              >
+                Gerar para outro
+              </button>
+              <button
+                onClick={() => setShowLink(false)}
+                className="flex-1 bg-primary hover:bg-primary-dk text-white text-sm font-medium py-2.5 rounded-xl transition-colors"
+              >
+                Concluir
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Escolha do cargo. Consultor sai da lista das planilhas
+                porque o link precisa levar o par nome+carteira — é ele que
+                faz a RLS entregar as linhas certas. Líder não está em
+                planilha nenhuma e não tem carteira, então ali o nome é
+                digitado. */}
+            <div className="px-6 pt-4 flex gap-0.5 bg-transparent">
+              {(['consultor', 'lider'] as const).map(t => (
+                <button key={t} onClick={() => { setTipoLink(t); setLinkErr(null) }}
+                  className={`flex-1 text-sm font-medium py-2 rounded-xl transition-colors ${
+                    tipoLink === t ? 'bg-primary text-white' : 'text-ink-muted hover:bg-card-2'
+                  }`}>
+                  {t === 'consultor' ? 'Consultor' : 'Líder'}
+                </button>
+              ))}
+            </div>
 
-            {linkPronto ? (
-              <div className="px-6 py-5">
-                <p className="text-sm text-ink mb-1">
-                  Link de <span className="font-semibold">{linkPronto.nome}</span>
+            {tipoLink === 'lider' ? (
+              <div className="px-6 pt-4 pb-5">
+                <label className="text-xs font-semibold text-ink-muted block mb-1.5">Nome do líder</label>
+                <input
+                  autoFocus
+                  value={nomeLider}
+                  onChange={e => setNomeLider(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && nomeLider.trim()) {
+                      gerar({ nome: nomeLider.trim(), id_carteira: null, role: 'lider' })
+                    }
+                  }}
+                  placeholder="Ex.: Maria Souza"
+                  className="w-full bg-field border border-field-line rounded-xl px-3.5 py-2.5 text-sm text-ink placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <p className="text-[11px] text-ink-muted mt-2 leading-relaxed">
+                  O líder enxerga a operação inteira e não tem carteira própria. Se já existir
+                  um usuário com este nome, o link serve para ele redefinir a senha — e o cargo
+                  passa a ser líder.
                 </p>
-                <p className="text-xs text-ink-muted mb-3">
-                  Copie agora e mande para essa pessoa. Ele não vai aparecer de novo.
-                </p>
-                <div className="flex gap-2">
-                  <input
-                    readOnly
-                    value={linkPronto.url}
-                    onFocus={e => e.currentTarget.select()}
-                    className="flex-1 bg-field border border-field-line rounded-xl px-3 py-2 text-xs text-ink font-mono"
-                  />
-                  <button
-                    onClick={() => copiar(linkPronto.url)}
-                    className="bg-primary hover:bg-primary-dk text-white text-sm font-medium px-4 rounded-xl transition-colors"
-                  >
-                    {copiado ? 'Copiado!' : 'Copiar'}
-                  </button>
-                </div>
                 {linkErr && <p className="text-xs text-bad mt-2">{linkErr}</p>}
-                <div className="flex gap-3 pt-5">
-                  <button
-                    onClick={() => { setLinkPronto(null); setCopiado(false) }}
-                    className="flex-1 text-sm font-medium text-ink-dim border border-line rounded-xl py-2.5 hover:bg-card-2 transition-colors"
-                  >
-                    Gerar para outro
-                  </button>
-                  <button
-                    onClick={() => setShowLink(false)}
-                    className="flex-1 bg-primary hover:bg-primary-dk text-white text-sm font-medium py-2.5 rounded-xl transition-colors"
-                  >
-                    Concluir
-                  </button>
-                </div>
+                <button
+                  onClick={() => gerar({ nome: nomeLider.trim(), id_carteira: null, role: 'lider' })}
+                  disabled={!nomeLider.trim() || gerando !== null}
+                  className="w-full mt-4 bg-primary hover:bg-primary-dk disabled:opacity-50 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
+                >
+                  {gerando ? 'Gerando…' : 'Gerar link de líder'}
+                </button>
               </div>
             ) : (
-              <>
-                {/* Escolha do cargo. Consultor sai da lista das planilhas
-                    porque o link precisa levar o par nome+carteira — é ele que
-                    faz a RLS entregar as linhas certas. Líder não está em
-                    planilha nenhuma e não tem carteira, então ali o nome é
-                    digitado. */}
-                <div className="px-6 pt-4 flex gap-0.5 bg-transparent">
-                  {(['consultor', 'lider'] as const).map(t => (
-                    <button key={t} onClick={() => { setTipoLink(t); setLinkErr(null) }}
-                      className={`flex-1 text-sm font-medium py-2 rounded-xl transition-colors ${
-                        tipoLink === t ? 'bg-primary text-white' : 'text-ink-muted hover:bg-card-2'
-                      }`}>
-                      {t === 'consultor' ? 'Consultor' : 'Líder'}
-                    </button>
-                  ))}
-                </div>
-
-                {tipoLink === 'lider' ? (
-                  <div className="px-6 pt-4 pb-5">
-                    <label className="text-xs font-semibold text-ink-muted block mb-1.5">Nome do líder</label>
-                    <input
-                      autoFocus
-                      value={nomeLider}
-                      onChange={e => setNomeLider(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' && nomeLider.trim()) {
-                          gerar({ nome: nomeLider.trim(), id_carteira: null, role: 'lider' })
-                        }
-                      }}
-                      placeholder="Ex.: Maria Souza"
-                      className="w-full bg-field border border-field-line rounded-xl px-3.5 py-2.5 text-sm text-ink placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                    <p className="text-[11px] text-ink-muted mt-2 leading-relaxed">
-                      O líder enxerga a operação inteira e não tem carteira própria. Se já existir
-                      um usuário com este nome, o link serve para ele redefinir a senha — e o cargo
-                      passa a ser líder.
-                    </p>
-                    {linkErr && <p className="text-xs text-bad mt-2">{linkErr}</p>}
-                    <button
-                      onClick={() => gerar({ nome: nomeLider.trim(), id_carteira: null, role: 'lider' })}
-                      disabled={!nomeLider.trim() || gerando !== null}
-                      className="w-full mt-4 bg-primary hover:bg-primary-dk disabled:opacity-50 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
-                    >
-                      {gerando ? 'Gerando…' : 'Gerar link de líder'}
-                    </button>
-                  </div>
-                ) : (
-                <div className="px-6 pt-4 pb-3">
-                  <input
-                    autoFocus
-                    value={buscaCons}
-                    onChange={e => setBuscaCons(e.target.value)}
-                    placeholder="Buscar consultor..."
-                    className="w-full bg-field border border-field-line rounded-xl px-3.5 py-2.5 text-sm text-ink placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                  {linkErr && <p className="text-xs text-bad mt-2">{linkErr}</p>}
-                </div>
-                )}
-                <div className={`overflow-y-auto px-3 pb-4 ${tipoLink === 'lider' ? 'hidden' : ''}`}>
-                  {carregandoCons && (
-                    <p className="px-3 py-8 text-center text-sm text-ink-muted">
-                      Lendo as planilhas...
-                    </p>
-                  )}
-                  {consultoresFiltrados.map(c => (
-                    <div key={c.nome} className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl hover:bg-card-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-ink truncate">{c.nome}</p>
-                        <p className="text-[11px] text-ink-muted">
-                          {c.qtdClientes > 0
-                            ? `${c.qtdClientes} cliente${c.qtdClientes !== 1 ? 's' : ''}`
-                            : 'nenhum cliente nesta grafia'}
-                          {' · '}
-                          {c.id_carteira ? `carteira ${c.id_carteira}` : 'sem carteira de pontuação'}
-                          {c.temUsuario && ' · já tem acesso'}
-                        </p>
-                        {/* Os dois avisos existem porque a mesma pessoa aparece
-                            escrita de dois jeitos nas planilhas, e a escolha
-                            errada dá acesso pela metade. */}
-                        {c.carteiraRepetida && (
-                          <p className="text-[11px] text-warn mt-0.5">
-                            Outra grafia usa esta mesma carteira — confira qual é a correta.
-                          </p>
-                        )}
-                        {!c.id_carteira && c.qtdClientes > 0 && (
-                          <p className="text-[11px] text-warn mt-0.5">
-                            Vê os clientes, mas não verá o próprio desempenho: este nome não
-                            aparece na planilha de pontuação.
-                          </p>
-                        )}
-                        {c.id_carteira && c.qtdClientes === 0 && (
-                          <p className="text-[11px] text-warn mt-0.5">
-                            Vê o desempenho, mas a carteira virá vazia: nenhum cliente está
-                            gravado com esta grafia.
-                          </p>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => gerar({ nome: c.nome, id_carteira: c.id_carteira, role: 'consultor' })}
-                        disabled={gerando !== null}
-                        className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors flex-shrink-0 disabled:opacity-60 ${
-                          c.temUsuario
-                            ? 'text-ink-dim border border-line hover:bg-card-2'
-                            : 'text-white bg-primary hover:bg-primary-dk'
-                        }`}
-                      >
-                        {gerando === c.nome ? '...' : c.temUsuario ? 'Nova senha' : 'Gerar link'}
-                      </button>
-                    </div>
-                  ))}
-                  {!carregandoCons && consultores && consultoresFiltrados.length === 0 && (
-                    <p className="px-3 py-8 text-center text-sm text-ink-muted">
-                      Nenhum consultor com esse nome nas planilhas.
-                    </p>
-                  )}
-                </div>
-              </>
+            <div className="px-6 pt-4 pb-3">
+              <input
+                autoFocus
+                value={buscaCons}
+                onChange={e => setBuscaCons(e.target.value)}
+                placeholder="Buscar consultor..."
+                className="w-full bg-field border border-field-line rounded-xl px-3.5 py-2.5 text-sm text-ink placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              {linkErr && <p className="text-xs text-bad mt-2">{linkErr}</p>}
+            </div>
             )}
-          </div>
-        </div>
-      )}
+            {/* Sem overflow-y-auto próprio: quem rola agora é o corpo do Modal
+                inteiro (título das abas + busca/campo de líder + lista), não
+                só esta lista sozinha — antes, com o teclado aberto ou em
+                paisagem, só a lista rolava e o campo "Nome do líder" podia
+                ficar inalcançável. */}
+            <div className={`px-3 pb-4 ${tipoLink === 'lider' ? 'hidden' : ''}`}>
+              {carregandoCons && (
+                <p className="px-3 py-8 text-center text-sm text-ink-muted">
+                  Lendo as planilhas...
+                </p>
+              )}
+              {consultoresFiltrados.map(c => (
+                <div key={c.nome} className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl hover:bg-card-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-ink truncate">{c.nome}</p>
+                    <p className="text-[11px] text-ink-muted">
+                      {c.qtdClientes > 0
+                        ? `${c.qtdClientes} cliente${c.qtdClientes !== 1 ? 's' : ''}`
+                        : 'nenhum cliente nesta grafia'}
+                      {' · '}
+                      {c.id_carteira ? `carteira ${c.id_carteira}` : 'sem carteira de pontuação'}
+                      {c.temUsuario && ' · já tem acesso'}
+                    </p>
+                    {/* Os dois avisos existem porque a mesma pessoa aparece
+                        escrita de dois jeitos nas planilhas, e a escolha
+                        errada dá acesso pela metade. */}
+                    {c.carteiraRepetida && (
+                      <p className="text-[11px] text-warn mt-0.5">
+                        Outra grafia usa esta mesma carteira — confira qual é a correta.
+                      </p>
+                    )}
+                    {!c.id_carteira && c.qtdClientes > 0 && (
+                      <p className="text-[11px] text-warn mt-0.5">
+                        Vê os clientes, mas não verá o próprio desempenho: este nome não
+                        aparece na planilha de pontuação.
+                      </p>
+                    )}
+                    {c.id_carteira && c.qtdClientes === 0 && (
+                      <p className="text-[11px] text-warn mt-0.5">
+                        Vê o desempenho, mas a carteira virá vazia: nenhum cliente está
+                        gravado com esta grafia.
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => gerar({ nome: c.nome, id_carteira: c.id_carteira, role: 'consultor' })}
+                    disabled={gerando !== null}
+                    className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors flex-shrink-0 disabled:opacity-60 ${
+                      c.temUsuario
+                        ? 'text-ink-dim border border-line hover:bg-card-2'
+                        : 'text-white bg-primary hover:bg-primary-dk'
+                    }`}
+                  >
+                    {gerando === c.nome ? '...' : c.temUsuario ? 'Nova senha' : 'Gerar link'}
+                  </button>
+                </div>
+              ))}
+              {!carregandoCons && consultores && consultoresFiltrados.length === 0 && (
+                <p className="px-3 py-8 text-center text-sm text-ink-muted">
+                  Nenhum consultor com esse nome nas planilhas.
+                </p>
+              )}
+            </div>
+          </>
+        )}
+      </Modal>
 
       {/* Modal de criação */}
       <Modal aberto={showModal} aoFechar={() => setShowModal(false)} titulo="Novo Usuário" maxWidth="md">
