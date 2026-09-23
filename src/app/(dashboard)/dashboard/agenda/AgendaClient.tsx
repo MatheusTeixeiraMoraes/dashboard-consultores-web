@@ -444,7 +444,11 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
       </div>
 
       {view === 'semana' ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+        // Pula o degrau de 4 colunas: em md (768px, quando a sidebar entra),
+        // 4 colunas davam ~110px por dia com o cartão de rota (nome, paradas,
+        // ações) dentro — apertado demais. Fica em 2 colunas até xl (1280),
+        // que é quando sobra espaço de verdade pras 7 de uma vez.
+        <div className="grid grid-cols-2 xl:grid-cols-7 gap-3">
           {semana.map(d => {
             const iso = isoLocal(d)
             const doDia = porDia.get(iso) ?? []
