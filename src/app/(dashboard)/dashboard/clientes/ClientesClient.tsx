@@ -692,7 +692,16 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
           </p>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        // @container: quem decide quantas colunas cabem é a largura REAL
+        // deste bloco, não a da janela. Antes, sm:/xl: (breakpoints de
+        // janela) ligavam achando que tinham a tela inteira — mas a sidebar
+        // fixa (240px, a partir de md:768px) come parte desse espaço, e o
+        // card ENCOLHIA bem no ponto em que a janela CRESCIA o bastante pra
+        // sidebar aparecer. Limiares abaixo replicam a largura de card que
+        // o design já usava (~361px em 2 col, ~323px em 3 col), só que
+        // medida no container de verdade.
+        <div className="@container">
+        <div className="grid gap-3 @min-[735px]:grid-cols-2 @min-[990px]:grid-cols-3">
           {visiveis.map(c => {
             const wa = urlWhatsApp(c.seller_telefone)
             const gps = temGps(c)
@@ -877,6 +886,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
               </div>
             )
           })}
+        </div>
         </div>
       )}
 

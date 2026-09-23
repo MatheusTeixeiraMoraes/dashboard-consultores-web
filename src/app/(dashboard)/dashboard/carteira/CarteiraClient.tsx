@@ -139,7 +139,9 @@ export default function CarteiraClient({ carteiraAtual, relatorio }: Props) {
               </p>
 
               {(relatorio.novosConsultores.length > 0 || relatorio.consultoresQueSairam.length > 0) && (
-                <div className="grid gap-3 sm:grid-cols-2">
+                // @container — mesmo motivo de ClientesClient.tsx.
+                <div className="@container">
+                <div className="grid gap-3 @min-[735px]:grid-cols-2">
                   {relatorio.novosConsultores.length > 0 && (
                     <div className="glass rounded-2xl border border-line p-4">
                       <p className="text-xs font-semibold text-good mb-1.5">Entraram na equipe</p>
@@ -152,6 +154,7 @@ export default function CarteiraClient({ carteiraAtual, relatorio }: Props) {
                       <p className="text-sm text-ink-dim">{relatorio.consultoresQueSairam.join(' · ')}</p>
                     </div>
                   )}
+                </div>
                 </div>
               )}
 

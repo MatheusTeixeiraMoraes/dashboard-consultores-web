@@ -164,7 +164,12 @@ export default function AcionaveisClient({ dataReferencia, carteira, acoes, fich
 
       {/* MURAL — a home da categoria */}
       {!aberta && (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        // @container — mesmo motivo de ClientesClient.tsx: sm:/xl: são
+        // breakpoint de JANELA, e a sidebar (240px, a partir de md:768px)
+        // não entra nessa conta. Limiares replicam a largura de card que o
+        // design já tinha (~361px em 2 col, ~323px em 3 col).
+        <div className="@container">
+        <div className="grid gap-3 @min-[735px]:grid-cols-2 @min-[990px]:grid-cols-3">
           {campanhas.map(c => {
             const total = c.sellers.length
             return (
@@ -198,6 +203,7 @@ export default function AcionaveisClient({ dataReferencia, carteira, acoes, fich
               Nenhum cliente com esses filtros.
             </p>
           )}
+        </div>
         </div>
       )}
 

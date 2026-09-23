@@ -250,7 +250,15 @@ export default function MetasClient({ pilares, profileId, faixasAcionaveis, faix
                 </h2>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* @container — mesmo motivo de ClientesClient.tsx. O limiar de 3
+                  colunas NÃO replica o lg:1024 original: naquele breakpoint,
+                  com a sidebar já ativa, o container ficava em ~736px — quase
+                  colado no limiar de 2 colunas (735px), o que faria 2 colunas
+                  praticamente nunca aparecerem. Uso 1100px (card de ~360px
+                  também em 3 colunas, coerente com o de 2) em vez de replicar
+                  esse acidente do breakpoint antigo. */}
+              <div className="@container">
+              <div className="grid grid-cols-1 @min-[735px]:grid-cols-2 @min-[1100px]:grid-cols-3 gap-4">
                 {grupo.map(pilar => (
                   <div key={pilar.pilar_key} className="glass rounded-2xl border border-line p-5">
                     <div className="flex items-start justify-between mb-4">
@@ -354,6 +362,7 @@ export default function MetasClient({ pilares, profileId, faixasAcionaveis, faix
                     </div>
                   </div>
                 ))}
+              </div>
               </div>
             </div>
           )

@@ -242,13 +242,21 @@ export default function UploadClient({ uploadedBy }: { uploadedBy: string }) {
       </div>
 
       {/* A Planilha Geral nao e um pilar de score: alimenta Campanhas e vive em
-          tabela separada. Fica acima para nao se perder no meio dos 6 pilares. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          tabela separada. Fica acima para nao se perder no meio dos 6 pilares.
+          A grade aqui é só pra ESTE card ficar do tamanho de UM card da grade
+          de baixo, não esticar full-width — por isso @container também aqui,
+          igual à grade seguinte (mesmos limiares, mesmo raciocínio de
+          MetasClient.tsx: sm:/lg: são breakpoint de janela, e o limiar de
+          3 colunas não replica lg:1024 pra não colar no de 2 colunas). */}
+      <div className="@container mb-6">
+      <div className="grid grid-cols-1 @min-[735px]:grid-cols-2 @min-[1100px]:grid-cols-3 gap-4">
         <ImportPlanilhaGeral data={date} uploadedBy={uploadedBy} />
+      </div>
       </div>
 
       <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider mb-3">Planilhas de pontuação</p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="@container">
+      <div className="grid grid-cols-1 @min-[735px]:grid-cols-2 @min-[1100px]:grid-cols-3 gap-4">
         {PILARES.map(([key, cfg]) => {
           const state = getState(key)
           return (
@@ -307,6 +315,7 @@ export default function UploadClient({ uploadedBy }: { uploadedBy: string }) {
             </div>
           )
         })}
+      </div>
       </div>
     </div>
   )

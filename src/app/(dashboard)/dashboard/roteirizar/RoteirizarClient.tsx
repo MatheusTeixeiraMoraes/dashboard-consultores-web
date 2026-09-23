@@ -491,7 +491,13 @@ export default function RoteirizarClient({ clientes, meuNome, fichaTecnica, data
               <p className="text-sm text-ink-faint text-center py-10">Nenhum cliente com esses filtros.</p>
             ) : (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                {/* @container — o caso composto do plano: esta grade mora
+                    DENTRO da coluna direita do split de lg:grid-cols-[340px_1fr]
+                    ali em cima, que por sua vez perde espaço pra sidebar. Com
+                    @container não precisa contar os dois descontos na mão —
+                    ela lê a largura REAL que sobrou, seja qual for a soma. */}
+                <div className="@container">
+                <div className="grid grid-cols-1 @min-[735px]:grid-cols-2 @min-[990px]:grid-cols-3 gap-2">
                   {visiveis.map(c => {
                     const sel = idsNaRota.has(c.seller_id)
                     const wa = whatsappUrl(c.seller_telefone)
@@ -537,6 +543,7 @@ export default function RoteirizarClient({ clientes, meuNome, fichaTecnica, data
                       </button>
                     )
                   })}
+                </div>
                 </div>
 
                 {/* Paginação */}
