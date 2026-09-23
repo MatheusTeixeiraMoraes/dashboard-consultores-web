@@ -47,6 +47,18 @@ interface ModalProps {
  *
  * showModal()/close() são IMPERATIVOS: só alternar o atributo `open` via
  * JSX abre um <dialog> comum, sem backdrop, sem foco preso e sem top layer.
+ *
+ * `hidden open:flex`, não `flex` cru: um <dialog> fechado já é
+ * `display:none` por padrão do navegador (`dialog:not([open])`), mas uma
+ * classe Tailwind aplicada direto no elemento (`.flex{display:flex}`) é
+ * CSS de autor, e autor sempre vence estilo de user-agent — um `flex` sem
+ * essa condição force o dialog a aparecer SEMPRE, mesmo fechado, flutuando
+ * no meio da tela sem backdrop nem clique nenhum. Foi exatamente o bug
+ * relatado ao vivo: os 6 modais apareciam abertos sozinhos, encolhidos, em
+ * qualquer tela. `open:flex` só vale quando o atributo `open` existe de
+ * verdade (que só showModal() põe), e a especificidade do seletor com
+ * atributo já garante que ele vence o `hidden` de base — sem depender de
+ * ordem de classe nem de JS extra pra sincronizar os dois.
  */
 export default function Modal({
   aberto, aoFechar, titulo, subtitulo, cabecalho, maxWidth = 'md', fecharAoClicarFora = true, children,
@@ -87,7 +99,7 @@ export default function Modal({
     <dialog
       ref={ref}
       onClick={e => { if (fecharAoClicarFora && e.target === ref.current) aoFechar() }}
-      className={`fixed inset-0 m-auto p-0 border-0 backdrop:bg-black/40 glass-blur rounded-2xl shadow-xl w-full ${MAX_W[maxWidth]} max-h-[85dvh] flex flex-col`}
+      className={`hidden open:flex flex-col fixed inset-0 m-auto p-0 border-0 backdrop:bg-black/40 glass-blur rounded-2xl shadow-xl w-full ${MAX_W[maxWidth]} max-h-[85dvh]`}
     >
       {cabecalho ?? (
         <div className="px-6 py-5 border-b border-line flex items-center justify-between flex-shrink-0">
