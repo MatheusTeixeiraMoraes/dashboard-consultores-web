@@ -532,19 +532,28 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
                   if (next.has(c.nome)) next.delete(c.nome); else { next.clear(); next.add(c.nome) }
                   return next
                 })}
-                className={`w-full flex items-center gap-3 text-left rounded-lg px-2.5 py-1.5 border transition-colors ${
+                className={`w-full flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 text-left rounded-lg px-2.5 py-1.5 border transition-colors ${
                   fConsultores.has(c.nome) ? 'bg-primary/10 border-primary/35' : 'border-transparent hover:bg-card-2'
                 }`}
               >
-                <span className="text-xs text-ink-dim truncate w-32 flex-shrink-0">{c.nome}</span>
-                <span className="flex-1 h-[7px] rounded-full bg-card-2 overflow-hidden">
+                {/* Abaixo de sm, nome+resumo numa linha e a barra embaixo em
+                    largura total — as larguras fixas (w-32 nome, w-12 fração,
+                    w-20 valor) somavam 256px + gaps, e em 290px úteis a barra
+                    (QUE É o dado — mostra quem perdeu mais) sobrava com ~10px. */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-ink-dim truncate flex-1 min-w-0 sm:w-32 sm:flex-shrink-0">{c.nome}</span>
+                  <span className="text-[11px] text-ink-faint flex-shrink-0 whitespace-nowrap sm:hidden">
+                    {c.emQueda}/{c.total} · <span className="font-semibold text-bad">{brl(c.perdaTotal)}</span>
+                  </span>
+                </div>
+                <span className="w-full sm:flex-1 h-[7px] rounded-full bg-card-2 overflow-hidden">
                   <span
                     className="block h-full rounded-full bg-bad-fill"
                     style={{ width: maiorPerdaConsultor > 0 ? `${Math.max(4, (c.perdaTotal / maiorPerdaConsultor) * 100)}%` : '0%' }}
                   />
                 </span>
-                <span className="text-[11px] text-ink-faint flex-shrink-0 w-12 text-right">{c.emQueda}/{c.total}</span>
-                <span className="text-xs font-semibold text-bad flex-shrink-0 w-20 text-right tabular-nums">{brl(c.perdaTotal)}</span>
+                <span className="hidden sm:block text-[11px] text-ink-faint flex-shrink-0 w-12 text-right">{c.emQueda}/{c.total}</span>
+                <span className="hidden sm:block text-xs font-semibold text-bad flex-shrink-0 w-20 text-right tabular-nums">{brl(c.perdaTotal)}</span>
               </button>
             ))}
           </div>
