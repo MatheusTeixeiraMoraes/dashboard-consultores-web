@@ -213,8 +213,30 @@ export default function GeralClient({ ranking, dateDisplay, dataCarteiraBR, meta
       {!modoConsultor && (
         <div className="glass rounded-2xl border border-line p-5 mb-5">
           <p className="text-sm font-semibold text-ink mb-4">Distribuição da equipe</p>
-          <div className="h-28">
+          <div className="hidden sm:block h-28">
             <DistribuicaoEquipe dados={chartData} total={stats.nComScore} />
+          </div>
+          {/* Abaixo de sm, 3 linhas rotuladas com barra em largura total no
+              lugar do gráfico — o YAxis (width 120) + margem direita (48px)
+              do Recharts num h-28 não cabiam em ~290px úteis, e "Acima do
+              objetivo" a 12px não cabe em 120px (Recharts não quebra rótulo
+              de categoria). São só 3 valores fixos — não precisa de gráfico
+              pra contar essa história. */}
+          <div className="sm:hidden space-y-2.5">
+            {chartData.map(item => (
+              <div key={item.name}>
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="text-ink-dim">{item.name}</span>
+                  <span className="font-semibold text-ink tabular-nums">{item.count}</span>
+                </div>
+                <div className="h-2 rounded-full bg-card-2 overflow-hidden">
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${stats.nComScore > 0 ? (item.count / stats.nComScore) * 100 : 0}%`, background: item.color }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
