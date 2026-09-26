@@ -129,11 +129,11 @@ let chamouRede = 0
 globalThis.fetch = async () => { chamouRede++; throw new Error('não deveria buscar') }
 
 assert.deepEqual(await geocodar('-1.4611027731776192, -48.451071204631326'),
-  { lat: -1.4611027731776192, lng: -48.451071204631326 })
+  { ok: true, ponto: { lat: -1.4611027731776192, lng: -48.451071204631326 } })
 assert.equal(chamouRede, 0, 'geocodar buscou na rede uma coordenada que já tinha')
 n++; console.log('  ok: geocodar devolve a coordenada do texto sem ir à rede')
 
-assert.equal(await geocodar('   '), null)
+assert.deepEqual(await geocodar('   '), { ok: true, ponto: null })
 assert.equal(chamouRede, 0)
 n++; console.log('  ok: endereço vazio não vira busca')
 

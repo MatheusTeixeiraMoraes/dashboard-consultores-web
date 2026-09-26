@@ -140,16 +140,27 @@ export function coordenadaNoTexto(endereco: string | null): Ponto | null {
   return { lat, lng }
 }
 
-export async function geocodar(endereco: string): Promise<Ponto | null> {
+/**
+ * `ok: false` é BLOQUEIO/ERRO DE REDE — a busca não rodou. `ok: true` com
+ * `ponto: null` é a busca ter rodado e não achado nada. As duas telas antigas
+ * mostravam a mesma mensagem genérica para as duas coisas: quem clicava
+ * "geocodar" 900 vezes seguidas e tomava rate-limit via achar que o próprio
+ * endereço é que não existia, sem saber que era só tentar de novo depois.
+ */
+export type ResultadoGeocodificacao =
+  | { ok: true; ponto: Ponto | null }
+  | { ok: false; erro: string }
+
+export async function geocodar(endereco: string): Promise<ResultadoGeocodificacao> {
   const q = endereco.trim()
-  if (!q) return null
+  if (!q) return { ok: true, ponto: null }
 
   // O campo JÁ É a coordenada: não há o que buscar, e buscar era o bug. Estes
   // são serviços de busca por TEXTO — entregar "-1.4611, -48.4510" a eles é
   // torcer para que interpretem o par; quando não interpretam, casam o que
   // puder e devolvem outro lugar, que é gravado como se fosse o cliente.
   const direta = coordenadaNoTexto(q)
-  if (direta) return direta
+  if (direta) return { ok: true, ponto: direta }
 
   try {
     const r = await fetch('/api/geocodar', {
@@ -157,11 +168,12 @@ export async function geocodar(endereco: string): Promise<Ponto | null> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ endereco: q }),
     })
-    if (!r.ok) return null
+    if (!r.ok) return { ok: false, erro: `Geocodificação indisponível (HTTP ${r.status}).` }
     const j = await r.json()
-    return j.ok ? (j.ponto ?? null) : null
+    if (!j.ok) return { ok: false, erro: j.error || 'Geocodificação indisponível.' }
+    return { ok: true, ponto: j.ponto ?? null }
   } catch {
-    return null
+    return { ok: false, erro: 'Sem conexão com o serviço de geocodificação.' }
   }
 }
 

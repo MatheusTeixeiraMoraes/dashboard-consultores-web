@@ -102,9 +102,10 @@ export default function RadarClient({ clientes, podeVerTodos }: Props) {
     const q = manualEnd.trim()
     if (!q) return
     setBuscandoManual(true)
-    const p = await geocodar(q)
+    const r = await geocodar(q)
     setBuscandoManual(false)
-    if (p) { setPos(p); setGeoStatus('ok') }
+    if (!r.ok) setGeoMsg(r.erro)
+    else if (r.ponto) { setPos(r.ponto); setGeoStatus('ok') }
     else setGeoMsg('Endereço não encontrado. Tente com cidade/bairro.')
   }
 

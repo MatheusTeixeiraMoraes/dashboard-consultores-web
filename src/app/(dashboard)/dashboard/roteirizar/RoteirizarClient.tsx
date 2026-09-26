@@ -275,10 +275,11 @@ export default function RoteirizarClient({ clientes, meuNome, fichaTecnica, data
     const q = partBuscaEnd.trim()
     if (!q) return
     setErro(''); setBuscandoPart(true)
-    const p = await geocodar(q)
+    const r = await geocodar(q)
     setBuscandoPart(false)
-    if (!p) return setErro('Endereço de partida não encontrado.')
-    setPartLat(String(p.lat)); setPartLng(String(p.lng)); setPartEnd(q)
+    if (!r.ok) return setErro(r.erro)
+    if (!r.ponto) return setErro('Endereço de partida não encontrado.')
+    setPartLat(String(r.ponto.lat)); setPartLng(String(r.ponto.lng)); setPartEnd(q)
   }
 
   function coord(latS: string, lngS: string): Ponto | null {

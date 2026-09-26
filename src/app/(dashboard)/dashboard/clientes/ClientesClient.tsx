@@ -10,7 +10,7 @@ import { BotaoWhatsApp, BotaoMapa, urlWhatsApp } from '@/components/BotaoContato
 import { findCol } from '@/lib/pilares'
 import { geocodar, sleep, MAX_PARADAS_ROTA } from '@/lib/geo'
 import GerarRota from './GerarRota'
-import { tituloCaso, tipoDoc, precisaIdentificar, SO_COORDENADAS } from '@/lib/texto'
+import { tituloCaso, tipoDoc, precisaIdentificar } from '@/lib/texto'
 import type { Cliente, UserRole } from '@/lib/types'
 import { SITUACOES_MP, PRIORIDADES_MP, type FichaMP } from '@/lib/supabase/ficha-mp'
 import { registrarEvento } from '@/lib/atividade'
@@ -98,12 +98,6 @@ const SEM_ENDERECO = /^(endereç?o\s+n[ãa]o\s+informad[oa]|n[ãa]o\s+informad[o
  */
 const NO_BRASIL = (lat: number, lng: number) =>
   lat >= -34 && lat <= 5.3 && lng >= -74 && lng <= -34.8
-
-/** Endereço com rua escrita — nem placeholder, nem o par de coordenadas cru. */
-const temRua = (end: string) => {
-  const t = (end ?? '').trim()
-  return !!t && !SEM_ENDERECO.test(t) && !SO_COORDENADAS.test(t)
-}
 
 /**
  * O que mandar para a geocodificação E quanto a resposta vai valer.
@@ -201,8 +195,15 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   const [geoLinha, setGeoLinha] = useState<string | null>(null)
   const [geoForm, setGeoForm] = useState(false)
   const [mapaAberto, setMapaAberto] = useState(false)
-  const [bulk, setBulk] = useState<{ running: boolean; done: number; ok: number; total: number; aproximados: number } | null>(null)
+  const [bulk, setBulk] = useState<{ running: boolean; done: number; ok: number; total: number; aproximados: number; erros: number } | null>(null)
   const bulkStop = useRef(false)
+
+  // Sair da tela é o mesmo "Parar" que o botão já faz — sem isto, navegar pra
+  // outra rota no meio do lote deixava o loop rodando (e escrevendo no banco)
+  // fora da tela que o mostrava.
+  useEffect(() => {
+    return () => { bulkStop.current = true }
+  }, [])
 
   // Seleção em massa — a mesma marcação serve para o WhatsApp e para virar rota.
   const [selecao, setSelecao] = useState<Set<string>>(new Set())
@@ -256,12 +257,16 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   // não um total fixo que ignora os filtros.
   const semGps = useMemo(() => filtrados.filter(c => !temGps(c)), [filtrados])
 
-  // Aproximados que a geocodificação CONSEGUE melhorar: sem rua escrita ela
-  // devolveria o mesmo centroide de bairro que já está gravado — um request de
-  // 1 s por cliente para reescrever o valor idêntico. Quem só tem bairro/cidade
-  // não se resolve daqui; precisa de endereço ou de alguém no local.
+  // Aproximados que a geocodificação CONSEGUE melhorar: sem endereço de
+  // verdade (nem rua, nem coordenada no texto) ela devolveria o mesmo
+  // centroide de bairro que já está gravado — um request de 1s por cliente
+  // pra reescrever o valor idêntico. Mesmo classificador de `geocodarEmMassa`
+  // (`alvoGeocodificacao`) pra não duplicar a regra: coordenada no texto conta
+  // como "exata" e entra aqui também — `geocodar` a lê direto, sem rede.
+  // Quem só tem bairro/cidade não se resolve daqui; precisa de endereço ou de
+  // alguém no local.
   const aproximados = useMemo(
-    () => filtrados.filter(c => gpsAproximado(c) && temRua(c.endereco_completo)),
+    () => filtrados.filter(c => gpsAproximado(c) && alvoGeocodificacao(c)?.origem === 'exata'),
     [filtrados],
   )
 
@@ -359,10 +364,12 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
     const alvo = alvoGeocodificacao({ endereco_completo: form.endereco_completo, bairro: form.bairro, cidade: form.cidade })
     if (!alvo) return setErro('Preencha o endereço, bairro ou cidade primeiro.')
     setErro(''); setGeoForm(true)
-    const p = await geocodar(alvo.texto)
+    const r = await geocodar(alvo.texto)
     setGeoForm(false)
-    if (!p) return setErro('Endereço não encontrado na geocodificação.')
-    setForm(f => ({ ...f, lat: String(p.lat), lng: String(p.lng), coordenada_origem: alvo.origem }))
+    if (!r.ok) return setErro(r.erro)
+    const { ponto } = r
+    if (!ponto) return setErro('Endereço não encontrado na geocodificação.')
+    setForm(f => ({ ...f, lat: String(ponto.lat), lng: String(ponto.lng), coordenada_origem: alvo.origem }))
     if (alvo.origem === 'aproximada') {
       setErro('Atenção: sem rua no endereço, o ponto encontrado é o CENTRO de ' + alvo.texto + ', não o cliente. Ajuste no mapa se souber o local.')
     }
@@ -480,11 +487,12 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
     const alvo = alvoGeocodificacao(c)
     if (!alvo) return setErro(`"${c.seller_nome || c.seller_id}" não tem endereço para geocodificar.`)
     setErro(''); setGeoLinha(c.id)
-    const p = await geocodar(alvo.texto)
+    const r = await geocodar(alvo.texto)
     setGeoLinha(null)
-    if (!p) return setErro(`Não foi possível geocodificar "${c.seller_nome || c.seller_id}".`)
+    if (!r.ok) return setErro(r.erro)
+    if (!r.ponto) return setErro(`Não foi possível geocodificar "${c.seller_nome || c.seller_id}".`)
     const supabase = createClient()
-    const { data, error } = await supabase.from('clientes').update({ lat: p.lat, lng: p.lng, coordenada_origem: alvo.origem, updated_at: new Date().toISOString() }).eq('id', c.id).select('id')
+    const { data, error } = await supabase.from('clientes').update({ lat: r.ponto.lat, lng: r.ponto.lng, coordenada_origem: alvo.origem, updated_at: new Date().toISOString() }).eq('id', c.id).select('id')
     if (error) { setErro(error.message); return }
     if (!data || data.length === 0) { setErro(`"${c.seller_nome || c.seller_id}" saiu da sua carteira. Recarregue a página.`); return }
     registrarEvento({
@@ -506,23 +514,28 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   async function geocodarEmMassa(alvo: Cliente[]) {
     if (alvo.length === 0) return
     setErro(''); bulkStop.current = false
-    setBulk({ running: true, done: 0, ok: 0, total: alvo.length, aproximados: 0 })
+    setBulk({ running: true, done: 0, ok: 0, total: alvo.length, aproximados: 0, erros: 0 })
     const supabase = createClient()
-    let done = 0, ok = 0, aproximados = 0
+    let done = 0, ok = 0, aproximados = 0, erros = 0
     for (const c of alvo) {
       if (bulkStop.current) break
       const geo = alvoGeocodificacao(c)
-      if (!geo) { done++; setBulk({ running: true, done, ok, total: alvo.length, aproximados }); continue }  // sem endereço → pula sem request
-      const p = await geocodar(geo.texto)
-      if (p) {
-        const { error } = await supabase.from('clientes').update({ lat: p.lat, lng: p.lng, coordenada_origem: geo.origem, updated_at: new Date().toISOString() }).eq('id', c.id)
+      if (!geo) { done++; setBulk({ running: true, done, ok, total: alvo.length, aproximados, erros }); continue }  // sem endereço → pula sem request
+      const r = await geocodar(geo.texto)
+      // `!r.ok` é bloqueio/erro de rede — NÃO é "endereço não encontrado".
+      // Contar junto com "não achou" escondia rate-limit atrás de "endereço
+      // ruim", e ninguém percebia que dava pra só tentar de novo mais tarde.
+      if (!r.ok) {
+        erros++
+      } else if (r.ponto) {
+        const { error } = await supabase.from('clientes').update({ lat: r.ponto.lat, lng: r.ponto.lng, coordenada_origem: geo.origem, updated_at: new Date().toISOString() }).eq('id', c.id)
         if (!error) { ok++; if (geo.origem === 'aproximada') aproximados++ }
       }
       done++
-      setBulk({ running: true, done, ok, total: alvo.length, aproximados })
+      setBulk({ running: true, done, ok, total: alvo.length, aproximados, erros })
       await sleep(1100)
     }
-    setBulk({ running: false, done, ok, total: alvo.length, aproximados })
+    setBulk({ running: false, done, ok, total: alvo.length, aproximados, erros })
     if (ok > 0) {
       registrarEvento({
         tipo: 'clientes_editados_em_massa',
@@ -625,9 +638,10 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
         <div className="mb-4 text-sm rounded-xl px-4 py-2.5 bg-card-2 text-ink-muted flex items-center gap-2">
           {bulk.running && <Spinner />}
           {bulk.running
-            ? <>Geocodificando… {bulk.done}/{bulk.total} ({bulk.ok} com sucesso)</>
+            ? <>Geocodificando… {bulk.done}/{bulk.total} ({bulk.ok} com sucesso{bulk.erros > 0 ? `, ${bulk.erros} com erro` : ''})</>
             : <>✓ Geocodificação concluída: {bulk.ok} de {bulk.total} localizados.
-                {bulk.aproximados > 0 && <strong className="text-warn"> {bulk.aproximados} sem rua no cadastro caíram no centro do bairro — marcados como aproximados, confira antes de rotear.</strong>}</>}
+                {bulk.aproximados > 0 && <strong className="text-warn"> {bulk.aproximados} sem rua no cadastro caíram no centro do bairro — marcados como aproximados, confira antes de rotear.</strong>}
+                {bulk.erros > 0 && <strong className="text-bad"> {bulk.erros} falharam por bloqueio/erro de rede, não por endereço inexistente — tente de novo mais tarde.</strong>}</>}
           {bulk.running && <button onClick={() => { bulkStop.current = true }} className="ml-auto text-bad font-medium">Parar</button>}
         </div>
       )}
