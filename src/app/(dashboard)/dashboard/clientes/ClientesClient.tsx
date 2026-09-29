@@ -257,6 +257,16 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   // não um total fixo que ignora os filtros.
   const semGps = useMemo(() => filtrados.filter(c => !temGps(c)), [filtrados])
 
+  // O KPI conta todo mundo sem GPS; o BOTÃO só pode prometer quem tem alvo de
+  // busca. Sem isso o rótulo dizia 622 e o lote pulava 440 calado — quem
+  // clicava via o contador correr sozinho e achava que tinha falhado.
+  // `alvoGeocodificacao` é o mesmo classificador que o laço usa, pra regra não
+  // existir em dois lugares e desencontrar.
+  const geocodaveis = useMemo(
+    () => semGps.filter(c => alvoGeocodificacao(c) !== null),
+    [semGps],
+  )
+
   const kpis = useMemo(() => {
     const comGps = filtrados.length - semGps.length
     const nAprox = filtrados.filter(gpsAproximado).length
@@ -584,11 +594,14 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {podeGerir && semGps.length > 0 && (
-            <button onClick={() => geocodarEmMassa(semGps)} disabled={bulk?.running}
+          {podeGerir && geocodaveis.length > 0 && (
+            <button onClick={() => geocodarEmMassa(geocodaveis)} disabled={bulk?.running}
+              title={semGps.length > geocodaveis.length
+                ? `${nBR(semGps.length - geocodaveis.length)} dos ${nBR(semGps.length)} sem GPS não têm endereço, bairro nem cidade no cadastro — não há o que buscar por eles até alguém identificá-los.`
+                : undefined}
               className="border border-line hover:bg-card-2 disabled:opacity-50 text-ink-dim text-sm font-medium px-4 py-2 rounded-xl flex items-center gap-2">
               <Icon name="pin" size={15} />
-              Geocodar sem GPS ({nBR(semGps.length)})
+              Geocodar sem GPS ({nBR(geocodaveis.length)})
             </button>
           )}
           {/* Não existe botão de "refazer" em massa quem JÁ tem coordenada: a
