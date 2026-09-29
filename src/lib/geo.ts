@@ -59,7 +59,7 @@ export interface ClienteSelecionado {
    * cliente ou o centro do bairro. Opcional porque as rotas salvas antes desta
    * versão não têm o campo — ausente significa "não se sabe", não "exata".
    */
-  coordenada_origem?: 'exata' | 'aproximada' | null
+  coordenada_origem?: 'exata' | 'estimada' | 'aproximada' | null
 }
 
 export const CHAVE_RADAR_ROTA = 'radar_add_to_rota'
@@ -147,20 +147,28 @@ export function coordenadaNoTexto(endereco: string | null): Ponto | null {
  * "geocodar" 900 vezes seguidas e tomava rate-limit via achar que o próprio
  * endereço é que não existia, sem saber que era só tentar de novo depois.
  */
+/**
+ * `fonte` diz COMO o ponto foi obtido, e é o que separa um dado exato de um
+ * chute: 'texto' é a coordenada que já estava escrita no cadastro, capturada
+ * no estabelecimento; 'busca' é o serviço tendo procurado o endereço e
+ * devolvido o que achou parecido — erra de 10 a 130 m. Quem grava precisa
+ * saber a diferença, senão as duas viram 'exata' no banco e ninguém mais
+ * distingue o que o consultor conferiu do que a máquina adivinhou.
+ */
 export type ResultadoGeocodificacao =
-  | { ok: true; ponto: Ponto | null }
+  | { ok: true; ponto: Ponto | null; fonte: 'texto' | 'busca' }
   | { ok: false; erro: string }
 
 export async function geocodar(endereco: string): Promise<ResultadoGeocodificacao> {
   const q = endereco.trim()
-  if (!q) return { ok: true, ponto: null }
+  if (!q) return { ok: true, ponto: null, fonte: 'busca' }
 
   // O campo JÁ É a coordenada: não há o que buscar, e buscar era o bug. Estes
   // são serviços de busca por TEXTO — entregar "-1.4611, -48.4510" a eles é
   // torcer para que interpretem o par; quando não interpretam, casam o que
   // puder e devolvem outro lugar, que é gravado como se fosse o cliente.
   const direta = coordenadaNoTexto(q)
-  if (direta) return { ok: true, ponto: direta }
+  if (direta) return { ok: true, ponto: direta, fonte: 'texto' }
 
   try {
     const r = await fetch('/api/geocodar', {
@@ -171,7 +179,7 @@ export async function geocodar(endereco: string): Promise<ResultadoGeocodificaca
     if (!r.ok) return { ok: false, erro: `Geocodificação indisponível (HTTP ${r.status}).` }
     const j = await r.json()
     if (!j.ok) return { ok: false, erro: j.error || 'Geocodificação indisponível.' }
-    return { ok: true, ponto: j.ponto ?? null }
+    return { ok: true, ponto: j.ponto ?? null, fonte: 'busca' }
   } catch {
     return { ok: false, erro: 'Sem conexão com o serviço de geocodificação.' }
   }

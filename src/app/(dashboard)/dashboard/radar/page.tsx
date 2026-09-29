@@ -16,7 +16,7 @@ export interface ClienteRadar {
   lat: number
   lng: number
   /** 'aproximada' = centro do bairro. null nas linhas herdadas da importação. */
-  coordenada_origem: 'exata' | 'aproximada' | null
+  coordenada_origem: 'exata' | 'estimada' | 'aproximada' | null
 }
 
 export default async function RadarPage() {

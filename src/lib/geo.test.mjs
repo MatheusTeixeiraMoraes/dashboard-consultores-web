@@ -141,12 +141,15 @@ t('link do Maps usa a coordenada, nunca o endereço escrito', () => {
 let chamouRede = 0
 globalThis.fetch = async () => { chamouRede++; throw new Error('não deveria buscar') }
 
+// `fonte: 'texto'` é o que faz o cliente gravar 'exata' em vez de 'estimada'.
+// Se isto virar 'busca', um ponto capturado no local passa a ser carimbado
+// como chute da máquina e cai na fila de revisão sem motivo.
 assert.deepEqual(await geocodar('-1.4611027731776192, -48.451071204631326'),
-  { ok: true, ponto: { lat: -1.4611027731776192, lng: -48.451071204631326 } })
+  { ok: true, ponto: { lat: -1.4611027731776192, lng: -48.451071204631326 }, fonte: 'texto' })
 assert.equal(chamouRede, 0, 'geocodar buscou na rede uma coordenada que já tinha')
-n++; console.log('  ok: geocodar devolve a coordenada do texto sem ir à rede')
+n++; console.log('  ok: geocodar devolve a coordenada do texto sem ir à rede, marcada como texto')
 
-assert.deepEqual(await geocodar('   '), { ok: true, ponto: null })
+assert.deepEqual(await geocodar('   '), { ok: true, ponto: null, fonte: 'busca' })
 assert.equal(chamouRede, 0)
 n++; console.log('  ok: endereço vazio não vira busca')
 

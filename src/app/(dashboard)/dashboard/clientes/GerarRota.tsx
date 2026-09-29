@@ -41,6 +41,10 @@ export default function GerarRota({
   // rota. O aviso existe porque o ponto deles é o centro do bairro, e é aqui —
   // montando o roteiro — que dá tempo de conferir. Na porta já é tarde.
   const aproximados = roteaveis.filter(c => c.coordenada_origem === 'aproximada')
+  // Mesma lógica, um degrau acima: a máquina achou o endereço escrito, mas
+  // erra por até uma quadra. Entra na rota, e o consultor merece saber quais
+  // pontos ainda ninguém olhou antes de sair dirigindo atrás deles.
+  const estimados = roteaveis.filter(c => c.coordenada_origem === 'estimada')
 
   // Uma rota aceita até MAX_PARADAS_ROTA paradas; o excedente fica de fora e é
   // dito na tela, nunca cortado calado.
@@ -149,8 +153,18 @@ export default function GerarRota({
       <div className="p-5 space-y-4">
         {/* Quem ficou de fora aparece antes de qualquer campo: é a diferença
             entre o que a pessoa marcou e o que vai virar visita. */}
-        {(semGps > 0 || pendentes > 0 || excedeu || aproximados.length > 0) && (
+        {(semGps > 0 || pendentes > 0 || excedeu || aproximados.length > 0 || estimados.length > 0) && (
           <div className="text-xs bg-warn-bg text-warn rounded-lg px-3 py-2.5 space-y-1">
+            {estimados.length > 0 && (
+              <p>
+                <b>{estimados.length.toLocaleString('pt-BR')}</b>{' '}
+                {estimados.length === 1 ? 'parada tem ponto estimado' : 'paradas têm ponto estimado'} pela
+                máquina e ainda não {estimados.length === 1 ? 'foi conferida' : 'foram conferidas'} (pode
+                errar por uma quadra):{' '}
+                {estimados.slice(0, 3).map(c => c.seller_nome || c.seller_id).join(', ')}
+                {estimados.length > 3 && ` e mais ${estimados.length - 3}`}.
+              </p>
+            )}
             {aproximados.length > 0 && (
               <p>
                 <b>{aproximados.length.toLocaleString('pt-BR')}</b>{' '}

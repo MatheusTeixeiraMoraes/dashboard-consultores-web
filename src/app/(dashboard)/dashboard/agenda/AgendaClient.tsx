@@ -224,6 +224,12 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
           {(r.stops ?? []).filter(s => s.coordenada_origem === 'aproximada').length} aproximada{(r.stops ?? []).filter(s => s.coordenada_origem === 'aproximada').length !== 1 ? 's' : ''}
         </span>
       )}
+      {(r.stops ?? []).some(s => s.coordenada_origem === 'estimada') && (
+        <span title="Esta rota tem paradas cujo ponto a máquina estimou pelo endereço escrito e ninguém conferiu — pode errar por uma quadra."
+          className="bg-warn-bg text-warn px-1.5 py-0.5 rounded font-medium">
+          {(r.stops ?? []).filter(s => s.coordenada_origem === 'estimada').length} a conferir
+        </span>
+      )}
       {r.distancia_km != null && <span className="bg-card-2 text-ink-dim px-1.5 py-0.5 rounded">{r.distancia_km.toFixed(1).replace('.', ',')} km</span>}
       {r.tempo_minutos != null && <span className="bg-card-2 text-ink-dim px-1.5 py-0.5 rounded">{Math.round(r.tempo_minutos)} min</span>}
     </div>
@@ -242,6 +248,10 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
             {s.coordenada_origem === 'aproximada' && (
               <span title="O ponto desta parada é o centro do bairro, não o endereço do cliente."
                 className="ml-1 text-warn font-semibold">· GPS aproximado</span>
+            )}
+            {s.coordenada_origem === 'estimada' && (
+              <span title="A máquina estimou este ponto pelo endereço escrito e ninguém conferiu — pode errar por uma quadra."
+                className="ml-1 text-warn font-semibold">· ponto estimado</span>
             )}
           </li>
         ))}

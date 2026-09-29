@@ -30,7 +30,7 @@ const VAZIO = {
   lat: '', lng: '', consultor_nome: '',
   // '' = manteve o que estava no banco. Preenchido quando ESTA edição definiu a
   // coordenada (pin no mapa, digitação ou geocodificação).
-  coordenada_origem: '' as '' | 'exata' | 'aproximada',
+  coordenada_origem: '' as '' | 'exata' | 'estimada' | 'aproximada',
 }
 type FormState = typeof VAZIO
 
@@ -60,9 +60,18 @@ const temGps = (c: Cliente) => c.lat != null && c.lng != null
 // desenhar no mapa, não dá para bater na porta.
 const gpsAproximado = (c: Cliente) => temGps(c) && c.coordenada_origem === 'aproximada'
 
-const GPS_OPCOES = ['Com GPS', 'GPS aproximado', 'Sem GPS']
+// A MÁQUINA buscou o endereço escrito e devolveu o que achou parecido: erra de
+// 10 a 130 m, que numa quadra densa é a loja errada. Vale como ponto de
+// partida no mapa, não como endereço conferido — por isso pede revisão em vez
+// de passar por exato, que foi o que confundiu o consultor.
+const gpsEstimado = (c: Cliente) => temGps(c) && c.coordenada_origem === 'estimada'
+
+const GPS_OPCOES = ['Com GPS', 'Estimado pela máquina', 'GPS aproximado', 'Sem GPS']
 const rotuloGps = (c: Cliente) =>
-  !temGps(c) ? 'Sem GPS' : gpsAproximado(c) ? 'GPS aproximado' : 'Com GPS'
+  !temGps(c) ? 'Sem GPS'
+  : gpsAproximado(c) ? 'GPS aproximado'
+  : gpsEstimado(c) ? 'Estimado pela máquina'
+  : 'Com GPS'
 
 const ordenar = (s: Iterable<string>) => [...new Set(s)].filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR'))
 
@@ -109,16 +118,28 @@ const NO_BRASIL = (lat: number, lng: number) =>
  * rota de Terra Firme apontou para Nazaré. Quem chama precisa saber a diferença
  * para registrá-la.
  */
-type AlvoGeo = { texto: string; origem: 'exata' | 'aproximada' }
+type AlvoGeo = { texto: string; alvo: 'endereco' | 'regiao' }
 
 const alvoGeocodificacao = (c: { endereco_completo: string; bairro: string; cidade: string }): AlvoGeo | null => {
   const end = c.endereco_completo.trim()
   // Coordenada crua no campo conta como endereço de verdade: `geocodar` a lê
   // direto, sem consultar ninguém, e é o ponto exato do estabelecimento.
-  if (end && !SEM_ENDERECO.test(end)) return { texto: end, origem: 'exata' }
+  if (end && !SEM_ENDERECO.test(end)) return { texto: end, alvo: 'endereco' }
   const regiao = [c.bairro, c.cidade].filter(Boolean).join(', ')
-  return regiao ? { texto: regiao, origem: 'aproximada' } : null
+  return regiao ? { texto: regiao, alvo: 'regiao' } : null
 }
+
+/**
+ * O que gravar em `coordenada_origem`, cruzando O QUE foi buscado com COMO foi
+ * achado. São coisas diferentes e tratá-las como uma só foi o defeito:
+ * geocodificar um endereço escrito gravava 'exata', do mesmo jeito que ler a
+ * coordenada já pronta do cadastro — e depois ninguém distinguia o ponto que
+ * um humano conferiu do que a máquina adivinhou.
+ */
+const origemGravada = (geo: AlvoGeo, fonte: 'texto' | 'busca') =>
+  fonte === 'texto' ? 'exata' as const
+  : geo.alvo === 'endereco' ? 'estimada' as const
+  : 'aproximada' as const
 
 /** Top N de uma dimensão, para os painéis do rodapé. */
 function contar(lista: Cliente[], campo: (c: Cliente) => string, n = 6): [string, number][] {
@@ -193,6 +214,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
 
   // Geocodificação
   const [geoLinha, setGeoLinha] = useState<string | null>(null)
+  const [confirmando, setConfirmando] = useState<string | null>(null)
   const [geoForm, setGeoForm] = useState(false)
   const [mapaAberto, setMapaAberto] = useState(false)
   const [bulk, setBulk] = useState<{ running: boolean; done: number; ok: number; total: number; aproximados: number; erros: number } | null>(null)
@@ -270,13 +292,19 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   const kpis = useMemo(() => {
     const comGps = filtrados.length - semGps.length
     const nAprox = filtrados.filter(gpsAproximado).length
+    const nEstim = filtrados.filter(gpsEstimado).length
+    // "Com GPS" sozinho mente por omissão: junta o ponto conferido, o chute da
+    // máquina e o centro do bairro num número só. A nota é o que impede alguém
+    // de olhar 700 e achar que tem 700 endereços bons.
+    const notas = [
+      nEstim > 0 ? `${nBR(nEstim)} a conferir` : '',
+      nAprox > 0 ? `${nBR(nAprox)} aproximados` : '',
+    ].filter(Boolean)
     return [
       { icon: 'users', label: 'Clientes', valor: filtrados.length, nota: '' },
       // Nota na mesma célula em vez de um quinto KPI: o grid é de 4 e a quebra
-      // deixaria um card órfão. O dado continua na tela, junto do total que ele
-      // qualifica — "com GPS" sem dizer quantos são centro de bairro esconde
-      // justamente o que fez a rota errar.
-      { icon: 'pin', label: 'Com GPS', valor: comGps, nota: nAprox > 0 ? `${nBR(nAprox)} aproximados` : '' },
+      // deixaria um card órfão.
+      { icon: 'pin', label: 'Com GPS', valor: comGps, nota: notas.join(' · ') },
       { icon: 'alert', label: 'Sem GPS', valor: semGps.length, nota: '' },
       { icon: 'doc', label: 'A identificar', valor: filtrados.filter(precisaEnriquecer).length, nota: '' },
     ]
@@ -366,8 +394,8 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
     if (!r.ok) return setErro(r.erro)
     const { ponto } = r
     if (!ponto) return setErro('Endereço não encontrado na geocodificação.')
-    setForm(f => ({ ...f, lat: String(ponto.lat), lng: String(ponto.lng), coordenada_origem: alvo.origem }))
-    if (alvo.origem === 'aproximada') {
+    setForm(f => ({ ...f, lat: String(ponto.lat), lng: String(ponto.lng), coordenada_origem: origemGravada(alvo, r.fonte) }))
+    if (alvo.alvo === 'regiao') {
       setErro('Atenção: sem rua no endereço, o ponto encontrado é o CENTRO de ' + alvo.texto + ', não o cliente. Ajuste no mapa se souber o local.')
     }
   }
@@ -489,7 +517,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
     if (!r.ok) return setErro(r.erro)
     if (!r.ponto) return setErro(`Não foi possível geocodificar "${c.seller_nome || c.seller_id}".`)
     const supabase = createClient()
-    const { data, error } = await supabase.from('clientes').update({ lat: r.ponto.lat, lng: r.ponto.lng, coordenada_origem: alvo.origem, updated_at: new Date().toISOString() }).eq('id', c.id).select('id')
+    const { data, error } = await supabase.from('clientes').update({ lat: r.ponto.lat, lng: r.ponto.lng, coordenada_origem: origemGravada(alvo, r.fonte), updated_at: new Date().toISOString() }).eq('id', c.id).select('id')
     if (error) { setErro(error.message); return }
     if (!data || data.length === 0) { setErro(`"${c.seller_nome || c.seller_id}" saiu da sua carteira. Recarregue a página.`); return }
     registrarEvento({
@@ -498,6 +526,30 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
       alvoId: c.seller_id,
       alvoDescricao: c.seller_nome || c.seller_id,
       detalhes: { via: 'geocodificacao' },
+    })
+    router.refresh()
+  }
+
+  // "O alfinete está no lugar certo" — dito por quem conhece o local. Não mexe
+  // em lat/lng: promove o CARIMBO de 'estimada' (chute da máquina) para
+  // 'exata', que é o que tira o cliente da fila de revisão. Quem descobre que
+  // o ponto está errado não usa isto: abre Editar e arrasta no mapa, o que já
+  // grava 'exata' junto da coordenada nova.
+  async function confirmarPonto(c: Cliente) {
+    setErro(''); setConfirmando(c.id)
+    const supabase = createClient()
+    const { data, error } = await supabase.from('clientes')
+      .update({ coordenada_origem: 'exata', updated_at: new Date().toISOString() })
+      .eq('id', c.id).select('id')
+    setConfirmando(null)
+    if (error) { setErro(error.message); return }
+    if (!data || data.length === 0) { setErro(`"${c.seller_nome || c.seller_id}" saiu da sua carteira. Recarregue a página.`); return }
+    registrarEvento({
+      tipo: 'cliente_editado',
+      alvoTipo: 'cliente',
+      alvoId: c.seller_id,
+      alvoDescricao: c.seller_nome || c.seller_id,
+      detalhes: { via: 'coordenada_confirmada' },
     })
     router.refresh()
   }
@@ -525,8 +577,9 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
       if (!r.ok) {
         erros++
       } else if (r.ponto) {
-        const { error } = await supabase.from('clientes').update({ lat: r.ponto.lat, lng: r.ponto.lng, coordenada_origem: geo.origem, updated_at: new Date().toISOString() }).eq('id', c.id)
-        if (!error) { ok++; if (geo.origem === 'aproximada') aproximados++ }
+        const origem = origemGravada(geo, r.fonte)
+        const { error } = await supabase.from('clientes').update({ lat: r.ponto.lat, lng: r.ponto.lng, coordenada_origem: origem, updated_at: new Date().toISOString() }).eq('id', c.id)
+        if (!error) { ok++; if (origem === 'aproximada') aproximados++ }
       }
       done++
       setBulk({ running: true, done, ok, total: alvo.length, aproximados, erros })
@@ -783,6 +836,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
             const wa = urlWhatsApp(c.seller_telefone)
             const gps = temGps(c)
             const aprox = gpsAproximado(c)
+            const estimado = gpsEstimado(c)
             const local = [c.bairro, c.cidade].filter(Boolean).join(', ') || '—'
             // "Endereço não informado" é placeholder da planilha, não endereço:
             // exibi-lo seria fingir que o dado existe.
@@ -846,7 +900,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                     "Editar" — para consultar um cliente em campo, ler não pode
                     exigir entrar no formulário de edição. */}
                 <div className="flex flex-col gap-1.5 mt-3.5 pt-3.5 border-t border-line">
-                  <Linha icon="pin" iconCls={gps && !aprox ? 'text-ink-faint' : 'text-warn'}>
+                  <Linha icon="pin" iconCls={gps && !aprox && !estimado ? 'text-ink-faint' : 'text-warn'}>
                     <span className="truncate min-w-0">{local}</span>
                     {/* O aviso vale mais que o espaço que ocupa: sem ele, uma
                         coordenada de centro de bairro entra numa rota como se
@@ -857,6 +911,16 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                         GPS aproximado
                       </span>
                     )}
+                    {/* Selo + ação no mesmo lugar: quem está em campo e sabe
+                        que o ponto está certo confirma num clique. Se estiver
+                        errado, "Editar" abre o mapa e arrastar já grava exata. */}
+                    {estimado && (confirmando === c.id
+                      ? <span className="ml-auto flex-shrink-0 inline-flex items-center gap-1 text-[11px]"><Spinner /> …</span>
+                      : <button onClick={() => confirmarPonto(c)}
+                          title="A máquina estimou este ponto pelo endereço escrito e pode ter errado por uma quadra. Se o alfinete está no lugar certo, confirme. Se não está, use Editar e arraste no mapa."
+                          className="ml-auto flex-shrink-0 text-[10px] font-semibold text-warn bg-warn-bg hover:bg-warn/20 px-1.5 py-0.5 rounded-md">
+                          estimado · conferir
+                        </button>)}
                     {!gps && (geoLinha === c.id
                       ? <span className="ml-auto flex-shrink-0 inline-flex items-center gap-1 text-[11px]"><Spinner /> …</span>
                       : <button onClick={() => geocodarLinha(c)} className="ml-auto flex-shrink-0 text-[11px] font-semibold text-warn hover:underline p-2 -m-2">
