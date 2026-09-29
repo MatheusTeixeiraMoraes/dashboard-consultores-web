@@ -19,7 +19,7 @@ globalThis.localStorage = {
 }
 
 const { entregarAoRoteirizar, receberSelecao, limparSelecao, CHAVE_RADAR_ROTA, MAX_PARADAS_ROTA,
-  coordenadaNoTexto, geocodar, linksGoogleMaps } = await import('./geo.ts')
+  coordenadaNoTexto, geocodar, linksGoogleMaps, alternarVisitado } = await import('./geo.ts')
 
 let n = 0
 const t = (nome, fn) => { memoria.clear(); fn(); n++; console.log('  ok:', nome) }
@@ -120,6 +120,27 @@ t('rua de verdade não é coordenada', () => {
 t('par fora da faixa do globo não é coordenada', () => {
   assert.equal(coordenadaNoTexto('-999.5, -48.4'), null)
   assert.equal(coordenadaNoTexto('-1.46, -481.5'), null)
+})
+
+// A marca de visitado vai para `rotas.stops` como array INTEIRO reescrito: um
+// engano aqui não erra um ícone, apaga a marcação das paradas vizinhas.
+t('marcar visitado carimba só a parada pedida', () => {
+  const [a, b] = alternarVisitado([cliente('1'), cliente('2')], '1', '2026-09-29T14:00:00.000Z')
+  assert.equal(a.visitado_em, '2026-09-29T14:00:00.000Z')
+  assert.equal(b.visitado_em, undefined, 'a parada vizinha foi marcada junto')
+})
+
+t('marcar de novo desmarca, sem perder o resto da parada', () => {
+  const marcado = alternarVisitado([cliente('1')], '1', '2026-09-29T14:00:00.000Z')
+  const [volta] = alternarVisitado(marcado, '1', '2026-09-29T15:00:00.000Z')
+  assert.equal(volta.visitado_em, null)
+  assert.equal(volta.seller_nome, 'Fulano 1')
+  assert.equal(volta.bairro, 'Boa Viagem')
+})
+
+t('id que não está na rota não altera nem apaga nada', () => {
+  const antes = [cliente('1', { visitado_em: '2026-09-28T10:00:00.000Z' }), cliente('2')]
+  assert.deepEqual(alternarVisitado(antes, '404', '2026-09-29T14:00:00.000Z'), antes)
 })
 
 // O link da rota mandava o ENDEREÇO ESCRITO, e o Google geocodificava de novo,

@@ -3,9 +3,10 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { otimizarRota, linksGoogleMaps, type Ponto } from '@/lib/geo'
-import { precisaIdentificar } from '@/lib/texto'
+import { otimizarRota, linksGoogleMaps, alternarVisitado, type Ponto, type ClienteSelecionado } from '@/lib/geo'
 import { registrarEvento } from '@/lib/atividade'
+import type { FichaMP } from '@/lib/supabase/ficha-mp'
+import ParadaCliente from './ParadaCliente'
 import type { Rota } from './page'
 
 function linksMapsDaRota(r: Rota): string[] {
@@ -78,7 +79,18 @@ function TracadoRota({ pontos }: { pontos: { lat: number; lng: number }[] }) {
   )
 }
 
-export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; podeVerTodos: boolean }) {
+/** Quantas paradas já foram visitadas — o "3/9" do cabeçalho. */
+function progresso(r: Rota) {
+  const total = r.stops?.length ?? 0
+  return { total, feitos: (r.stops ?? []).filter(s => s.visitado_em).length }
+}
+
+export default function AgendaClient({ rotas, podeVerTodos, fichaTecnica }: {
+  rotas: Rota[]
+  podeVerTodos: boolean
+  /** Ficha da Planilha Geral por seller_id. Vazio se a planilha não foi importada. */
+  fichaTecnica: Record<string, FichaMP>
+}) {
   const router = useRouter()
   const [editando, setEditando] = useState<string | null>(null)
   const [nomeEdit, setNomeEdit] = useState('')
@@ -86,6 +98,21 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
   const [editandoData, setEditandoData] = useState<string | null>(null)
   const [erro, setErro] = useState('')
   const [refazendo, setRefazendo] = useState<string | null>(null)
+
+  /* Rotas que o usuário abriu ou fechou À MÃO. O que não está aqui usa o padrão
+   * (só a rota de hoje nasce aberta) — por isso um mapa de exceções e não um
+   * `Set` de abertas: um Set não sabe distinguir "nunca mexeram" de "fecharam". */
+  const [alternadas, setAlternadas] = useState<Record<string, boolean>>({})
+
+  /* Marcação de visita aplicada na hora, antes de a tela recarregar.
+   *
+   * Sem isto, dois toques rápidos em paradas diferentes leriam o MESMO `stops`
+   * das props (o refresh do servidor ainda não voltou) e o segundo gravaria por
+   * cima do primeiro — a primeira marcação sumiria calada. Como a escrita manda
+   * o array inteiro de volta, a fonte da verdade durante a sessão tem que ser
+   * local. */
+  const [stopsLocais, setStopsLocais] = useState<Record<string, ClienteSelecionado[]>>({})
+  const [salvandoParada, setSalvandoParada] = useState<string | null>(null)
 
   const [view, setView] = useState<'semana' | 'lista'>('semana')
   const [semanaOffset, setSemanaOffset] = useState(0)
@@ -128,6 +155,80 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
   }, [hoje, semanaOffset])
 
   const hojeIso = hoje ? isoLocal(hoje) : ''
+
+  /** A rota com as marcações de visita desta sessão já aplicadas. */
+  const comLocal = (r: Rota): Rota => (stopsLocais[r.id] ? { ...r, stops: stopsLocais[r.id] } : r)
+
+  /* Recolhida por padrão — era isto que fazia a tela descer sem fim: dez rotas
+   * de nove clientes abriam noventa linhas de uma vez. A de HOJE nasce aberta
+   * porque é a única que alguém abre a Agenda para ler. */
+  const estaAberta = (r: Rota) =>
+    alternadas[r.id] ?? (!!r.data_visita && r.data_visita.slice(0, 10) === hojeIso)
+
+  const alternarAberta = (r: Rota) =>
+    setAlternadas(m => ({ ...m, [r.id]: !estaAberta(r) }))
+
+  /* "Ver os clientes" na Semana: troca para a Lista com ESTA rota aberta.
+   *
+   * O scroll mora num efeito porque no clique a Lista ainda não existe no DOM —
+   * `getElementById` voltaria null. O sufixo de tempo faz cada clique ser um
+   * valor NOVO: com o id puro, pedir a mesma rota duas vezes seria o mesmo
+   * estado, o React descartaria o segundo `setState` e a tela não rolaria. */
+  const [focar, setFocar] = useState<string | null>(null)
+  useEffect(() => {
+    if (!focar) return
+    const id = focar.split('#')[0]
+    document.getElementById(`rota-${id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  }, [focar])
+
+  function verClientes(r: Rota) {
+    setView('lista')
+    setAlternadas(m => ({ ...m, [r.id]: true }))
+    setFocar(`${r.id}#${Date.now()}`)
+  }
+
+  /**
+   * Marca (ou desmarca) uma parada como visitada.
+   *
+   * Grava dentro de `rotas.stops` (jsonb) em vez de tabela nova: a marca é do
+   * par (rota, parada) e já viaja junto com o snapshot. A RLS de `rotas` é a
+   * mesma de sempre — consultor só mexe nas suas.
+   *
+   * Sem `registrarEvento`: seriam nove eventos por rota no log de atividade do
+   * admin, afogando criar/renomear/excluir, que são as ações que o log existe
+   * para vigiar.
+   *
+   * Uma gravação por rota de cada vez (o botão das vizinhas fica travado): como
+   * a escrita manda o array INTEIRO, duas em voo se sobrescrevem — a segunda
+   * carrega a marca otimista da primeira, e o rollback da primeira apaga a
+   * marca da segunda. Travar por ~200ms é mais barato que reconciliar isso.
+   */
+  async function marcarVisitado(r: Rota, sellerId: string) {
+    if (salvandoParada?.startsWith(`${r.id}:`)) return
+    setErro('')
+    const antes = stopsLocais[r.id] ?? r.stops ?? []
+    const depois = alternarVisitado(antes, sellerId, new Date().toISOString())
+
+    setSalvandoParada(`${r.id}:${sellerId}`)
+    setStopsLocais(m => ({ ...m, [r.id]: depois }))
+    const supabase = createClient()
+    /* `.select('id')` não é enfeite: sem ele, um UPDATE que a RLS não deixa
+     * casar linha nenhuma volta 204 SEM erro, e o ✓ ficaria na tela com nada
+     * gravado — o consultor acreditaria ter registrado a visita. Acontece de
+     * verdade quando o acesso é revogado com a sessão aberta. */
+    const { data, error } = await supabase
+      .from('rotas')
+      .update({ stops: depois, updated_at: new Date().toISOString() })
+      .eq('id', r.id)
+      .select('id')
+    setSalvandoParada(null)
+    if (error || !data?.length) {
+      // Desfaz o otimismo: deixar o ✓ na tela faria o consultor acreditar que a
+      // visita ficou registrada quando o banco recusou.
+      setStopsLocais(m => ({ ...m, [r.id]: antes }))
+      setErro(error?.message ?? 'A visita não foi salva — você não tem permissão para alterar esta rota.')
+    }
+  }
 
   async function salvarNome(id: string) {
     if (!nomeEdit.trim()) return
@@ -204,6 +305,11 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
         updated_at: new Date().toISOString(),
       }).eq('id', r.id)
       if (error) { setErro(error.message); return }
+      /* Refazer REORDENA as paradas. O cache local ficou com a ordem velha e,
+       * se continuasse valendo, desfaria na tela a reordenação que acabou de ir
+       * pro banco. As marcações não se perdem: `stopsOrdenados` sai de `r.stops`,
+       * que já chega daqui com elas. */
+      setStopsLocais(m => { const copia = { ...m }; delete copia[r.id]; return copia })
       registrarEvento({ tipo: 'rota_editada', alvoTipo: 'rota', alvoId: r.id, alvoDescricao: r.nome_rota, detalhes: { campo: 'trajeto' } })
       router.refresh()
     } catch (e) {
@@ -235,28 +341,52 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
     </div>
   )
 
+  /* As paradas em si. Esta é a tela aberta no carro, na hora da visita: cada
+   * item traz o que decide o próximo movimento (quem é, onde é, como está no
+   * MP) e os botões para agir sem sair daqui. Ver ParadaCliente.tsx.
+   *
+   * `key` com o índice junto do seller_id: o mesmo cliente pode aparecer duas
+   * vezes numa rota (duas lojas com o mesmo cadastro acontece), e só o id
+   * repetiria a chave. */
   const paradas = (r: Rota) =>
     (r.stops?.length ?? 0) === 0 ? null : (
-      <ol className="text-[11px] text-ink-dim space-y-0.5 mt-2">
+      <ol className="space-y-2 mt-2">
         {r.stops.map((s, i) => (
-          <li key={s.seller_id} className="truncate">
-            <span className="text-ink-faint">{i + 1}.</span>{' '}
-            {precisaIdentificar(s.seller_nome, s.seller_id) ? `Pendente #${s.seller_id}` : s.seller_nome}
-            {/* Esta é a tela aberta no carro, na hora da visita: é o último
-                lugar onde ainda dá para o consultor saber que aquele pino é o
-                centro do bairro, e não a porta. */}
-            {s.coordenada_origem === 'aproximada' && (
-              <span title="O ponto desta parada é o centro do bairro, não o endereço do cliente."
-                className="ml-1 text-warn font-semibold">· GPS aproximado</span>
-            )}
-            {s.coordenada_origem === 'estimada' && (
-              <span title="A máquina estimou este ponto pelo endereço escrito e ninguém conferiu — pode errar por uma quadra."
-                className="ml-1 text-warn font-semibold">· ponto estimado</span>
-            )}
-          </li>
+          <ParadaCliente
+            key={`${s.seller_id}-${i}`}
+            parada={s}
+            ordem={i + 1}
+            ficha={fichaTecnica[s.seller_id]}
+            onVisitar={() => marcarVisitado(r, s.seller_id)}
+            salvando={salvandoParada === `${r.id}:${s.seller_id}`}
+            bloqueado={!!salvandoParada?.startsWith(`${r.id}:`)}
+          />
         ))}
       </ol>
     )
+
+  /** "3/9" — quanto da rota já foi feito. Só aparece quando alguém começou. */
+  const seloProgresso = (r: Rota) => {
+    const { total, feitos } = progresso(r)
+    if (feitos === 0 || total === 0) return null
+    const completa = feitos === total
+    return (
+      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded tabular-nums flex-shrink-0 ${
+        completa ? 'bg-good text-white' : 'bg-good-bg text-good'
+      }`}>
+        {feitos}/{total} ✓
+      </span>
+    )
+  }
+
+  /** Seta do acordeão — a única pista de que o cabeçalho abre. */
+  const chevron = (aberta: boolean) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+      className={`flex-shrink-0 mt-1 text-ink-faint transition-transform ${aberta ? 'rotate-90' : ''}`}>
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  )
 
   /* Seletor de dia. Um `input[type=date]` e não arrastar-e-soltar: funciona no
    * celular (onde a rota é consultada em campo), abre o calendário nativo, é
@@ -310,8 +440,15 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
     )
   }
 
-  // Cartão de uma rota dentro da coluna do dia (semana).
-  const cartaoSemana = (r: Rota) => (
+  /* Cartão de uma rota dentro da coluna do dia (semana).
+   *
+   * Aqui as paradas NÃO abrem: a coluna de um dia tem ~140px em 7 colunas (e
+   * ~170px nas 2 do celular), e o cartão de cliente transborda — nome quebrando
+   * letra a letra e botões saindo da caixa. A Semana responde "que dias têm
+   * rota"; quem vai visitar precisa de largura, e é para lá que o botão manda. */
+  const cartaoSemana = (r: Rota) => {
+    const total = r.stops?.length ?? 0
+    return (
     <div className="rounded-xl border border-line bg-card p-2.5">
       {editando === r.id ? (
         <div className="flex items-center gap-1 mb-1">
@@ -319,12 +456,20 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
           <button onClick={() => salvarNome(r.id)} className="text-good text-[11px] font-semibold">ok</button>
         </div>
       ) : (
-        <p className="text-xs font-semibold text-ink truncate mb-1.5" title={r.nome_rota}>{r.nome_rota || 'Rota sem nome'}</p>
+        <div className="flex items-start gap-1.5 mb-1.5">
+          <span className="text-xs font-semibold text-ink truncate flex-1" title={r.nome_rota}>{r.nome_rota || 'Rota sem nome'}</span>
+          {seloProgresso(r)}
+        </div>
       )}
       {badges(r)}
       <div className="mt-1.5">{seletorData(r, true)}</div>
       <div className="my-2"><TracadoRota pontos={pontosDaRota(r)} /></div>
-      {paradas(r)}
+      {total > 0 && (
+        <button onClick={() => verClientes(r)}
+          className="w-full h-9 text-[11px] font-semibold rounded-lg bg-primary/10 text-primary-lt hover:bg-primary/20 transition-colors">
+          Ver {total} cliente{total !== 1 ? 's' : ''}
+        </button>
+      )}
       <div className="flex items-center gap-2 mt-2 pt-2 border-t border-line">
         {gmaps(r)}
         <div className="ml-auto flex items-center gap-2 text-ink-faint">
@@ -344,64 +489,81 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
         </div>
       </div>
     </div>
-  )
+    )
+  }
 
-  // Cartão completo (lista).
-  const cartaoLista = (r: Rota) => (
-    <div key={r.id} className="glass rounded-2xl border border-line p-5">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="min-w-0">
-          {editando === r.id ? (
-            <div className="flex items-center gap-2">
-              <input value={nomeEdit} onChange={e => setNomeEdit(e.target.value)} className="border border-line rounded-lg px-2 py-1 text-sm" autoFocus />
-              <button onClick={() => salvarNome(r.id)} className="text-good text-xs font-semibold">Salvar</button>
-              <button onClick={() => setEditando(null)} className="text-ink-muted text-xs">Cancelar</button>
+  /* Cartão completo (lista).
+   *
+   * O cabeçalho (nome · dia · contagem · progresso) fica sempre à vista e as
+   * paradas abrem no toque. Renomear/Refazer/Excluir vivem DENTRO do aberto:
+   * repetidos em cada cabeçalho eles eram o grosso do ruído da tela, e deixar
+   * Excluir atrás de um toque a mais é um pedágio bem-vindo num botão que apaga
+   * a rota inteira. */
+  const cartaoLista = (r: Rota) => {
+    const aberta = estaAberta(r)
+    const total = r.stops?.length ?? 0
+    return (
+    <div key={r.id} id={`rota-${r.id}`} className="glass rounded-2xl border border-line p-4 sm:p-5 scroll-mt-4">
+      {editando === r.id ? (
+        <div className="flex items-center gap-2">
+          <input value={nomeEdit} onChange={e => setNomeEdit(e.target.value)} className="border border-line rounded-lg px-2 py-1 text-sm" autoFocus />
+          <button onClick={() => salvarNome(r.id)} className="text-good text-xs font-semibold">Salvar</button>
+          <button onClick={() => setEditando(null)} className="text-ink-muted text-xs">Cancelar</button>
+        </div>
+      ) : (
+        <button onClick={() => alternarAberta(r)} aria-expanded={aberta}
+          className="w-full flex items-start gap-2 text-left">
+          {chevron(aberta)}
+          <span className="font-semibold text-ink min-w-0 flex-1 break-words">{r.nome_rota || 'Rota sem nome'}</span>
+          {seloProgresso(r)}
+        </button>
+      )}
+
+      <p className="text-xs text-ink-muted mt-1 flex items-center gap-1.5 flex-wrap">
+        {seletorData(r)}
+        <span>
+          · {total} cliente{total !== 1 ? 's' : ''}
+          {r.distancia_km != null ? ` · ${r.distancia_km.toFixed(1).replace('.', ',')} km` : ''}
+          {r.tempo_minutos != null ? ` · ${Math.round(r.tempo_minutos)} min` : ''}
+          {podeVerTodos && r.consultor_nome ? ` · ${r.consultor_nome}` : ''}
+        </span>
+      </p>
+
+      {aberta && (
+        <>
+          <div className="grid sm:grid-cols-[1fr_200px] gap-4 mt-3">
+            <div>{paradas(r) ?? <p className="text-xs text-ink-faint">Sem paradas.</p>}</div>
+            <TracadoRota pontos={pontosDaRota(r)} />
+          </div>
+
+          <div className="mt-3 pt-3 border-t border-line flex items-center justify-between gap-3 flex-wrap">
+            {gmaps(r)}
+            <div className="flex items-center gap-3 text-xs ml-auto">
+              {confirmar === r.id ? (
+                <>
+                  <span className="text-bad">Excluir?</span>
+                  <button onClick={() => excluir(r.id)} className="bg-bad text-white px-2 py-0.5 rounded-md font-semibold">Sim</button>
+                  <button onClick={() => setConfirmar(null)} className="text-ink-muted">Não</button>
+                </>
+              ) : (
+                <>
+                  {/* p-2 -m-2: cresce a área de toque sem mexer no desenho nem
+                      no espaçamento entre os 3 — estavam colados, sem área
+                      clicável nenhuma além do texto, e Excluir é destrutivo. */}
+                  <button onClick={() => refazer(r)} disabled={refazendo === r.id} className="text-good font-medium hover:underline disabled:opacity-50 p-2 -m-2">
+                    {refazendo === r.id ? 'Refazendo…' : 'Refazer'}
+                  </button>
+                  <button onClick={() => { setEditando(r.id); setNomeEdit(r.nome_rota) }} className="text-primary font-medium hover:underline p-2 -m-2">Renomear</button>
+                  <button onClick={() => setConfirmar(r.id)} className="text-bad font-medium hover:underline p-2 -m-2">Excluir</button>
+                </>
+              )}
             </div>
-          ) : (
-            <p className="font-semibold text-ink flex items-center gap-2 flex-wrap">
-              {r.nome_rota || 'Rota sem nome'}
-            </p>
-          )}
-          <p className="text-xs text-ink-muted mt-0.5 flex items-center gap-1.5 flex-wrap">
-            {seletorData(r)}
-            <span>
-              · {r.stops?.length ?? 0} cliente{(r.stops?.length ?? 0) !== 1 ? 's' : ''}
-              {r.distancia_km != null ? ` · ${r.distancia_km.toFixed(1).replace('.', ',')} km` : ''}
-              {r.tempo_minutos != null ? ` · ${Math.round(r.tempo_minutos)} min` : ''}
-              {podeVerTodos && r.consultor_nome ? ` · ${r.consultor_nome}` : ''}
-            </span>
-          </p>
-        </div>
-        <div className="flex items-center gap-3 text-xs">
-          {confirmar === r.id ? (
-            <>
-              <span className="text-bad">Excluir?</span>
-              <button onClick={() => excluir(r.id)} className="bg-bad text-white px-2 py-0.5 rounded-md font-semibold">Sim</button>
-              <button onClick={() => setConfirmar(null)} className="text-ink-muted">Não</button>
-            </>
-          ) : (
-            <>
-              {/* p-2 -m-2: cresce a área de toque sem mexer no desenho nem
-                  no espaçamento entre os 3 — estavam colados, sem área
-                  clicável nenhuma além do texto, e Excluir é destrutivo. */}
-              <button onClick={() => refazer(r)} disabled={refazendo === r.id} className="text-good font-medium hover:underline disabled:opacity-50 p-2 -m-2">
-                {refazendo === r.id ? 'Refazendo…' : 'Refazer'}
-              </button>
-              <button onClick={() => { setEditando(r.id); setNomeEdit(r.nome_rota) }} className="text-primary font-medium hover:underline p-2 -m-2">Renomear</button>
-              <button onClick={() => setConfirmar(r.id)} className="text-bad font-medium hover:underline p-2 -m-2">Excluir</button>
-            </>
-          )}
-        </div>
-      </div>
-
-      <div className="grid sm:grid-cols-[1fr_200px] gap-4 mt-3">
-        <div>{paradas(r) ?? <p className="text-xs text-ink-faint">Sem paradas.</p>}</div>
-        <TracadoRota pontos={pontosDaRota(r)} />
-      </div>
-
-      <div className="mt-3 pt-3 border-t border-line">{gmaps(r)}</div>
+          </div>
+        </>
+      )}
     </div>
-  )
+    )
+  }
 
   const tabs = (
     <div className="flex gap-0.5 bg-field border border-field-line rounded-xl p-0.5">
@@ -487,7 +649,7 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
                     <span className="text-[11px] text-primary-lt font-medium group-hover:underline">+ Nova rota</span>
                   </button>
                 ) : (
-                  <div className="space-y-2.5">{doDia.map(r => <div key={r.id}>{cartaoSemana(r)}</div>)}</div>
+                  <div className="space-y-2.5">{doDia.map(r => <div key={r.id}>{cartaoSemana(comLocal(r))}</div>)}</div>
                 )}
               </div>
             )
@@ -499,14 +661,14 @@ export default function AgendaClient({ rotas, podeVerTodos }: { rotas: Rota[]; p
           <p className="text-sm text-ink-muted mt-1">Monte uma no <strong className="text-good">Roteirizar</strong> ou pelo Radar.</p>
         </div>
       ) : (
-        <div className="space-y-3">{rotas.map(r => cartaoLista(r))}</div>
+        <div className="space-y-3">{rotas.map(r => cartaoLista(comLocal(r)))}</div>
       )}
 
       {/* Rotas sem data marcam presença mesmo no modo Semana */}
       {view === 'semana' && semDia.length > 0 && (
         <div className="mt-5">
           <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider mb-2">Sem data definida ({semDia.length})</p>
-          <div className="space-y-3">{semDia.map(r => cartaoLista(r))}</div>
+          <div className="space-y-3">{semDia.map(r => cartaoLista(comLocal(r)))}</div>
         </div>
       )}
     </div>

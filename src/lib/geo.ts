@@ -60,6 +60,35 @@ export interface ClienteSelecionado {
    * versão não têm o campo — ausente significa "não se sabe", não "exata".
    */
   coordenada_origem?: 'exata' | 'estimada' | 'aproximada' | null
+  /**
+   * Quando o consultor marcou esta parada como visitada, na Agenda. ISO.
+   *
+   * Mora DENTRO do snapshot, e não numa tabela de visitas, porque a marcação é
+   * do par (rota, parada): a mesma loja pode estar em duas rotas de semanas
+   * diferentes e ter sido visitada só numa. Ausente/null = ainda não visitada —
+   * é o caso de toda rota salva antes desta versão.
+   */
+  visitado_em?: string | null
+}
+
+/**
+ * Liga/desliga a marca de visitado de UMA parada, devolvendo um `stops` novo.
+ *
+ * Pura e fora do componente porque é o que vai para o banco: a Agenda grava o
+ * array inteiro de volta em `rotas.stops` (jsonb), então um engano aqui não
+ * erra um ícone — apaga a marcação das outras paradas da rota.
+ *
+ * Casa por `seller_id`. Se o mesmo cliente aparecer duas vezes na rota, as duas
+ * paradas alternam juntas; é o comportamento honesto, já que é a mesma visita.
+ */
+export function alternarVisitado(
+  stops: ClienteSelecionado[],
+  sellerId: string,
+  agora: string,
+): ClienteSelecionado[] {
+  return stops.map(s =>
+    s.seller_id === sellerId ? { ...s, visitado_em: s.visitado_em ? null : agora } : s,
+  )
 }
 
 export const CHAVE_RADAR_ROTA = 'radar_add_to_rota'
