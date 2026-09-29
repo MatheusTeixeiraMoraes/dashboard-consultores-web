@@ -66,12 +66,23 @@ const gpsAproximado = (c: Cliente) => temGps(c) && c.coordenada_origem === 'apro
 // de passar por exato, que foi o que confundiu o consultor.
 const gpsEstimado = (c: Cliente) => temGps(c) && c.coordenada_origem === 'estimada'
 
-const GPS_OPCOES = ['Com GPS', 'Estimado pela máquina', 'GPS aproximado', 'Sem GPS']
+// Cinco estados que se excluem: todo cliente cai em exatamente um. "Com GPS"
+// sozinho escondia a diferença que mais importa — juntava o ponto que alguém
+// conferiu com o que veio da planilha e ninguém nunca olhou, que é a maioria
+// da base. Quem quer saber em que pode confiar precisa poder separar os dois.
+const GPS_OPCOES = [
+  'Conferido por humano',
+  'Estimado pela máquina',
+  'GPS aproximado',
+  'Não verificado',
+  'Sem GPS',
+]
 const rotuloGps = (c: Cliente) =>
   !temGps(c) ? 'Sem GPS'
   : gpsAproximado(c) ? 'GPS aproximado'
   : gpsEstimado(c) ? 'Estimado pela máquina'
-  : 'Com GPS'
+  : c.coordenada_origem === 'exata' ? 'Conferido por humano'
+  : 'Não verificado'
 
 const ordenar = (s: Iterable<string>) => [...new Set(s)].filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR'))
 
