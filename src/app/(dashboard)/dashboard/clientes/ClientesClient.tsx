@@ -257,19 +257,6 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   // não um total fixo que ignora os filtros.
   const semGps = useMemo(() => filtrados.filter(c => !temGps(c)), [filtrados])
 
-  // Aproximados que a geocodificação CONSEGUE melhorar: sem endereço de
-  // verdade (nem rua, nem coordenada no texto) ela devolveria o mesmo
-  // centroide de bairro que já está gravado — um request de 1s por cliente
-  // pra reescrever o valor idêntico. Mesmo classificador de `geocodarEmMassa`
-  // (`alvoGeocodificacao`) pra não duplicar a regra: coordenada no texto conta
-  // como "exata" e entra aqui também — `geocodar` a lê direto, sem rede.
-  // Quem só tem bairro/cidade não se resolve daqui; precisa de endereço ou de
-  // alguém no local.
-  const aproximados = useMemo(
-    () => filtrados.filter(c => gpsAproximado(c) && alvoGeocodificacao(c)?.origem === 'exata'),
-    [filtrados],
-  )
-
   const kpis = useMemo(() => {
     const comGps = filtrados.length - semGps.length
     const nAprox = filtrados.filter(gpsAproximado).length
@@ -505,11 +492,11 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
     router.refresh()
   }
 
-  // Geocodifica em massa DO FILTRO ATUAL. Recebe o alvo em vez de assumir
-  // `semGps`: os clientes marcados como aproximados também precisam passar por
-  // aqui, e eles NÃO estão em `semGps` — têm lat/lng, só que é o centro do
-  // bairro. Enquanto isto assumia "sem lat/lng", 725 clientes com endereço
-  // escrito não tinham como ser corrigidos por nenhum caminho da tela.
+  // Geocodifica em massa DO FILTRO ATUAL, e SÓ quem não tem coordenada
+  // nenhuma. Estimar por endereço erra de 10 a 130 m, o que numa quadra
+  // densa é a loja errada: como palpite onde não havia nada, vale; por cima
+  // de um ponto que alguém já conferiu, destrói. Coordenada que já existe
+  // não se reescreve em lote — nem a marcada como aproximada.
   // Throttle de ~1s respeita a política do Nominatim. Interrompível.
   async function geocodarEmMassa(alvo: Cliente[]) {
     if (alvo.length === 0) return
@@ -604,18 +591,11 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
               Geocodar sem GPS ({nBR(semGps.length)})
             </button>
           )}
-          {/* Botão separado, e não somado ao de cima: são clientes que JÁ
-              aparecem no mapa, num ponto que parece bom. Refazer isso é uma
-              decisão consciente de quem gere a carteira, não um efeito colateral
-              de "geocodar quem falta". */}
-          {podeGerir && aproximados.length > 0 && (
-            <button onClick={() => geocodarEmMassa(aproximados)} disabled={bulk?.running}
-              title="Reprocessa quem está com coordenada do centro do bairro e tem endereço escrito no cadastro."
-              className="border border-warn/40 hover:bg-warn-bg disabled:opacity-50 text-warn text-sm font-medium px-4 py-2 rounded-xl flex items-center gap-2">
-              <Icon name="pin" size={15} />
-              Refazer aproximados ({nBR(aproximados.length)})
-            </button>
-          )}
+          {/* Não existe botão de "refazer" em massa quem JÁ tem coordenada: a
+              busca automática por endereço cai 10-130 m ao lado, e reescrever
+              em lote apagava o alfinete que o consultor tinha conferido. Quem
+              está aproximado se corrige um a um, no mapa, por quem conhece o
+              local. */}
           {podeImportar && (
             <>
               <button onClick={() => inputImport.current?.click()} disabled={importState.status === 'parsing' || importState.status === 'saving'}

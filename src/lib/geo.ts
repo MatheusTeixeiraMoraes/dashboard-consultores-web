@@ -3,7 +3,7 @@
 // Caminho relativo COM extensão: é o que deixa `node src/lib/geo.test.mjs` importar
 // este módulo direto (o Node ESM não conhece o alias `@/` nem completa extensão).
 // Mesma convenção de pilares.ts.
-import { enderecoExibivel, SO_COORDENADAS } from './texto.ts'
+import { SO_COORDENADAS } from './texto.ts'
 
 export interface Ponto {
   lat: number
@@ -186,44 +186,6 @@ const MAX_PONTOS_MAPS = 10  // origem + 8 paradas + destino: o teto do Maps do c
 /** Rótulo gravado na partida quando ela vem do GPS do aparelho — não é endereço. */
 export const PARTIDA_GPS = 'Minha localização'
 
-// Rótulos que o próprio app grava em `partida_endereco` para descrever a
-// largada na tela. Mandar isso ao Maps abriria uma busca por texto solto.
-const ROTULO_INTERNO = new RegExp(`^(${PARTIDA_GPS}|centro da regi[ãa]o)`, 'i')
-
-/** Ponto da rota levando o endereço textual, quando a base tem um de verdade. */
-export interface PontoMaps extends Ponto {
-  endereco?: string | null
-  bairro?: string | null
-  cidade?: string | null
-}
-
-/**
- * Como o ponto entra no link: endereço por extenso quando existe, "lat,lng" só
- * quando não existe.
- *
- * O app do Google Maps no iPhone não abria a rota montada só com coordenada —
- * com o endereço escrito, abre. E não se perde precisão trocando: a coordenada
- * da base saiu justamente do endereço, geocodificada. Onde não há rua de
- * verdade (metade da base traz o campo com o par de coordenadas ou um
- * placeholder), a coordenada segue sendo o único alvo — bairro e cidade
- * sozinhos cairiam no centro do bairro, não na porta do cliente.
- */
-export function alvoMaps(p: PontoMaps): string {
-  const rua = enderecoExibivel(p.endereco ?? null)
-  if (!rua || ROTULO_INTERNO.test(rua)) return `${p.lat},${p.lng}`
-  // Completa com bairro/cidade só o que a rua ainda não disser — a base traz os
-  // dois formatos ("Rua 01 157" e "Rua 01 157, Boa Viagem, Recife"). A
-  // comparação é por componente inteiro entre vírgulas, não por substring:
-  // bairro "Recife Antigo" contém "Recife" sem ser a cidade.
-  const partes = [rua]
-  for (const extra of [p.bairro, p.cidade]) {
-    const t = (extra ?? '').trim()
-    const jaTem = partes.flatMap(x => x.split(',')).some(x => x.trim().toLowerCase() === t.toLowerCase())
-    if (t && !jaTem) partes.push(t)
-  }
-  return partes.join(', ')
-}
-
 /**
  * Monta link(s) de direções do Google Maps para a sequência de pontos (partida →
  * paradas na ordem → chegada). Se passar de ~10 pontos, quebra em trechos com 1
@@ -235,15 +197,20 @@ export function alvoMaps(p: PontoMaps): string {
  * iPhone lia cada trecho como busca de texto — com coordenada crua não achava
  * nada e a rota não abria. O `api=1` é o formato que o Google documenta para
  * abrir no app em qualquer plataforma.
+ *
+ * Manda SEMPRE a coordenada, nunca o endereço escrito. Mandar o texto fazia o
+ * Google geocodificar de novo e cair 10-130 m ao lado do pino que o consultor
+ * tinha conferido — a rota levava para a loja errada da mesma quadra. Quem
+ * ajustou o alfinete é quem sabe onde o cliente está; o link obedece.
  */
-export function linksGoogleMaps(pontos: PontoMaps[]): string[] {
+export function linksGoogleMaps(pontos: Ponto[]): string[] {
   const validos = pontos.filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng))
   if (validos.length < 2) return []
   const links: string[] = []
   for (let i = 0; i < validos.length - 1; i += MAX_PONTOS_MAPS - 1) {
     const trecho = validos.slice(i, i + MAX_PONTOS_MAPS)
     if (trecho.length < 2) break
-    const alvos = trecho.map(alvoMaps)
+    const alvos = trecho.map(p => `${p.lat},${p.lng}`)
     const params = new URLSearchParams({
       api: '1',
       travelmode: 'driving',

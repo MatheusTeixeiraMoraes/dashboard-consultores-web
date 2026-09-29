@@ -19,7 +19,7 @@ globalThis.localStorage = {
 }
 
 const { entregarAoRoteirizar, receberSelecao, limparSelecao, CHAVE_RADAR_ROTA, MAX_PARADAS_ROTA,
-  coordenadaNoTexto, geocodar } = await import('./geo.ts')
+  coordenadaNoTexto, geocodar, linksGoogleMaps } = await import('./geo.ts')
 
 let n = 0
 const t = (nome, fn) => { memoria.clear(); fn(); n++; console.log('  ok:', nome) }
@@ -120,6 +120,19 @@ t('rua de verdade não é coordenada', () => {
 t('par fora da faixa do globo não é coordenada', () => {
   assert.equal(coordenadaNoTexto('-999.5, -48.4'), null)
   assert.equal(coordenadaNoTexto('-1.46, -481.5'), null)
+})
+
+// O link da rota mandava o ENDEREÇO ESCRITO, e o Google geocodificava de novo,
+// caindo 10-130 m ao lado do alfinete conferido — a rota levava à loja errada
+// da mesma quadra. Foi o que o consultor relatou como "mudaram minhas
+// coordenadas". Se alguém voltar a mandar texto, este teste cai.
+t('link do Maps usa a coordenada, nunca o endereço escrito', () => {
+  const [link] = linksGoogleMaps([
+    { lat: -1.3684850470671515, lng: -48.43960180463156, endereco: 'RUA BRAGANÇA, 101', bairro: 'Parque Verde', cidade: 'Belém' },
+    { lat: -1.4694870479019952, lng: -48.45976426230322, endereco: 'RUA EPITÁCIO PESSOA, 382' },
+  ])
+  assert.ok(link.includes('-1.3684850470671515%2C-48.43960180463156'), 'origem não é a coordenada guardada')
+  assert.ok(!/BRAGAN|EPIT|Parque|Bel%C3%A9m/i.test(link), 'endereço escrito vazou para o link')
 })
 
 // Assíncrono: geocodar não pode sair para a rede quando a resposta já está no

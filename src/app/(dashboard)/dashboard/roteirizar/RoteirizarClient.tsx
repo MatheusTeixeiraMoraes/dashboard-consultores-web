@@ -8,7 +8,7 @@ import { precisaIdentificar, enderecoExibivel } from '@/lib/texto'
 import {
   otimizarRota, receberSelecao, limparSelecao, geocodar, linksGoogleMaps, PARTIDA_GPS,
   MAX_PARADAS_ROTA, ROTULO_ORIGEM,
-  type Ponto, type PontoMaps, type ClienteSelecionado, type OrigemSelecao,
+  type Ponto, type ClienteSelecionado, type OrigemSelecao,
 } from '@/lib/geo'
 import { SITUACOES_MP, PRIORIDADES_MP, type FichaMP } from '@/lib/supabase/ficha-mp'
 import type { ClienteRadar } from '../radar/page'
@@ -346,14 +346,13 @@ export default function RoteirizarClient({ clientes, meuNome, fichaTecnica, data
   const linksMaps = useMemo(() => {
     const partida = coord(partLat, partLng)
     const chegada = coord(chegLat, chegLng)
-    // O endereço vai junto: o link do Maps o prefere à coordenada (ver alvoMaps).
-    const seq: PontoMaps[] = [
-      ...(partida ? [{ ...partida, endereco: partEnd }] : []),
-      ...stops.map(s => ({ lat: s.lat, lng: s.lng, endereco: s.endereco, bairro: s.bairro, cidade: s.cidade })),
+    const seq: Ponto[] = [
+      ...(partida ? [partida] : []),
+      ...stops.map(s => ({ lat: s.lat, lng: s.lng })),
       ...(chegada ? [chegada] : []),
     ]
     return linksGoogleMaps(seq)
-  }, [partLat, partLng, partEnd, chegLat, chegLng, stops])
+  }, [partLat, partLng, chegLat, chegLng, stops])
 
   return (
     <div className="pb-4">
