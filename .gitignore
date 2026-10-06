@@ -44,3 +44,6 @@ next-env.d.ts
 
 # artefatos do playwright (screenshots, planilhas de teste)
 .playwright-mcp/
+
+# cache da CLI do Supabase (versão mais recente conhecida); não é código
+/supabase/.temp/
