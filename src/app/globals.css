@@ -454,7 +454,8 @@ div.leaflet-container {
   box-shadow: 0 5px 18px rgba(16,36,45,.055);
 }
 .category-page--admin .glass:hover { border-color: rgba(3,108,147,.3); }
-.category-data-table { border-collapse: separate; border-spacing: 0; }
+/* Sem `border-collapse: separate` aqui: nesse modo o navegador ignora borda de <tr>
+   (o border-b do thead e o divide-y do tbody) e os divisores somem no desktop. */
 .agenda-week-strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .35rem; margin: 0 0 1rem; }
 .agenda-day-chip {
   display: flex;
