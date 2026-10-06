@@ -3,6 +3,7 @@
 import PilaresDetalhe, { type ResultadoPilar, type PilarConfigMin } from '@/components/dashboard/PilaresDetalhe'
 import type { FaixaAcionaveis } from '@/lib/pilares'
 import dynamic from 'next/dynamic'
+import CategoryHeader from '@/components/dashboard/CategoryHeader'
 
 /* Import dinâmico só para tirar o recharts (~338 KB) do pacote inicial desta
  * tela. `loading: () => null` porque o próprio EvolucaoScore já desenha um
@@ -44,13 +45,8 @@ export default function MeuScoreClient({
   const st = STATUS[scoreStatus(total, faixas)]
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-ink">Meu Desempenho</h1>
-        <p className="text-sm text-ink-muted mt-0.5">
-          {profileNome} · Carteira {idCarteira} · {dateDisplay}
-        </p>
-      </div>
+    <div className="category-page category-page--performance">
+      <CategoryHeader category="performance" title="Meu desempenho" description={`${profileNome} · Carteira ${idCarteira} · ${dateDisplay}`} />
 
       <div className="space-y-5">
         <div className="glass rounded-2xl border border-line px-6 py-5">

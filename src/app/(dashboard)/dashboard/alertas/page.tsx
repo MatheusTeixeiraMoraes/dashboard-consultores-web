@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getProfile } from '@/lib/supabase/profile'
 import { redirect } from 'next/navigation'
 import { SCORE_GERAL_FAIXAS_PADRAO, type ScoreGeralFaixas } from '@/lib/types'
+import CategoryHeader from '@/components/dashboard/CategoryHeader'
 
 const PILARES = ['tpv', 'net_churn', 'acionaveis', 'aderencia', 'awareness', 'produtividade']
 const PILAR_LABEL: Record<string, string> = {
@@ -93,11 +94,8 @@ export default async function AlertasPage() {
 
   if (!latestDate) {
     return (
-      <div>
-        <div className="mb-6">
-          <h1 className="text-xl font-bold text-ink">Alertas</h1>
-          <p className="text-sm text-ink-muted mt-0.5">Performance abaixo do objetivo</p>
-        </div>
+      <div className="category-page category-page--performance">
+        <CategoryHeader category="performance" title="Pontos de atenção" description="Sinais da equipe que merecem acompanhamento." />
         <div className="glass rounded-2xl border border-line p-12 text-center">
           <p className="font-semibold text-ink">Nenhum dado carregado ainda</p>
         </div>
@@ -136,11 +134,8 @@ export default async function AlertasPage() {
   })
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-ink">Alertas</h1>
-        <p className="text-sm text-ink-muted mt-0.5">Performance abaixo do objetivo · {dateDisplay}</p>
-      </div>
+    <div className="category-page category-page--performance">
+      <CategoryHeader category="performance" title="Pontos de atenção" description={`Performance abaixo do objetivo · ${dateDisplay}`} />
 
       {criticos.length === 0 && naLinha.length === 0 ? (
         <div className="glass rounded-2xl border border-line p-14 text-center">

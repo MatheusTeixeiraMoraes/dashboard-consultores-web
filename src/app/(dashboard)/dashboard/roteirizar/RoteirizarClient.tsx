@@ -13,6 +13,7 @@ import {
 import { SITUACOES_MP, PRIORIDADES_MP, type FichaMP } from '@/lib/supabase/ficha-mp'
 import type { ClienteRadar } from '../radar/page'
 import { registrarEvento } from '@/lib/atividade'
+import CategoryHeader from '@/components/dashboard/CategoryHeader'
 
 const POR_PAGINA = 24      // cards por página na grade de seleção
 
@@ -355,14 +356,8 @@ export default function RoteirizarClient({ clientes, meuNome, fichaTecnica, data
   }, [partLat, partLng, chegLat, chegLng, stops])
 
   return (
-    <div className="pb-4">
-      <div className="mb-4">
-        <h1 className="text-xl font-bold text-ink">Roteirizar</h1>
-        <p className="text-sm text-ink-muted mt-0.5">
-          Selecione clientes, defina os pontos de referência e gere a melhor rota.
-          {dataMP && <> · ficha do MP de {dataBR(dataMP)}</>}
-        </p>
-      </div>
+    <div className="category-page category-page--field pb-24 md:pb-4">
+      <CategoryHeader category="field" title="Montar rota" description={`Selecione clientes, defina os pontos de referência e gere a melhor rota.${dataMP ? ` · ficha do MP de ${dataBR(dataMP)}` : ''}`} />
 
       {entrega && (
         <div className="mb-3 text-sm bg-good-bg text-good rounded-xl px-4 py-2.5">
@@ -436,7 +431,7 @@ export default function RoteirizarClient({ clientes, meuNome, fichaTecnica, data
                   <button onClick={() => { setStops([]); setResultado(null) }} className="text-sm text-ink-muted hover:text-ink">Limpar tudo</button>
                 )}
                 <button onClick={gerar} disabled={gerando || stops.length === 0}
-                  className="bg-primary hover:bg-primary-dk disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-xl flex items-center gap-2">
+                  className="hidden md:flex bg-primary hover:bg-primary-dk disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-xl items-center gap-2">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
                   {gerando ? 'Gerando…' : 'Gerar rota'}
                 </button>
@@ -629,6 +624,15 @@ export default function RoteirizarClient({ clientes, meuNome, fichaTecnica, data
           </div>
         </div>
       </div>
+      {stops.length > 0 && (
+        <div className="route-mobile-action md:hidden" role="region" aria-label="Ações da rota">
+          <span className="text-sm font-semibold text-ink">{stops.length} cliente{stops.length === 1 ? '' : 's'}</span>
+          <button onClick={gerar} disabled={gerando}
+            className="bg-primary hover:bg-primary-dk disabled:opacity-50 text-white text-sm font-semibold px-5 py-3 rounded-xl min-h-11">
+            {gerando ? 'Gerando rota…' : 'Gerar rota'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

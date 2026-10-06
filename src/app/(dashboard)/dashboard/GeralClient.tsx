@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import dynamic from 'next/dynamic'
+import CategoryHeader from '@/components/dashboard/CategoryHeader'
 
 /* recharts fora do first-load desta tela.
  *
@@ -146,16 +147,12 @@ export default function GeralClient({ ranking, dateDisplay, dataCarteiraBR, meta
   const meuScore = modoConsultor ? ranking.find(c => c.total !== null)?.total ?? null : null
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-ink">{modoConsultor ? 'Minha Visão Geral' : 'Visão Geral'}</h1>
-        <p className="text-sm text-ink-muted mt-0.5">
-          {modoConsultor
-            ? meuNome
-            : `${ranking.length} consultores${dateDisplay ? ` · ${dateDisplay}` : ''}`}
-          {dataCarteiraBR ? ` · carteira de ${dataCarteiraBR}` : ''}
-        </p>
-      </div>
+    <div className="category-page category-page--performance">
+      <CategoryHeader
+        category="performance"
+        title={modoConsultor ? 'Minha visão geral' : 'Visão geral'}
+        description={`${modoConsultor ? meuNome : `${ranking.length} consultores${dateDisplay ? ` · ${dateDisplay}` : ''}`}${dataCarteiraBR ? ` · carteira de ${dataCarteiraBR}` : ''}`}
+      />
 
       {/* Cards de resumo */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">

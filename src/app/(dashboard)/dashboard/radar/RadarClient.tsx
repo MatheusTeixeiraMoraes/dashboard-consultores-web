@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic'
 import { distanciaKm, entregarAoRoteirizar, geocodar, type Ponto, type ClienteSelecionado } from '@/lib/geo'
 import { BotaoWhatsApp, BotaoMapa } from '@/components/BotaoContato'
 import type { ClienteRadar } from './page'
+import CategoryHeader from '@/components/dashboard/CategoryHeader'
 
 const RadarMapa = dynamic(() => import('./RadarMapa'), {
   ssr: false,
@@ -358,20 +359,14 @@ function RadarShell({ children, onAtualizarGps, atualizando }: {
   children: React.ReactNode; onAtualizarGps?: () => void; atualizando?: boolean
 }) {
   return (
-    <div className="pb-16">
-      <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
-        <div>
-          <h1 className="text-xl font-bold text-ink tracking-tight">Radar de Clientes</h1>
-          <p className="text-sm text-ink-muted mt-0.5">Visualize seus clientes no mapa e explore sua região.</p>
-        </div>
-        {onAtualizarGps && (
+    <div className="category-page category-page--field pb-16">
+      <CategoryHeader category="field" title="Radar de clientes" description="Explore a carteira ao seu redor e planeje visitas." actions={onAtualizarGps && (
           <button onClick={onAtualizarGps} disabled={atualizando}
             className="border border-line hover:bg-card-2 disabled:opacity-50 text-ink-dim text-sm font-medium px-4 py-2 rounded-xl flex items-center gap-2">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={atualizando ? 'animate-spin' : ''}><path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>
             Atualizar GPS
           </button>
-        )}
-      </div>
+        )} />
       {children}
     </div>
   )

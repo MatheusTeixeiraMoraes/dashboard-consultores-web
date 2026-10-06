@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import PilaresDetalhe, { type ResultadoPilar, type PilarConfigMin } from '@/components/dashboard/PilaresDetalhe'
 import dynamic from 'next/dynamic'
+import CategoryHeader from '@/components/dashboard/CategoryHeader'
 
 /* Mesmo motivo do MeuScoreClient: mantém o recharts fora do first-load. O
  * componente já tem estado de carregamento próprio, daí `loading: () => null`. */
@@ -74,11 +75,8 @@ export default function ConsultorClient({
   const st = total !== null ? statusMap(faixas)[scoreStatus(total, faixas)] : null
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-ink">Consultor</h1>
-        <p className="text-sm text-ink-muted mt-0.5">Performance individual · {dateDisplay}</p>
-      </div>
+    <div className="category-page category-page--performance">
+      <CategoryHeader category="performance" title="Visão do consultor" description={`Performance individual · ${dateDisplay}`} />
 
       {/* Empilha no celular: a lista era `w-60 flex-shrink-0` ao lado do
           conteúdo, ou seja, 240px que se recusavam a encolher numa tela de 360

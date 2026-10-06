@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import MultiFiltro from '@/components/MultiFiltro'
 import type { EventoAtividade } from './page'
+import CategoryHeader from '@/components/dashboard/CategoryHeader'
 
 const ROTULO_EVENTO: Record<string, string> = {
   login: 'entrou no sistema',
@@ -197,13 +198,8 @@ export default function AtividadeClient({ eventos }: { eventos: EventoAtividade[
   }, [eventos, busca, fTipos, fAtores, dataInicio, dataFim])
 
   return (
-    <div className="pb-20">
-      <div className="mb-4">
-        <h1 className="text-xl font-bold text-ink">Atividade</h1>
-        <p className="text-sm text-ink-muted mt-0.5">
-          Últimos {eventos.length} eventos · login, edição de cliente, ações administrativas e delegação de acesso
-        </p>
-      </div>
+    <div className="category-page category-page--admin pb-20">
+      <CategoryHeader category="admin" title="Atividade do sistema" description={`Últimos ${eventos.length} eventos · logins, edição de clientes, ações administrativas e delegação de acesso`} />
 
       <div className="flex items-center gap-2 flex-wrap mb-4">
         <div className="relative flex-1 min-w-56 max-w-sm">

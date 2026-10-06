@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { PILARES, PILAR_KEYS, fmtValor, fmtMeta } from '@/lib/pilares'
 import type { PilarKey } from '@/lib/types'
+import CategoryHeader from '@/components/dashboard/CategoryHeader'
 
 /**
  * O aproveitamento (score ÷ pontos_max) é o que dá pra comparar entre pilares:
@@ -136,11 +137,10 @@ export default function AreaClient({
   const porPilar = agruparPorPilar(resultados)
 
   return (
-    <div>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div className="category-page category-page--performance">
+      <div className="mb-5 space-y-4">
         <div>
-          <h1 className="text-xl font-bold text-ink">Por Área</h1>
-          <p className="text-sm text-ink-muted mt-0.5">Ranking de cada pilar · {formatDateBR(selectedDate)}</p>
+          <CategoryHeader category="performance" title="Por área" description={`Ranking de cada pilar · ${formatDateBR(selectedDate)}`} />
         </div>
 
         <div className="flex flex-wrap items-center gap-3">

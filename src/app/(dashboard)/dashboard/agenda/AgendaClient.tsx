@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { otimizarRota, linksGoogleMaps, alternarVisitado, type Ponto, type ClienteSelecionado } from '@/lib/geo'
 import { registrarEvento } from '@/lib/atividade'
 import type { FichaMP } from '@/lib/supabase/ficha-mp'
+import CategoryHeader from '@/components/dashboard/CategoryHeader'
 import ParadaCliente from './ParadaCliente'
 import type { Rota } from './page'
 
@@ -116,12 +117,16 @@ export default function AgendaClient({ rotas, podeVerTodos, fichaTecnica }: {
 
   const [view, setView] = useState<'semana' | 'lista'>('semana')
   const [semanaOffset, setSemanaOffset] = useState(0)
+  const [diaMobile, setDiaMobile] = useState<number | null>(null)
   // `hoje` só no cliente: new Date() no SSR daria mismatch de hidratação.
   // Exceção legítima ao lint de setState-em-efeito — não tem como derivar
   // isto durante o render, já que o valor não existe até montar no cliente.
   const [hoje, setHoje] = useState<Date | null>(null)
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => setHoje(new Date()), [])
+  useEffect(() => {
+    const atual = new Date()
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- data local necessária para evitar divergência de hidratação.
+    setHoje(atual)
+  }, [])
 
   const kpis = useMemo(() => {
     const km = rotas.reduce((s, r) => s + (r.distancia_km ?? 0), 0)
@@ -155,6 +160,9 @@ export default function AgendaClient({ rotas, podeVerTodos, fichaTecnica }: {
   }, [hoje, semanaOffset])
 
   const hojeIso = hoje ? isoLocal(hoje) : ''
+  const indiceDiaMobile = diaMobile ?? (hoje ? (hoje.getDay() + 6) % 7 : 0)
+  const dataSelecionadaMobile = semana[indiceDiaMobile] ?? semana[0]
+  const rotasDiaMobile = dataSelecionadaMobile ? porDia.get(isoLocal(dataSelecionadaMobile)) ?? [] : []
 
   /** A rota com as marcações de visita desta sessão já aplicadas. */
   const comLocal = (r: Rota): Rota => (stopsLocais[r.id] ? { ...r, stops: stopsLocais[r.id] } : r)
@@ -434,7 +442,8 @@ export default function AgendaClient({ rotas, podeVerTodos, fichaTecnica }: {
         <span className="text-[10px] text-ink-muted">Maps:</span>
         {links.map((l, i) => (
           <a key={i} href={l} target="_blank" rel="noopener noreferrer"
-            className="bg-gmaps hover:bg-gmaps-dk text-white text-[11px] font-semibold px-2 py-1 rounded-md">{i + 1}</a>
+            aria-label={`Abrir trecho ${i + 1} no Google Maps`}
+            className="inline-flex min-h-10 min-w-10 items-center justify-center bg-gmaps hover:bg-gmaps-dk text-white text-[11px] font-semibold px-2 py-1 rounded-md">{i + 1}</a>
         ))}
       </div>
     )
@@ -449,43 +458,49 @@ export default function AgendaClient({ rotas, podeVerTodos, fichaTecnica }: {
   const cartaoSemana = (r: Rota) => {
     const total = r.stops?.length ?? 0
     return (
-    <div className="rounded-xl border border-line bg-card p-2.5">
-      {editando === r.id ? (
-        <div className="flex items-center gap-1 mb-1">
-          <input value={nomeEdit} onChange={e => setNomeEdit(e.target.value)} className="border border-line rounded-md px-1.5 py-0.5 text-xs w-full" autoFocus />
-          <button onClick={() => salvarNome(r.id)} className="text-good text-[11px] font-semibold">ok</button>
-        </div>
-      ) : (
-        <div className="flex items-start gap-1.5 mb-1.5">
-          <span className="text-xs font-semibold text-ink truncate flex-1" title={r.nome_rota}>{r.nome_rota || 'Rota sem nome'}</span>
-          {seloProgresso(r)}
-        </div>
-      )}
-      {badges(r)}
-      <div className="mt-1.5">{seletorData(r, true)}</div>
-      <div className="my-2"><TracadoRota pontos={pontosDaRota(r)} /></div>
-      {total > 0 && (
-        <button onClick={() => verClientes(r)}
-          className="w-full h-9 text-[11px] font-semibold rounded-lg bg-primary/10 text-primary-lt hover:bg-primary/20 transition-colors">
-          Ver {total} cliente{total !== 1 ? 's' : ''}
-        </button>
-      )}
-      <div className="flex items-center gap-2 mt-2 pt-2 border-t border-line">
-        {gmaps(r)}
-        <div className="ml-auto flex items-center gap-2 text-ink-faint">
-          <button onClick={() => { setEditando(r.id); setNomeEdit(r.nome_rota) }} title="Renomear" className="hover:text-primary">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
-          </button>
-          {confirmar === r.id ? (
-            <span className="text-[10px] flex items-center gap-1">
-              <button onClick={() => excluir(r.id)} className="text-bad font-bold">sim</button>
-              <button onClick={() => setConfirmar(null)} className="text-ink-muted">não</button>
-            </span>
+    <div className="agenda-route-card rounded-xl border border-line bg-card p-2.5">
+      <div className="agenda-route-card__main">
+        <div className="agenda-route-card__details">
+          {editando === r.id ? (
+            <div className="flex items-center gap-1 mb-1">
+              <input value={nomeEdit} onChange={e => setNomeEdit(e.target.value)} className="border border-line rounded-md px-1.5 py-1 text-xs w-full min-w-0" autoFocus />
+              <button onClick={() => salvarNome(r.id)} aria-label="Salvar nome da rota" className="text-good text-[11px] font-semibold">ok</button>
+            </div>
           ) : (
-            <button onClick={() => setConfirmar(r.id)} title="Excluir" className="hover:text-bad">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-            </button>
+            <div className="agenda-route-card__title-row">
+              <span className="agenda-route-card__title" title={r.nome_rota}>{r.nome_rota || 'Rota sem nome'}</span>
+              {seloProgresso(r)}
+            </div>
           )}
+          <div className="agenda-route-card__badges">{badges(r)}</div>
+          <div className="agenda-route-card__date">{seletorData(r, true)}</div>
+        </div>
+        <div className="agenda-route-card__trace"><TracadoRota pontos={pontosDaRota(r)} /></div>
+      </div>
+      <div className="agenda-route-card__footer">
+        {total > 0 && (
+          <button onClick={() => verClientes(r)} className="agenda-route-card__clients">
+            Ver {total} cliente{total !== 1 ? 's' : ''}
+          </button>
+        )}
+        <div className="agenda-route-card__tools">
+          {gmaps(r)}
+          <div className="agenda-route-card__manage">
+            <button onClick={() => { setEditando(r.id); setNomeEdit(r.nome_rota) }} title="Renomear" aria-label="Renomear rota" className="hover:text-primary">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
+            </button>
+            {confirmar === r.id ? (
+              <span className="agenda-route-card__confirm">
+                <span>Excluir rota?</span>
+                <button onClick={() => excluir(r.id)} className="text-bad font-bold">Sim</button>
+                <button onClick={() => setConfirmar(null)} className="text-ink-muted">Não</button>
+              </span>
+            ) : (
+              <button onClick={() => setConfirmar(r.id)} title="Excluir" aria-label="Excluir rota" className="hover:text-bad">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -566,28 +581,25 @@ export default function AgendaClient({ rotas, podeVerTodos, fichaTecnica }: {
   }
 
   const tabs = (
-    <div className="flex gap-0.5 bg-field border border-field-line rounded-xl p-0.5">
+    <div className="flex gap-0.5 bg-field border border-field-line rounded-xl p-0.5" role="group" aria-label="Visualização da agenda">
       {(['semana', 'lista'] as const).map(v => (
-        <button key={v} onClick={() => setView(v)}
-          className={`px-3.5 py-1.5 text-sm font-medium capitalize rounded-lg transition-colors ${view === v ? 'bg-primary text-white shadow-[0_2px_8px_rgba(79,95,224,0.4)]' : 'text-ink-muted hover:text-ink-dim'}`}>
-          {v}
+        <button key={v} onClick={() => setView(v)} aria-pressed={view === v}
+          className={`min-h-10 px-4 text-sm font-semibold rounded-lg transition-colors ${view === v ? 'bg-primary text-white shadow-[0_2px_8px_rgba(79,95,224,0.24)]' : 'text-ink-muted hover:text-ink-dim'}`}>
+          {v === 'semana' ? 'Semana' : 'Lista'}
         </button>
       ))}
     </div>
   )
 
   return (
-    <div>
-      <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
-        <div>
-          <h1 className="text-xl font-bold text-ink">Agenda</h1>
-          <p className="text-sm text-ink-muted mt-0.5">Visualize e gerencie as rotas{podeVerTodos ? ' da sua equipe' : ''}.</p>
-        </div>
-        <button onClick={() => router.push('/dashboard/roteirizar')} className="bg-primary hover:bg-primary-dk text-white text-sm font-semibold px-4 py-2 rounded-xl inline-flex items-center gap-1.5">
+    <div className="category-page category-page--field agenda-page">
+      <CategoryHeader category="field" title="Agenda de visitas"
+        description={`Acompanhe rotas, clientes e visitas${podeVerTodos ? ' da equipe' : ''}.`}
+        actions={<button onClick={() => router.push('/dashboard/roteirizar')} className="min-h-11 bg-primary hover:bg-primary-dk text-white text-sm font-semibold px-4 py-2.5 rounded-xl inline-flex items-center gap-1.5">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
           Nova rota
-        </button>
-      </div>
+        </button>}
+      />
 
       {/* grid-cols-2 lg:grid-cols-3 — mesmo padrão de KPI que
           GeralClient.tsx/ClientesClient.tsx/RadarClient.tsx (lá com 4
@@ -603,7 +615,7 @@ export default function AgendaClient({ rotas, podeVerTodos, fichaTecnica }: {
       {erro && <p className="text-xs text-bad bg-bad-bg rounded-lg px-3 py-2 mb-3">{erro}</p>}
 
       {/* Abas + navegação de semana */}
-      <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+      <div className="agenda-toolbar flex items-center justify-between gap-3 flex-wrap mb-4">
         {tabs}
         {view === 'semana' && semana.length > 0 && (
           <div className="flex items-center gap-2">
@@ -616,7 +628,7 @@ export default function AgendaClient({ rotas, podeVerTodos, fichaTecnica }: {
               {semana[0].getDate()} {MESES[semana[0].getMonth()]} – {semana[6].getDate()} {MESES[semana[6].getMonth()]} {semana[6].getFullYear()}
             </span>
             <button onClick={() => setSemanaOffset(o => o + 1)} className="w-10 h-10 grid place-items-center rounded-lg border border-field-line text-ink-muted hover:bg-card-2">›</button>
-            {semanaOffset !== 0 && <button onClick={() => setSemanaOffset(0)} className="text-xs text-primary-lt font-medium hover:underline px-1">Hoje</button>}
+            {semanaOffset !== 0 && <button onClick={() => { setSemanaOffset(0); setDiaMobile(hoje ? (hoje.getDay() + 6) % 7 : 0) }} className="min-h-10 text-xs text-primary-lt font-semibold hover:underline px-2">Hoje</button>}
           </div>
         )}
       </div>
@@ -626,20 +638,61 @@ export default function AgendaClient({ rotas, podeVerTodos, fichaTecnica }: {
         // 4 colunas davam ~110px por dia com o cartão de rota (nome, paradas,
         // ações) dentro — apertado demais. Fica em 2 colunas até xl (1280),
         // que é quando sobra espaço de verdade pras 7 de uma vez.
-        <div className="grid grid-cols-2 xl:grid-cols-7 gap-3">
+        <>
+        <div className="agenda-week-strip md:hidden" role="group" aria-label="Dias desta semana">
+          {semana.map((d, i) => {
+            const iso = isoLocal(d)
+            const doDia = porDia.get(iso) ?? []
+            const idx = (d.getDay() + 6) % 7
+            const selecionado = i === indiceDiaMobile
+            const ehHoje = iso === hojeIso
+            return (
+              <button key={iso} onClick={() => setDiaMobile(i)} aria-pressed={selecionado}
+                aria-label={`${DIAS[idx]} ${d.getDate()}${doDia.length ? `, ${doDia.length} rotas` : ', sem rota'}`}
+                className={`agenda-day-chip ${selecionado ? 'is-selected' : ''} ${ehHoje ? 'is-today' : ''}`}>
+                <span className="agenda-day-chip__name">{DIAS[idx].slice(0, 3)}</span>
+                <span className="agenda-day-chip__date">{d.getDate()}</span>
+                <span className="agenda-day-chip__count" aria-hidden="true">{doDia.length || '·'}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        <section className="agenda-mobile-day md:hidden">
+          {dataSelecionadaMobile && (
+            <div className="agenda-mobile-day__heading" aria-live="polite">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-primary-lt">{isoLocal(dataSelecionadaMobile) === hojeIso ? 'Hoje' : DIAS[(dataSelecionadaMobile.getDay() + 6) % 7]}</p>
+                <h2 className="text-lg font-bold text-ink">{dataSelecionadaMobile.getDate()} de {MESES[dataSelecionadaMobile.getMonth()]}</h2>
+              </div>
+              <span className="text-xs font-semibold text-ink-muted bg-card-2 rounded-full px-3 py-1.5">{rotasDiaMobile.length} rota{rotasDiaMobile.length === 1 ? '' : 's'}</span>
+            </div>
+          )}
+          {rotasDiaMobile.length === 0 ? (
+            <div className="glass rounded-2xl border border-line p-5 text-center">
+              <p className="font-semibold text-ink">Dia livre</p>
+              <p className="text-sm text-ink-muted mt-1">Nenhuma visita programada para este dia.</p>
+              <button onClick={() => router.push('/dashboard/roteirizar')} className="mt-4 min-h-11 px-4 rounded-xl bg-primary/10 text-primary-lt font-semibold text-sm">Montar uma rota</button>
+            </div>
+          ) : (
+            <div className="space-y-3">{rotasDiaMobile.map(r => <div key={r.id}>{cartaoSemana(comLocal(r))}</div>)}</div>
+          )}
+        </section>
+
+        <div className="hidden md:grid grid-cols-2 xl:grid-cols-7 gap-3">
           {semana.map(d => {
             const iso = isoLocal(d)
             const doDia = porDia.get(iso) ?? []
             const ehHoje = iso === hojeIso
             const idx = (d.getDay() + 6) % 7
             return (
-              <div key={iso} className={`glass rounded-2xl border p-3 flex flex-col ${ehHoje ? 'border-primary/60 ring-1 ring-primary/20' : 'border-line'}`}>
-                <div className="flex items-baseline justify-between mb-2">
+              <div key={iso} className={`agenda-day-column glass rounded-2xl border p-3 flex flex-col ${ehHoje ? 'is-today border-primary/60 ring-1 ring-primary/20' : 'border-line'}`}>
+                <div className="agenda-day-column__header">
                   <div>
                     <p className={`text-[11px] font-semibold uppercase tracking-wide ${ehHoje ? 'text-primary-lt' : 'text-ink-muted'}`}>{DIAS[idx]}</p>
                     <p className="text-lg font-bold text-ink leading-none">{d.getDate()} <span className="text-xs font-medium text-ink-faint">{MESES[d.getMonth()]}</span></p>
                   </div>
-                  {doDia.length === 0 && <span className="text-[10px] text-ink-faint border border-line rounded-full px-2 py-0.5">Sem rota</span>}
+                  <span className={`agenda-day-column__count ${doDia.length ? 'has-routes' : ''}`}>{doDia.length ? `${doDia.length} rota${doDia.length === 1 ? '' : 's'}` : 'Livre'}</span>
                 </div>
 
                 {doDia.length === 0 ? (
@@ -655,6 +708,7 @@ export default function AgendaClient({ rotas, podeVerTodos, fichaTecnica }: {
             )
           })}
         </div>
+        </>
       ) : rotas.length === 0 ? (
         <div className="glass rounded-2xl border border-line p-12 text-center">
           <p className="font-semibold text-ink">Nenhuma rota salva ainda</p>

@@ -8,6 +8,7 @@ import { BotaoWhatsApp, BotaoMapa } from '@/components/BotaoContato'
 import { compararRitmo, faixaTPV, ROTULO_FAIXA, type FaixaTPV } from '@/lib/tpv'
 import { precisaIdentificar } from '@/lib/texto'
 import type { LinhaTPV } from './page'
+import CategoryHeader from '@/components/dashboard/CategoryHeader'
 
 // Cartão ocupa bem mais altura que uma linha de tabela — 50 por página
 // virava uma rolagem enorme. 20 mantém a lista escaneável de uma vez.
@@ -472,14 +473,8 @@ export default function QuedaTpvClient({ dataReferencia, linhas, fichas, sellers
   }
 
   return (
-    <div className="pb-20">
-      <div className="mb-4">
-        <h1 className="text-xl font-bold text-ink">Queda de TPV</h1>
-        <p className="text-sm text-ink-muted mt-0.5">
-          Planilha de {dataBR(dataReferencia)} · {ref?.diasDecorridos} dias corridos no mês,
-          contra {ref?.diasMesPassado} do mês passado fechado
-        </p>
-      </div>
+    <div className="category-page category-page--portfolio pb-20">
+      <CategoryHeader category="portfolio" title="Ritmo da carteira" description={`Queda de TPV · planilha de ${dataBR(dataReferencia)} · ${ref?.diasDecorridos} dias corridos no mês, contra ${ref?.diasMesPassado} do mês passado fechado`} />
 
       {/* Os números primeiro — é a resposta que o líder quer, antes de qualquer
           controle de filtro ou explicação de método. */}

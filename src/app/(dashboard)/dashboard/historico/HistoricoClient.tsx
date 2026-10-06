@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { registrarEvento } from '@/lib/atividade'
 import type { UserRole } from '@/lib/types'
+import CategoryHeader from '@/components/dashboard/CategoryHeader'
 
 const PILAR_LABEL: Record<string, string> = {
   tpv: 'TPV',
@@ -107,15 +108,8 @@ export default function HistoricoClient({ rows: initialRows, role }: { rows: Upl
   }
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-ink">Histórico de Uploads</h1>
-        <p className="text-sm text-ink-muted mt-0.5">
-          {rows.length} {rows.length === 1 ? 'envio registrado' : 'envios registrados'}
-          {role === 'admin' && ' · Apenas administradores podem excluir'}
-          {' · Envios anteriores a este recurso não têm arquivo original pra baixar'}
-        </p>
-      </div>
+    <div className="category-page category-page--admin">
+      <CategoryHeader category="admin" title="Histórico de envios" description={`${rows.length} ${rows.length === 1 ? 'envio registrado' : 'envios registrados'}${role === 'admin' ? ' · Apenas administradores podem excluir' : ''} · Envios antigos não têm arquivo original para baixar`} />
 
       {rows.length === 0 ? (
         <div className="glass rounded-2xl border border-line p-12 text-center">
@@ -124,7 +118,7 @@ export default function HistoricoClient({ rows: initialRows, role }: { rows: Upl
         </div>
       ) : (
         <div className="glass rounded-2xl border border-line overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="category-data-table w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b border-line bg-card-2">
                 {/* sticky: rolando pra ver "Ação" no fim da linha, era o
@@ -146,7 +140,7 @@ export default function HistoricoClient({ rows: initialRows, role }: { rows: Upl
                 const isDeleting = deleting === row.id
                 return (
                   <tr key={row.id} className="group hover:bg-card-2 transition-colors">
-                    <td className="sticky left-0 z-10 px-4 py-3 bg-surface group-hover:bg-card-2">
+                    <td data-label="Pilar" className="sticky left-0 z-10 px-4 py-3 bg-surface group-hover:bg-card-2">
                       <span
                         className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg"
                         style={{ background: `${color}18`, color }}
@@ -155,21 +149,21 @@ export default function HistoricoClient({ rows: initialRows, role }: { rows: Upl
                         {PILAR_LABEL[row.pilar_key] ?? row.pilar_key}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-ink-dim max-w-[200px]">
+                    <td data-label="Arquivo" className="px-4 py-3 text-ink-dim max-w-[200px]">
                       <p className="truncate text-sm" title={row.filename}>{row.filename}</p>
                     </td>
-                    <td className="px-4 py-3 text-center text-sm text-ink-dim whitespace-nowrap">
+                    <td data-label="Referência" className="px-4 py-3 text-center text-sm text-ink-dim whitespace-nowrap">
                       {formatDateBR(row.data_referencia)}
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td data-label="Registros" className="px-4 py-3 text-center">
                       <span className="text-sm font-semibold text-ink">{row.record_count}</span>
                       {row.extra && <p className="text-[11px] text-ink-faint">{row.extra}</p>}
                     </td>
-                    <td className="px-4 py-3 text-sm text-ink-dim">{row.uploader_nome}</td>
-                    <td className="px-4 py-3 text-sm text-ink-muted whitespace-nowrap">
+                    <td data-label="Enviado por" className="px-4 py-3 text-sm text-ink-dim">{row.uploader_nome}</td>
+                    <td data-label="Data de envio" className="px-4 py-3 text-sm text-ink-muted whitespace-nowrap">
                       {formatDateBR(row.created_at)}
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td data-label="Ação" className="px-4 py-3 text-center">
                       {isConfirming ? (
                         <div className="flex items-center justify-center gap-2">
                           <button

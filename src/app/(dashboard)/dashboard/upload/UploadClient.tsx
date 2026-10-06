@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import ImportPlanilhaGeral from './ImportPlanilhaGeral'
 import { registrarEvento } from '@/lib/atividade'
 import type { PilarKey } from '@/lib/types'
+import CategoryHeader from '@/components/dashboard/CategoryHeader'
 import {
   PILARES as PILAR_SPECS, PILAR_KEYS, COL_CARTEIRA, COL_NOME,
   findCol, escalaPercentual,
@@ -216,13 +217,8 @@ export default function UploadClient({ uploadedBy }: { uploadedBy: string }) {
   }
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-ink">Upar Planilha</h1>
-        <p className="text-sm text-ink-muted mt-0.5">
-          Envie a planilha de cada pilar separadamente sempre que receber do Mercado Pago. O histórico completo é preservado.
-        </p>
-      </div>
+    <div className="category-page category-page--admin">
+      <CategoryHeader category="admin" title="Enviar planilhas" description="Envie cada pilar recebido do Mercado Pago. O histórico completo é preservado." />
 
       <div className="glass rounded-2xl border border-line p-5 mb-6 flex items-center gap-4 flex-wrap">
         <div>

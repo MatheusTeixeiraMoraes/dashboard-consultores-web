@@ -10,6 +10,7 @@ import { BotaoWhatsApp, BotaoMapa, urlWhatsApp } from '@/components/BotaoContato
 import { findCol } from '@/lib/pilares'
 import { geocodar, sleep, MAX_PARADAS_ROTA } from '@/lib/geo'
 import GerarRota from './GerarRota'
+import CategoryHeader from '@/components/dashboard/CategoryHeader'
 import { tituloCaso, tipoDoc, precisaIdentificar } from '@/lib/texto'
 import type { Cliente, UserRole } from '@/lib/types'
 import { SITUACOES_MP, PRIORIDADES_MP, type FichaMP } from '@/lib/supabase/ficha-mp'
@@ -646,17 +647,10 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
   }
 
   return (
-    <div className="pb-20">
+    <div className="category-page category-page--portfolio pb-20">
       {/* Cabeçalho + ações */}
-      <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
-        <div>
-          <h1 className="text-xl font-bold text-ink">Clientes</h1>
-          <p className="text-sm text-ink-muted mt-0.5">
-            {podeGerir ? 'Carteira de clientes da equipe' : 'Sua carteira de clientes'}
-            {filtrando ? ` · ${nBR(filtrados.length)} de ${nBR(clientes.length)}` : ` · ${nBR(clientes.length)} no total`}
-            {dataMP && <> · ficha do MP de {dataBR(dataMP)}</>}
-          </p>
-        </div>
+      <div className="mb-5 space-y-4">
+        <CategoryHeader category="portfolio" title="Clientes" description={`${podeGerir ? 'Carteira de clientes da equipe' : 'Sua carteira de clientes'}${filtrando ? ` · ${nBR(filtrados.length)} de ${nBR(clientes.length)}` : ` · ${nBR(clientes.length)} no total`}${dataMP ? ` · ficha do MP de ${dataBR(dataMP)}` : ''}`} />
         <div className="flex items-center gap-2 flex-wrap">
           {podeGerir && geocodaveis.length > 0 && (
             <button onClick={() => geocodarEmMassa(geocodaveis)} disabled={bulk?.running}
@@ -861,7 +855,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
               // conteúdo. Sem isto, um e-mail ou endereço longo estica o card e
               // o `truncate` nunca chega a truncar — no celular o card ficava
               // com 751px numa tela de 360.
-              <div key={c.id} className={`glass rounded-2xl border p-4 flex flex-col min-w-0 transition-colors ${marcado ? 'border-primary/60' : 'border-line'}`}>
+              <div key={c.id} className={`portfolio-customer-card glass rounded-2xl border p-4 flex flex-col min-w-0 transition-colors ${marcado ? 'border-primary/60' : 'border-line'} ${ficha?.status === 'CHURN' ? 'is-risk' : ficha?.quartil === 'P1' ? 'is-priority' : ''}`}>
                 <div className="flex items-start gap-2.5">
                   {/* <label> envolvente cresce a ÁREA de toque sem mexer no
                       desenho: a caixa de 16px é o gesto principal pra montar
@@ -938,30 +932,37 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                           sem GPS · geocodar
                         </button>)}
                   </Linha>
-                  <Linha icon="home">
-                    {endereco
-                      ? <span className="truncate min-w-0" title={endereco}>{endereco}</span>
-                      : <span className="text-ink-faint">sem endereço</span>}
-                  </Linha>
-                  <Linha icon="phone">
-                    {wa
-                      ? <a href={wa} target="_blank" rel="noopener noreferrer" className="text-good hover:underline truncate min-w-0">{c.seller_telefone}</a>
-                      : <span className="text-ink-faint">sem telefone</span>}
-                  </Linha>
-                  <Linha icon="mail">
-                    {c.seller_email
-                      ? <a href={`mailto:${c.seller_email}`} className="truncate min-w-0 hover:underline hover:text-ink" title={c.seller_email}>{c.seller_email}</a>
-                      : <span className="text-ink-faint">sem e-mail</span>}
-                  </Linha>
-                  <Linha icon="doc">
-                    {c.cpf_cnpj
-                      ? <span className="truncate min-w-0">{c.doc_tipo ? `${c.doc_tipo} ${c.cpf_cnpj}` : c.cpf_cnpj}</span>
-                      : <span className="text-ink-faint">sem CPF/CNPJ</span>}
-                  </Linha>
-                  {podeGerir && (
-                    <Linha icon="user"><span className="truncate">{c.consultor_nome || '—'}</span></Linha>
-                  )}
                 </div>
+
+                <details className="portfolio-card-details mt-2">
+                  <summary className="min-h-10 flex items-center justify-between gap-3 px-3 rounded-xl text-xs font-semibold text-primary hover:bg-primary/5 cursor-pointer select-none">
+                    <span>Ficha completa e contato</span>
+                    <svg className="portfolio-card-details__chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                  </summary>
+                  <div className="flex flex-col gap-1.5 px-2 pt-2">
+                    <Linha icon="home">
+                      {endereco
+                        ? <span className="truncate min-w-0" title={endereco}>{endereco}</span>
+                        : <span className="text-ink-faint">sem endereço</span>}
+                    </Linha>
+                    <Linha icon="phone">
+                      {wa
+                        ? <a href={wa} target="_blank" rel="noopener noreferrer" className="text-good hover:underline truncate min-w-0">{c.seller_telefone}</a>
+                        : <span className="text-ink-faint">sem telefone</span>}
+                    </Linha>
+                    <Linha icon="mail">
+                      {c.seller_email
+                        ? <a href={`mailto:${c.seller_email}`} className="truncate min-w-0 hover:underline hover:text-ink" title={c.seller_email}>{c.seller_email}</a>
+                        : <span className="text-ink-faint">sem e-mail</span>}
+                    </Linha>
+                    <Linha icon="doc">
+                      {c.cpf_cnpj
+                        ? <span className="truncate min-w-0">{c.doc_tipo ? `${c.doc_tipo} ${c.cpf_cnpj}` : c.cpf_cnpj}</span>
+                        : <span className="text-ink-faint">sem CPF/CNPJ</span>}
+                    </Linha>
+                    {podeGerir && <Linha icon="user"><span className="truncate">{c.consultor_nome || '—'}</span></Linha>}
+                  </div>
+                </details>
 
                 {/* Ficha técnica da Planilha Geral. Só aparece para quem está
                     nela — os dois cadastros seguem separados, isto é leitura. */}
@@ -992,7 +993,7 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                         do mês passado é fechado. Comparar aqui mostraria uma
                         queda que não existe — quem compara direito, dividindo
                         por dias úteis, é a tela de Queda de TPV. */}
-                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="portfolio-card-tpv grid grid-cols-2 gap-2 text-[11px] rounded-xl p-3">
                       <div>
                         <p className="text-ink-faint">TPV no mês (parcial)</p>
                         <p className="text-ink font-medium tabular-nums">
@@ -1007,12 +1008,18 @@ export default function ClientesClient({ clientes, role, meuNome, nomesConsultor
                       </div>
                     </div>
 
-                    <div className="flex flex-col gap-0.5 mt-2 text-[11px] text-ink-muted">
-                      {ficha.mcc && <span className="truncate">{ficha.mcc}</span>}
-                      {ficha.status_credito && <span>{ficha.status_credito.replace(/^\d+\.\s*/, '')}</span>}
-                      {ficha.recorrencia && <span>Recorrência {ficha.recorrencia.toLowerCase()}</span>}
-                      <span>{ficha.ultimo_contato ? `Contato em ${dataBR(ficha.ultimo_contato)}` : 'Nunca contatado'}</span>
-                    </div>
+                    <details className="portfolio-card-details mt-2">
+                      <summary className="min-h-9 flex items-center justify-between gap-3 px-2 text-[11px] font-semibold text-ink-muted cursor-pointer select-none">
+                        <span>Segmento e histórico</span>
+                        <svg className="portfolio-card-details__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                      </summary>
+                      <div className="flex flex-col gap-1 px-2 pb-1 text-[11px] text-ink-muted">
+                        {ficha.mcc && <span className="truncate">{ficha.mcc}</span>}
+                        {ficha.status_credito && <span>{ficha.status_credito.replace(/^\d+\.\s*/, '')}</span>}
+                        {ficha.recorrencia && <span>Recorrência {ficha.recorrencia.toLowerCase()}</span>}
+                        <span>{ficha.ultimo_contato ? `Contato em ${dataBR(ficha.ultimo_contato)}` : 'Nunca contatado'}</span>
+                      </div>
+                    </details>
                   </div>
                 )}
 

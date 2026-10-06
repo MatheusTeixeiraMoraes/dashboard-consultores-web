@@ -10,6 +10,7 @@ import { entrarNaConta } from './delegacao'
 import { registrarEvento } from '@/lib/atividade'
 import type { ConsultorPlanilha } from './convites'
 import type { ConviteLinha } from './page'
+import CategoryHeader from '@/components/dashboard/CategoryHeader'
 
 const ROLE_LABEL: Record<UserRole, string> = {
   admin: 'Administrador', dono: 'Dono', lider: 'Líder', consultor: 'Consultor',
@@ -307,14 +308,9 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
 
   return (
     <>
-      <div>
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-ink">Usuários</h1>
-            <p className="text-sm text-ink-muted mt-0.5">
-              {lista.length} usuário{lista.length !== 1 ? 's' : ''} cadastrado{lista.length !== 1 ? 's' : ''}
-            </p>
-          </div>
+      <div className="category-page category-page--admin">
+        <div className="mb-5 space-y-4">
+          <CategoryHeader category="admin" title="Usuários e acessos" description={`${lista.length} usuário${lista.length !== 1 ? 's' : ''} cadastrado${lista.length !== 1 ? 's' : ''}`} />
           {/* Líder só entra na conta de consultor — nem vê que existe link de
               acesso ou criação direta de usuário, que continuam de admin/dono. */}
           {myRole !== 'lider' && (
@@ -346,7 +342,7 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
         </div>
 
         <div className="glass rounded-2xl border border-line overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
+          <table className="category-data-table w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-line bg-card-2">
                 {/* sticky: rolando pra ver Ações, era o Nome/E-mail (quem é
@@ -372,7 +368,7 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
                 return (
                   <tr key={u.id} className="group hover:bg-card-2 transition-colors">
                     {/* Nome / e-mail */}
-                    <td className="sticky left-0 z-10 px-5 py-3.5 bg-surface group-hover:bg-card-2">
+                    <td data-label="Nome / e-mail" className="sticky left-0 z-10 px-5 py-3.5 bg-surface group-hover:bg-card-2">
                       {isEditing ? (
                         <input
                           className="border border-field-line rounded-lg px-2 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-primary"
@@ -396,7 +392,7 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
                     </td>
 
                     {/* Cargo */}
-                    <td className="px-5 py-3.5">
+                    <td data-label="Cargo" className="px-5 py-3.5">
                       {isEditing ? (
                         <select
                           className="border border-field-line rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -413,7 +409,7 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
                     </td>
 
                     {/* ID Carteira */}
-                    <td className="px-5 py-3.5">
+                    <td data-label="ID da carteira" className="px-5 py-3.5">
                       {isEditing ? (
                         <input
                           className="border border-field-line rounded-lg px-2 py-1.5 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-primary"
@@ -427,7 +423,7 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
                     </td>
 
                     {/* Ações */}
-                    <td className="px-5 py-3.5">
+                    <td data-label="Ações" className="px-5 py-3.5">
                       {canEdit && isEditing ? (
                         <div className="flex gap-2">
                           <button

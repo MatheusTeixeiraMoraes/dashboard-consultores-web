@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { PillarConfig, ScoreGeralFaixas } from '@/lib/types'
 import type { FaixaAcionaveis } from '@/lib/pilares'
 import { registrarEvento } from '@/lib/atividade'
+import CategoryHeader from '@/components/dashboard/CategoryHeader'
 
 const CAT_LABEL: Record<string, string> = { atuacao: 'Atuação', resultado: 'Resultado' }
 const CAT_COLOR: Record<string, string> = { atuacao: 'var(--color-primary)', resultado: 'var(--color-good)' }
@@ -226,14 +227,8 @@ export default function MetasClient({ pilares, profileId, faixasAcionaveis, faix
   const grupos = ['atuacao', 'resultado'] as const
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-ink">Configurar Metas</h1>
-        <p className="text-sm text-ink-muted mt-0.5">
-          A meta não altera o score — esse vem pronto da planilha. Ela define o selo
-          &quot;Meta atingida&quot; e o &quot;Faltam X&quot; exibidos nos cards.
-        </p>
-      </div>
+    <div className="category-page category-page--admin">
+      <CategoryHeader category="admin" title="Metas e faixas" description="A meta não altera o score, que vem pronto da planilha. Ela define os selos exibidos nos indicadores." />
 
       <div className="space-y-6">
         {grupos.map(cat => {

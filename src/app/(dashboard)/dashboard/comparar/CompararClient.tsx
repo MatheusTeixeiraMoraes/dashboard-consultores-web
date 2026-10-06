@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import CategoryHeader from '@/components/dashboard/CategoryHeader'
 
 const PILARES = ['tpv', 'net_churn', 'acionaveis', 'aderencia', 'awareness', 'produtividade']
 const PILAR_LABEL: Record<string, string> = {
@@ -126,11 +127,8 @@ export default function CompararClient({ dates, idCarteira }: { dates: string[];
 
   if (dates.length < 2) {
     return (
-      <div>
-        <div className="mb-6">
-          <h1 className="text-xl font-bold text-ink">Comparar Datas</h1>
-          <p className="text-sm text-ink-muted mt-0.5">Compare a evolução entre dois períodos</p>
-        </div>
+      <div className="category-page category-page--performance">
+        <CategoryHeader category="performance" title="Comparar períodos" description="Compare a evolução entre dois períodos" />
         <div className="glass rounded-2xl border border-line p-12 text-center">
           <p className="font-semibold text-ink">Dados insuficientes</p>
           <p className="text-sm text-ink-muted mt-1">São necessários uploads em ao menos duas datas distintas.</p>
@@ -140,11 +138,8 @@ export default function CompararClient({ dates, idCarteira }: { dates: string[];
   }
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-ink">Comparar Datas</h1>
-        <p className="text-sm text-ink-muted mt-0.5">Compare a evolução entre dois períodos</p>
-      </div>
+    <div className="category-page category-page--performance">
+      <CategoryHeader category="performance" title="Comparar períodos" description="Compare a evolução entre dois períodos" />
 
       {/* Seletor de datas */}
       <div className="glass rounded-2xl border border-line p-5 mb-5 flex flex-wrap items-end gap-4">
@@ -182,7 +177,7 @@ export default function CompararClient({ dates, idCarteira }: { dates: string[];
       {/* Tabela de comparação */}
       {rows && (
         <div className="glass rounded-2xl border border-line overflow-x-auto">
-          <table className="w-full min-w-[680px] text-sm">
+          <table className="category-data-table w-full min-w-[680px] text-sm">
             <thead>
               <tr className="border-b border-line bg-card-2">
                 {/* sticky nas 2 primeiras colunas juntas (# + Consultor): rolando
@@ -207,17 +202,17 @@ export default function CompararClient({ dates, idCarteira }: { dates: string[];
               {rows.map((row, i) => (
                 <tr key={row.id} className="group hover:bg-card-2 transition-colors">
                   <td className="sticky left-0 z-10 px-4 py-3 text-xs text-ink-faint font-medium bg-surface group-hover:bg-card-2">{i + 1}</td>
-                  <td className="sticky left-14 z-10 px-4 py-3 bg-surface group-hover:bg-card-2">
+                  <td data-label="Consultor" className="sticky left-14 z-10 px-4 py-3 bg-surface group-hover:bg-card-2">
                     <p className="font-medium text-ink">{row.nome}</p>
                     <p className="text-[11px] text-ink-faint">Cart. {row.id}</p>
                   </td>
-                  <td className="px-3 py-3 text-center text-sm font-semibold text-ink-muted">{row.scoreA.toFixed(1)}</td>
-                  <td className="px-3 py-3 text-center text-sm font-bold text-ink">{row.scoreB.toFixed(1)}</td>
-                  <td className="px-3 py-3 text-center">
+                  <td data-label={formatDateBR(dateA)} className="px-3 py-3 text-center text-sm font-semibold text-ink-muted">{row.scoreA.toFixed(1)}</td>
+                  <td data-label={formatDateBR(dateB)} className="px-3 py-3 text-center text-sm font-bold text-ink">{row.scoreB.toFixed(1)}</td>
+                  <td data-label="Variação total" className="px-3 py-3 text-center">
                     <DeltaBadge delta={row.delta} />
                   </td>
                   {PILARES.map(p => (
-                    <td key={p} className="px-2 py-3 text-center">
+                    <td key={p} data-label={`Variação · ${PILAR_LABEL[p]}`} className="px-2 py-3 text-center">
                       <DeltaBadge delta={row.pilares[p]?.delta ?? null} />
                     </td>
                   ))}

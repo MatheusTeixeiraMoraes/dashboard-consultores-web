@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import CategoryHeader from '@/components/dashboard/CategoryHeader'
 import type { RelatorioCarteira } from '@/lib/carteira'
 import type { ConsultorCarteira } from './page'
 
@@ -62,13 +63,8 @@ export default function CarteiraClient({ carteiraAtual, relatorio }: Props) {
   const semLogin = carteiraAtual.filter(c => !c.temLogin)
 
   return (
-    <div className="pb-16">
-      <div className="mb-5">
-        <h1 className="text-xl font-bold text-ink">Carteira</h1>
-        <p className="text-sm text-ink-muted mt-0.5">
-          Planilha de {dataBR(relatorio.dataAtual)} · {nBR(total)} clientes em {carteiraAtual.length} consultores
-        </p>
-      </div>
+    <div className="category-page category-page--portfolio pb-16">
+      <CategoryHeader category="portfolio" title="Carteira" description={`Planilha de ${dataBR(relatorio.dataAtual)} · ${nBR(total)} clientes em ${carteiraAtual.length} consultores`} />
 
       <div className="flex items-center gap-1.5 mb-4">
         {([['atual', 'Por consultor'], ['movimentacoes', 'Movimentações']] as const).map(([k, rot]) => (
@@ -100,9 +96,9 @@ export default function CarteiraClient({ carteiraAtual, relatorio }: Props) {
                 Exportar CSV
               </button>
             </div>
-            <div className="divide-y divide-line">
+            <div className="portfolio-team-list @container grid gap-2 p-3">
               {carteiraAtual.map(c => (
-                <div key={c.consultor_nome} className="px-4 py-2.5">
+                <div key={c.consultor_nome} className="portfolio-team-member min-w-0 rounded-xl border border-line bg-white/70 p-3">
                   <div className="flex justify-between items-baseline gap-3 mb-1">
                     <span className="text-sm text-ink truncate">
                       {c.consultor_nome}

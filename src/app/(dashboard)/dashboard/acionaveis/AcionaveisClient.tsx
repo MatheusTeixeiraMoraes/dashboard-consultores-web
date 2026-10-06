@@ -7,6 +7,7 @@ import { entregarAoRoteirizar } from '@/lib/geo'
 import { precisaIdentificar } from '@/lib/texto'
 import { useRouter } from 'next/navigation'
 import type { CarteiraMP, Ficha } from './page'
+import CategoryHeader from '@/components/dashboard/CategoryHeader'
 
 const TOP_INICIAL = 20   // a fila abre no topo; 100 linhas de cara é paralisia
 
@@ -147,14 +148,9 @@ export default function AcionaveisClient({ dataReferencia, carteira, acoes, fich
   const totalClientes = new Set(campanhas.flatMap(c => c.sellers)).size
 
   return (
-    <div className="pb-20">
-      <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
-        <div>
-          <h1 className="text-xl font-bold text-ink">Acionáveis Comerciais</h1>
-          <p className="text-sm text-ink-muted mt-0.5">
-            Planilha Ação Oportunidades de {dataBR(dataReferencia)} · {nBR(totalClientes)} clientes com acionável
-          </p>
-        </div>
+    <div className="category-page category-page--portfolio pb-20">
+      <div className="mb-5 space-y-4">
+        <CategoryHeader category="portfolio" title="Acionáveis comerciais" description={`Planilha Ação Oportunidades de ${dataBR(dataReferencia)} · ${nBR(totalClientes)} clientes com acionável`} />
         <div className="flex items-center gap-2 flex-wrap">
           {podeGerir && <MultiFiltro label="Consultores" opcoes={consultores} sel={fConsultores} onChange={setFConsultores} />}
           <MultiFiltro label="Prioridade" opcoes={['P1', 'P2', 'P3', 'P4']} sel={fQuartis} onChange={setFQuartis} />
@@ -230,7 +226,7 @@ export default function AcionaveisClient({ dataReferencia, carteira, acoes, fich
               const queda = c.tpv_mes_passado != null && c.tpv_mes_atual != null
                 ? c.tpv_mes_atual - c.tpv_mes_passado : null
               return (
-                <div key={c.seller_id} className="flex items-start gap-3 p-3 hover:bg-card-2 transition-colors">
+                <div key={c.seller_id} className={`portfolio-action-row flex items-start gap-3 p-3 mx-2 my-2 rounded-xl border border-line bg-white/75 hover:bg-white transition-colors ${c.quartil === 'P1' ? 'is-priority' : ''}`}>
                   <input type="checkbox" checked={sel.has(c.seller_id)} onChange={() => alternar(c.seller_id)}
                     className="accent-primary w-4 h-4 mt-1 flex-shrink-0 cursor-pointer" />
 
