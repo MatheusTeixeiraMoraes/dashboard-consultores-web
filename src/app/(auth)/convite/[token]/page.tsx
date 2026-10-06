@@ -6,7 +6,7 @@ import ConviteForm from './ConviteForm'
 
 /**
  * Primeiro acesso do consultor. Rota PÚBLICA — quem chega aqui não tem sessão
- * (o middleware só protege `/dashboard/*`).
+ * (o proxy só protege `/dashboard/*`).
  *
  * A validação roda no servidor com service_role porque `convites_acesso` é
  * invisível para quem não é admin/dono: não existe policy de leitura para
