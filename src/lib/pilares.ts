@@ -319,3 +319,38 @@ export function metaAwareness(carteiraAtiva: number, faixas: FaixaAwareness[], p
     .find(f => carteiraAtiva >= f.min_carteira)
   return Math.max(faixa?.meta_respostas ?? piso, piso)
 }
+
+/**
+ * Net Churn: quantos sellers ATIVOS o consultor precisa ter ao FECHAR o mês para
+ * o net churn ficar na meta (o T1 do MP, que é a meta de sempre, em pillar_config).
+ *
+ *   net churn = (ativos hoje − ativos do mês passado) ÷ ativos do mês passado
+ *   net churn ≥ meta   ⇒   ativos hoje ≥ base × (1 + meta/100)
+ *
+ * Seller não vem pela metade, então arredonda PARA CIMA: numa base de 269, 264
+ * ativos dão −1,86% (dentro de −2,10%) e 263 dão −2,23% (fora). A conta é em
+ * inteiros (centésimos de ponto percentual) para que 250 × 0,98 = 245 exato não
+ * vire 245,00000000000003 e exija um seller a mais sem motivo.
+ *
+ * Os dois lados da conta vêm da planilha (`Sellers ativos mês passado` e `…mês
+ * atual`); isto não recalcula a nota do MP — só traduz a meta de % para sellers.
+ * Conferido nas 410 linhas de net churn do banco (15/07 a 06/10/2026): o saldo
+ * `atual − base` ÷ `base` reproduz o `%Net churn` da planilha em todas.
+ *
+ * A meta é lida com até 2 casas decimais, como o MP publica (2,10%); `base` é uma
+ * contagem de sellers (inteiro).
+ */
+export function ativosMinimosNetChurn(base: number, metaPct: number): number {
+  return Math.ceil((base * (10000 + Math.round(metaPct * 100))) / 10000)
+}
+
+/**
+ * Como dizer a meta de Net Churn em telas que NÃO têm a base de cada consultor
+ * (Por Área, Visão Geral) — onde o número em sellers não existe. O card do
+ * consultor traz a conta em sellers (ver ativosMinimosNetChurn).
+ */
+export function textoMetaNetChurn(metaPct: number): string {
+  if (metaPct < 0) return `perder no máx. ${fmtValor('percent', -metaPct)} dos sellers do mês passado`
+  if (metaPct === 0) return 'não perder nenhum seller em relação ao mês passado'
+  return `crescer pelo menos ${fmtValor('percent', metaPct)} sobre o mês passado`
+}

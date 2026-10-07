@@ -8,7 +8,7 @@
 // de 100,79%. A regra por mediana resolve isso.
 
 import assert from 'node:assert/strict'
-import { escalaPercentual, metaAwareness, ehCarteiraAtiva } from './pilares.ts'
+import { escalaPercentual, metaAwareness, ehCarteiraAtiva, ativosMinimosNetChurn, textoMetaNetChurn } from './pilares.ts'
 
 let n = 0
 const t = (nome, fn) => { fn(); n++; console.log('  ok:', nome) }
@@ -99,6 +99,58 @@ t('carteira ativa: ATIVO e REATIVADO contam; CHURN, INATIVO e vazio não', () =>
   assert.equal(ehCarteiraAtiva('INATIVO'), false)
   assert.equal(ehCarteiraAtiva(null), false)
   assert.equal(ehCarteiraAtiva(''), false)
+})
+
+// Net Churn: ativos mínimos para a meta (T1 = −2,10%). Base e "hoje" são os 10 consultores
+// reais da planilha de 06/10/2026; o mínimo e o "faltam" foram conferidos à mão e por SQL.
+const NC_REAL = [
+  // [base (ativos mês passado), hoje (ativos mês atual), mínimo p/ meta, faltam]
+  [258, 218, 253, 35], // Luane
+  [246, 207, 241, 34], // Gleudison
+  [303, 264, 297, 33], // Rivaldo
+  [240, 204, 235, 31], // Nicolas
+  [415, 376, 407, 31], // Lidio
+  [377, 341, 370, 29], // Renata
+  [308, 275, 302, 27], // Reineldes
+  [269, 238, 264, 26], // Jaqueline
+  [193, 173, 189, 16], // Felipe
+  [203, 185, 199, 14], // Jessica
+]
+
+t('net churn: mínimo e "faltam" dos 10 consultores reais (meta −2,10%)', () => {
+  for (const [base, hoje, minimo, faltam] of NC_REAL) {
+    assert.equal(ativosMinimosNetChurn(base, -2.1), minimo, `base ${base}`)
+    assert.equal(minimo - hoje, faltam, `faltam, base ${base}`)
+  }
+})
+
+// Aritmética INTEIRA (sem comparar % em ponto flutuante, que mascararia justamente a fronteira exata):
+// net churn ≥ −2,10%  ⟺  (mínimo − base) × 10000 ≥ −210 × base.
+t('net churn: no mínimo o net churn cumpre a meta; com um seller a menos, não', () => {
+  const metaCentesimos = -210
+  const bases = [...NC_REAL.map(l => l[0]), 1000, 250, 100] // as 3 últimas caem EXATAMENTE na fronteira
+  for (const base of bases) {
+    const minimo = ativosMinimosNetChurn(base, -2.1)
+    assert.ok((minimo - base) * 10000 >= metaCentesimos * base, `base ${base}: no mínimo deveria cumprir`)
+    assert.ok((minimo - 1 - base) * 10000 < metaCentesimos * base, `base ${base}: com um a menos deveria falhar`)
+  }
+})
+
+t('net churn: texto da meta nas telas sem base (negativa, zero e positiva)', () => {
+  assert.equal(textoMetaNetChurn(-2.1), 'perder no máx. 2,10% dos sellers do mês passado')
+  assert.equal(textoMetaNetChurn(0), 'não perder nenhum seller em relação ao mês passado')
+  assert.equal(textoMetaNetChurn(1.5), 'crescer pelo menos 1,50% sobre o mês passado')
+})
+
+t('net churn: conta exata não sobe um seller por erro de ponto flutuante', () => {
+  assert.equal(ativosMinimosNetChurn(1000, -2.1), 979) // 1000 × 0,979 = 979 exato
+  assert.equal(ativosMinimosNetChurn(250, -2), 245)    // 250 × 0,98 = 245 exato
+  assert.equal(ativosMinimosNetChurn(100, -1), 99)
+})
+
+t('net churn: meta 0 pede a base inteira; meta positiva pede crescimento', () => {
+  assert.equal(ativosMinimosNetChurn(200, 0), 200)
+  assert.equal(ativosMinimosNetChurn(200, 1), 202)
 })
 
 console.log(`\n${n} testes passaram`)

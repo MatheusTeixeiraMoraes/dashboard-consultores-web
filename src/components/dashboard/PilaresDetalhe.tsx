@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 import {
   PILARES, GRUPOS, fmtValor, fmtMeta, calcFaltam, metaAcionaveis, metaAwareness, PISO_AWARENESS_PADRAO,
-  type FaixaAcionaveis, type FaixaAwareness,
+  ativosMinimosNetChurn, type FaixaAcionaveis, type FaixaAwareness,
 } from '@/lib/pilares'
 import type { PilarKey } from '@/lib/types'
 
@@ -159,6 +159,15 @@ function PilarCard({
       <AwarenessCard
         header={header} color={color} refLabel={refLabel} metricas={metricas} config={config}
         carteiraAtiva={carteiraAtiva} faixasAwareness={faixasAwareness}
+      />
+    )
+  }
+
+  if (pilarKey === 'net_churn') {
+    return (
+      <NetChurnCard
+        header={header} color={color} refLabel={refLabel} metricas={metricas} config={config}
+        valorMetrica={resultado.valor_metrica}
       />
     )
   }
@@ -354,6 +363,109 @@ function AwarenessCard({
 
         {PILARES.awareness.cols
           .filter(c => c.col !== 'Sellers que responderam pesquisa') /* já é o número grande */
+          .map(c => (
+            <div key={c.col} className="flex items-center justify-between gap-2 border-t border-card-2 pt-1.5">
+              <span className="text-[11px] text-ink-muted leading-tight">{c.label}:</span>
+              <span className="text-[11px] font-semibold text-ink whitespace-nowrap">
+                {fmtValor(c.type, metricas[c.col])}
+              </span>
+            </div>
+          ))}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Net Churn: a planilha e o MP falam em % (−11,52%), mas um percentual não diz ao
+ * consultor o que fazer — ele precisa saber QUANTOS sellers. O card mostra o saldo
+ * em sellers e traduz a meta (o T1, em pillar_config) em "ativos mínimos para
+ * fechar o mês" (ver ativosMinimosNetChurn). A nota continua a da planilha.
+ *
+ * "Ativos hoje" é o acumulado do mês (ativo = quem já transacionou), então o
+ * "faltam" é a distância até o fechamento e encolhe sozinho conforme os sellers
+ * transacionam — por isso o card diz "fechar o mês com…".
+ *
+ * Nenhuma coluna da planilha some: as quatro contagens e a % cabem nas linhas
+ * compostas abaixo — e, quando não dá pra converter em sellers (base zerada ou
+ * ausente, como um consultor sem carteira), voltam como linhas separadas.
+ *
+ * Net churn é sempre "maior é melhor" (`tipo_comp` 'ge', `maiorMelhor` no contrato),
+ * por isso o card não lê `tipo_comp`.
+ */
+function NetChurnCard({
+  header, color, refLabel, metricas, config, valorMetrica,
+}: {
+  header: ReactNode
+  color: string
+  refLabel: string
+  metricas: Record<string, unknown>
+  config: PilarConfigMin
+  valorMetrica: number
+}) {
+  // Célula em branco, ausente ou base zero (consultor sem carteira): não dá pra
+  // fazer a conta em sellers — mostra só a % e as colunas da planilha.
+  const num = (v: unknown) => (v === '' || v == null ? NaN : Number(v))
+  const base = num(metricas['Sellers ativos mês passado'])
+  const hoje = num(metricas['Sellers ativos mês atual'])
+  const temContas = Number.isFinite(base) && base > 0 && Number.isFinite(hoje) && Number.isFinite(config.meta)
+
+  const saldo = hoje - base
+  const minimo = temContas ? ativosMinimosNetChurn(base, config.meta) : NaN
+  const faltam = minimo - hoje
+  const sellers = (n: number) => (Math.abs(n) === 1 ? 'seller' : 'sellers')
+
+  return (
+    <div className="glass rounded-2xl border border-line overflow-hidden" style={{ borderLeft: `3px solid ${color}` }}>
+      {header}
+
+      <div className="px-4 py-3 space-y-3">
+        <div className="bg-card-2 rounded-xl p-3">
+          {temContas ? (
+            <>
+              <div className="flex items-baseline gap-x-2 flex-wrap">
+                <span className="text-2xl font-bold text-ink">
+                  {saldo > 0 ? '+' : ''}{saldo.toLocaleString('pt-BR')}
+                </span>
+                <span className="text-xs text-ink-muted">
+                  {sellers(saldo)} · {fmtValor('percent', valorMetrica)} na planilha
+                </span>
+              </div>
+              <p className="text-[11px] text-ink-faint mt-0.5">
+                {fmtValor('int', base)} ativos no mês passado → {fmtValor('int', hoje)} hoje
+              </p>
+              <p className="text-[11px] text-ink-faint">
+                {fmtValor('int', metricas['Sellers em churn'])} em churn · {fmtValor('int', metricas['Sellers Reativados'])} reativados
+              </p>
+              <p className="text-[11px] text-ink-muted mt-1.5">
+                meta: net churn de {fmtValor('percent', config.meta)} ou melhor → fechar o mês com no mínimo{' '}
+                <span className="font-semibold">{fmtValor('int', minimo)}</span> ativos
+              </p>
+              {faltam <= 0 ? (
+                <p className="text-[11px] text-good font-medium mt-1">
+                  ✓ Meta atingida{faltam < 0 && ` — ${-faltam} ${sellers(faltam)} acima`}
+                </p>
+              ) : (
+                <p className="text-[11px] text-bad font-medium mt-1">
+                  ✗ {faltam === 1 ? 'Falta 1 seller ativo' : `Faltam ${faltam} sellers ativos`} para a meta
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <span className="text-2xl font-bold text-ink">{fmtValor('percent', valorMetrica)}</span>
+              <p className="text-[11px] text-ink-faint font-medium mt-1">Sem base do mês passado para converter em sellers</p>
+            </>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-ink-faint">Ref.:</span>
+          <span className="text-ink-muted font-medium">{refLabel}</span>
+        </div>
+
+        {!temContas && PILARES.net_churn.cols
+          .filter(c => c.col !== '%Net churn') /* já é o número grande */
           .map(c => (
             <div key={c.col} className="flex items-center justify-between gap-2 border-t border-card-2 pt-1.5">
               <span className="text-[11px] text-ink-muted leading-tight">{c.label}:</span>
