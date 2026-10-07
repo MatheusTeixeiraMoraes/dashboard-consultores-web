@@ -386,3 +386,117 @@ export function aderentesMinimosAgenda(agendados: number, metaPct: number): numb
 export function textoMetaAderencia(metaPct: number): string {
   return `${fmtValor('percent', metaPct)} dos sellers agendados visitados`
 }
+
+/** Célula em branco ou ausente vira NaN, e não 0: "a planilha não trouxe o dado" não é "zero". */
+export function numeroOuNaN(v: unknown): number {
+  return v === '' || v == null ? NaN : Number(v)
+}
+
+// ---------------------------------------------------------------------------
+// Quantidade por consultor (tela Por Área)
+//
+// Uma porcentagem não diz ao consultor o que fazer. Para cada pilar que já tem a
+// meta traduzida em número, estas funções dizem — com a mesma conta dos cards do
+// Consultor/Meu Desempenho — "quanto" o consultor tem e "quanto falta" para a meta.
+// A nota e a % continuam sendo as da planilha.
+// ---------------------------------------------------------------------------
+
+/** Pilares da tela Por Área que têm quantidade (Produtividade e TPV já são número/R$). */
+export const PILARES_COM_QUANTIDADE: readonly PilarKey[] = ['net_churn', 'aderencia', 'awareness', 'acionaveis']
+
+/** O que é preciso saber de cada consultor (e do pilar) para traduzir a meta em número. */
+export interface ContextoQuantidade {
+  /** `pillar_config.meta` do pilar (net churn: −2,1; aderência: 65). */
+  meta: number
+  /** Awareness: piso mínimo, faixas e sellers ATIVOS da carteira deste consultor. */
+  piso?: number
+  faixasAwareness?: FaixaAwareness[]
+  carteiraAtiva?: number
+  /** Acionáveis: faixas e tamanho TOTAL da carteira deste consultor. */
+  faixasAcionaveis?: FaixaAcionaveis[]
+  carteiraTotal?: number
+}
+
+export interface QuantidadeConsultor {
+  /** Número em destaque: saldo de sellers, aderentes, respostas ou tarefas revertidas. */
+  numero: number
+  /** Denominador do "N de M" (só a Aderência). */
+  de?: number
+  /** > 0: faltam N para a meta. ≤ 0: meta atingida, com |N| de sobra. null: sem meta ou carteira para comparar. */
+  faltam: number | null
+  /** A meta em quantidade, quando é um número próprio do consultor (Awareness e Acionáveis). */
+  metaQtd?: number
+}
+
+/** Devolve null quando a planilha não trouxe o que a conta precisa — a tela volta a mostrar a %. */
+export function quantidadeDoPilar(
+  pilar: PilarKey, metricas: Record<string, unknown> | null, ctx: ContextoQuantidade,
+): QuantidadeConsultor | null {
+  const m = metricas ?? {}
+  switch (pilar) {
+    case 'net_churn': {
+      const base = numeroOuNaN(m['Sellers ativos mês passado'])
+      const hoje = numeroOuNaN(m['Sellers ativos mês atual'])
+      if (!(base > 0) || !Number.isFinite(hoje)) return null
+      // Meta inválida não tira o saldo (ele não depende dela): só o "faltam" fica de fora.
+      return { numero: hoje - base, faltam: Number.isFinite(ctx.meta) ? ativosMinimosNetChurn(base, ctx.meta) - hoje : null }
+    }
+    case 'aderencia': {
+      const agendados = numeroOuNaN(m['Sellers agendados'])
+      const aderentes = numeroOuNaN(m['Sellers aderentes à agenda'])
+      if (!(agendados > 0) || !Number.isFinite(aderentes)) return null
+      return {
+        numero: aderentes, de: agendados,
+        faltam: Number.isFinite(ctx.meta) ? aderentesMinimosAgenda(agendados, ctx.meta) - aderentes : null,
+      }
+    }
+    case 'awareness': {
+      const respostas = numeroOuNaN(m['Sellers que responderam pesquisa'])
+      if (!Number.isFinite(respostas)) return null
+      if (ctx.carteiraAtiva == null) return { numero: respostas, faltam: null }
+      const metaQtd = metaAwareness(ctx.carteiraAtiva, ctx.faixasAwareness ?? [], ctx.piso ?? PISO_AWARENESS_PADRAO)
+      return { numero: respostas, faltam: metaQtd - respostas, metaQtd }
+    }
+    case 'acionaveis': {
+      const revertidas = numeroOuNaN(m['Total Acionáveis Revertido'])
+      if (!Number.isFinite(revertidas)) return null
+      if (ctx.carteiraTotal == null) return { numero: revertidas, faltam: null }
+      const metaQtd = metaAcionaveis(ctx.carteiraTotal, ctx.faixasAcionaveis ?? [])
+      return { numero: revertidas, faltam: metaQtd - revertidas, metaQtd }
+    }
+    default:
+      return null
+  }
+}
+
+const plural = (n: number, um: string, varios: string) => (Math.abs(n) === 1 ? um : varios)
+
+/** O número em destaque da pílula (e da média do cabeçalho): "−31 sellers", "11 de 25", "109 respostas", "4 revertidas". */
+export function textoQuantidade(pilar: PilarKey, numero: number, de?: number): string {
+  const n = Math.round(numero) || 0 // `|| 0` troca o −0 (média de −0,3) por 0: "−0 sellers" não existe
+  const fmt = (v: number) => v.toLocaleString('pt-BR')
+  switch (pilar) {
+    case 'net_churn': return `${n > 0 ? '+' : ''}${fmt(n)} ${plural(n, 'seller', 'sellers')}`
+    case 'aderencia': return `${fmt(n)} de ${fmt(Math.round(de ?? 0))}`
+    case 'awareness': return `${fmt(n)} ${plural(n, 'resposta', 'respostas')}`
+    case 'acionaveis': return `${fmt(n)} ${plural(n, 'revertida', 'revertidas')}`
+    default: return fmt(n)
+  }
+}
+
+const UNIDADE_DO_FALTAM: Partial<Record<PilarKey, readonly [string, string]>> = {
+  net_churn: ['seller', 'sellers'],
+  aderencia: ['visita', 'visitas'],
+  awareness: ['resposta', 'respostas'],
+  acionaveis: ['tarefa', 'tarefas'],
+}
+
+/** A linha de situação: "faltam 14 sellers p/ meta" ou "✓ 8 visitas acima da meta". null = sem como comparar. */
+export function textoSituacao(pilar: PilarKey, q: QuantidadeConsultor): string | null {
+  const unidade = UNIDADE_DO_FALTAM[pilar]
+  if (q.faltam == null || !unidade) return null
+  const f = q.faltam
+  const meta = q.metaQtd != null ? ` (${q.metaQtd})` : ''
+  if (f > 0) return `${f === 1 ? 'falta' : 'faltam'} ${f} ${plural(f, ...unidade)} p/ meta${meta}`
+  return f < 0 ? `✓ ${-f} ${plural(-f, ...unidade)} acima da meta${meta}` : `✓ meta atingida${meta}`
+}

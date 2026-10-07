@@ -2,7 +2,12 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { PILARES, PILAR_KEYS, fmtValor, fmtMeta, textoMetaNetChurn, textoMetaAderencia } from '@/lib/pilares'
+import {
+  PILARES, PILAR_KEYS, PILARES_COM_QUANTIDADE, fmtValor, fmtMeta, textoMetaNetChurn, textoMetaAderencia,
+  quantidadeDoPilar, textoQuantidade, textoSituacao,
+  type FaixaAcionaveis, type FaixaAwareness, type QuantidadeConsultor,
+} from '@/lib/pilares'
+import { normalizarNome } from '@/lib/convites'
 import type { PilarKey } from '@/lib/types'
 import CategoryHeader from '@/components/dashboard/CategoryHeader'
 
@@ -43,6 +48,8 @@ interface PilarConfigLite {
   unidade: '%' | 'numero'
   tipo_comp: 'ge' | 'le'
   pontos_max: number
+  /** Mínimo obrigatório (só o Awareness). */
+  piso_minimo?: number | null
 }
 
 type Criterio = 'resultado' | 'score'
@@ -115,11 +122,17 @@ function ordenar(consultores: ConsultorRow[], pilar: PilarKey, criterio: Criteri
 
 export default function AreaClient({
   dates, pilaresConfig, initialDate, initialResultados,
+  carteiraPorConsultor, carteiraAtivaPorConsultor, faixasAwareness, faixasAcionaveis,
 }: {
   dates: string[]
   pilaresConfig: PilarConfigLite[]
   initialDate: string
   initialResultados: Resultado[]
+  /** Clientes na carteira de cada consultor (todas as linhas) e só os ATIVOS, pelo nome normalizado. */
+  carteiraPorConsultor: Record<string, number>
+  carteiraAtivaPorConsultor: Record<string, number>
+  faixasAwareness: FaixaAwareness[]
+  faixasAcionaveis: FaixaAcionaveis[]
 }) {
   const [selectedDate, setSelectedDate] = useState(initialDate)
   const [criterio, setCriterio] = useState<Criterio>('resultado')
@@ -135,6 +148,9 @@ export default function AreaClient({
 
   const cfgPorPilar = Object.fromEntries(pilaresConfig.map(p => [p.pilar_key, p]))
   const porPilar = agruparPorPilar(resultados)
+  // A carteira vem do último snapshot: só vale para a data mais recente. Nas antigas
+  // o Awareness e os Acionáveis mostram a contagem, sem o "faltam".
+  const dataAtual = selectedDate === initialDate
 
   return (
     <div className="category-page category-page--performance">
@@ -171,6 +187,34 @@ export default function AreaClient({
           const { color } = spec
           const consultores = ordenar(porPilar[pilar] ?? [], pilar, criterio)
           const cfg = cfgPorPilar[pilar]
+
+          // Quantidade por consultor (net churn, aderência, awareness, acionáveis): é ela
+          // que vai em destaque, com a % na linha de baixo. null = a planilha não trouxe o
+          // dado, e a linha volta a mostrar a %.
+          const quantidades = consultores.map((c): QuantidadeConsultor | null => {
+            if (!cfg || !PILARES_COM_QUANTIDADE.includes(pilar)) return null
+            const chave = normalizarNome(c.nome)
+            return quantidadeDoPilar(pilar, c.metricas, {
+              meta: cfg.meta, piso: cfg.piso_minimo ?? undefined, faixasAwareness, faixasAcionaveis,
+              carteiraAtiva: dataAtual ? carteiraAtivaPorConsultor[chave] : undefined,
+              carteiraTotal: dataAtual ? carteiraPorConsultor[chave] : undefined,
+            })
+          })
+          const comQuantidade = quantidades.filter((q): q is QuantidadeConsultor => q != null)
+          const textoMediaQtd = criterio === 'resultado' && comQuantidade.length > 0
+            ? textoQuantidade(
+                pilar,
+                comQuantidade.reduce((s, q) => s + q.numero, 0) / comQuantidade.length,
+                comQuantidade.every(q => q.de != null)
+                  ? comQuantidade.reduce((s, q) => s + q.de!, 0) / comQuantidade.length
+                  : undefined,
+              )
+            : null
+          // A % do cabeçalho é a média das MESMAS linhas que entram na média em quantidade.
+          const comQtdEPct = consultores.filter((c, i) => quantidades[i] != null && c.valorMetrica != null)
+          const mediaPctQtd = comQtdEPct.length > 0
+            ? comQtdEPct.reduce((s, c) => s + c.valorMetrica!, 0) / comQtdEPct.length
+            : null
 
           // Rótulo e tipo da métrica principal vêm do contrato — nada hardcoded.
           const valorSpec = spec.cols.find(c => c.col === spec.valorCol)
@@ -211,20 +255,28 @@ export default function AreaClient({
                         )}
                       </p>
                     )}
+                    {textoMediaQtd && (
+                      <p className="text-[10px] text-ink-faint">ordem pela % da planilha, que compara carteiras de tamanhos diferentes</p>
+                    )}
                   </div>
                 </div>
                 {media !== null && cfg && (
                   <div className="text-right flex-shrink-0">
                     <p className="text-xs text-ink-muted">
-                      {criterio === 'score' ? 'Média score' : ehTpvResultado ? 'Falta média p/ meta' : `Média ${valorSpec?.label ?? ''}`}
+                      {criterio === 'score' ? 'Média score' : ehTpvResultado ? 'Falta média p/ meta' : textoMediaQtd ? 'Média' : `Média ${valorSpec?.label ?? ''}`}
                     </p>
                     <p className="text-sm font-bold" style={{ color }}>
                       {criterio === 'score'
                         ? <>{media.toFixed(2).replace('.', ',')}<span className="text-ink-faint font-normal"> / {cfg.pontos_max}</span></>
                         : ehTpvResultado
                         ? fmtValor('currency', media)
+                        : textoMediaQtd
+                        ? textoMediaQtd
                         : (valorSpec ? fmtValor(valorSpec.type, media) : media.toFixed(2))}
                     </p>
+                    {textoMediaQtd && valorSpec && mediaPctQtd != null && (
+                      <p className="text-[11px] text-ink-faint">{fmtValor(valorSpec.type, mediaPctQtd)} na planilha</p>
+                    )}
                   </div>
                 )}
               </div>
@@ -237,9 +289,17 @@ export default function AreaClient({
                     const st = statusStyle(c.score, cfg?.pontos_max ?? 0)
                     const falta = ehTpvResultado ? tpvFalta(c.metricas) : null
                     const bateuMeta = falta != null && falta <= 0
+                    const q = quantidades[i]
+                    const destaque = q ? textoQuantidade(pilar, q.numero, q.de) : null
+                    const situacao = q ? textoSituacao(pilar, q) : null
+                    // Na data mais recente, sem "faltam" no Awareness/Acionáveis = carteira do consultor
+                    // não achada pelo nome (nas datas antigas é esperado). Melhor avisar do que sumir calado.
+                    const semCarteira = q != null && q.faltam == null && dataAtual && (pilar === 'awareness' || pilar === 'acionaveis')
+                    const pct = c.valorMetrica != null && valorSpec ? fmtValor(valorSpec.type, c.valorMetrica) : null
+                    const scoreTxt = c.score.toFixed(1).replace('.', ',')
                     const semValorNesteCriterio = ehTpvResultado
                       ? falta == null
-                      : criterio === 'resultado' && c.valorMetrica == null
+                      : criterio === 'resultado' && c.valorMetrica == null && !q
                     return (
                       <div key={c.id} className="px-5 py-2.5 flex items-center gap-3">
                         <span className="text-xs font-medium text-ink-faint w-5 text-center flex-shrink-0">{i + 1}</span>
@@ -255,7 +315,19 @@ export default function AreaClient({
                             )
                           ) : criterio === 'resultado' ? (
                             <p className="text-[11px] text-ink-muted mt-0.5">
-                              Score: <span className="font-semibold text-ink-dim">{c.score.toFixed(1).replace('.', ',')}</span>
+                              {semCarteira && <>carteira não encontrada · </>}
+                              {situacao && (
+                                <>
+                                  <span className={`font-medium ${(q?.faltam ?? 0) > 0 ? 'text-bad' : 'text-good'}`}>{situacao}</span>
+                                  {' · '}
+                                </>
+                              )}
+                              {destaque && pct && <>{pct} · </>}
+                              Score: <span className="font-semibold text-ink-dim">{scoreTxt}</span>
+                            </p>
+                          ) : destaque ? (
+                            <p className="text-[11px] text-ink-muted mt-0.5">
+                              <span className="font-semibold text-ink-dim">{destaque}</span>{pct && ` · ${pct}`}
                             </p>
                           ) : (
                             c.valorMetrica != null && valorSpec && (
@@ -271,12 +343,12 @@ export default function AreaClient({
                         {semValorNesteCriterio ? (
                           <span className="text-sm font-medium px-2.5 py-0.5 rounded-lg flex-shrink-0 text-ink-faint bg-card-2">—</span>
                         ) : (
-                          <span className="text-sm font-bold px-2.5 py-0.5 rounded-lg flex-shrink-0" style={{ background: st.bg, color: st.text }}>
+                          <span className="text-sm font-bold px-2.5 py-0.5 rounded-lg flex-shrink-0 whitespace-nowrap" style={{ background: st.bg, color: st.text }}>
                             {ehTpvResultado
                               ? `${bateuMeta ? '+' : ''}${fmtValor('currency', Math.abs(falta!))}`
                               : criterio === 'score'
-                              ? c.score.toFixed(1).replace('.', ',')
-                              : (valorSpec ? fmtValor(valorSpec.type, c.valorMetrica) : '—')}
+                              ? scoreTxt
+                              : (destaque ?? (valorSpec ? fmtValor(valorSpec.type, c.valorMetrica) : '—'))}
                           </span>
                         )}
                       </div>

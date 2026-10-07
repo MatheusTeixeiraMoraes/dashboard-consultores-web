@@ -11,7 +11,9 @@ import assert from 'node:assert/strict'
 import {
   escalaPercentual, metaAwareness, ehCarteiraAtiva, ativosMinimosNetChurn, textoMetaNetChurn,
   aderentesMinimosAgenda, textoMetaAderencia,
+  numeroOuNaN, quantidadeDoPilar, textoQuantidade, textoSituacao,
 } from './pilares.ts'
+import { contarCarteiraPorConsultor } from './carteira-por-consultor.ts'
 
 let n = 0
 const t = (nome, fn) => { fn(); n++; console.log('  ok:', nome) }
@@ -205,6 +207,109 @@ t('aderência: meta 100 pede todos; meta 0 e agenda vazia não pedem nada; meta 
 t('aderência: texto da meta nas telas sem a agenda do consultor', () => {
   assert.equal(textoMetaAderencia(65), '65,00% dos sellers agendados visitados')
   assert.equal(textoMetaAderencia(58.5), '58,50% dos sellers agendados visitados')
+})
+
+// Por Área: o número em destaque e o "faltam" de cada pilar, com os números reais de 06/10/2026.
+const FAIXAS_AW_AREA = [
+  { min_carteira: 1, meta_respostas: 40 }, { min_carteira: 201, meta_respostas: 80 }, { min_carteira: 301, meta_respostas: 120 },
+]
+const FAIXAS_AC_AREA = [
+  { min_carteira: 1, meta_tarefas: 6 }, { min_carteira: 101, meta_tarefas: 8 }, { min_carteira: 201, meta_tarefas: 10 },
+  { min_carteira: 301, meta_tarefas: 12 }, { min_carteira: 401, meta_tarefas: 15 }, { min_carteira: 501, meta_tarefas: 15 },
+]
+const linha = (pilar, metricas, ctx) => {
+  const q = quantidadeDoPilar(pilar, metricas, ctx)
+  return q && { q, destaque: textoQuantidade(pilar, q.numero, q.de), situacao: textoSituacao(pilar, q) }
+}
+
+t('numeroOuNaN: em branco e ausente viram NaN; zero continua zero', () => {
+  assert.ok(Number.isNaN(numeroOuNaN('')))
+  assert.ok(Number.isNaN(numeroOuNaN(undefined)))
+  assert.equal(numeroOuNaN(0), 0)
+  assert.equal(numeroOuNaN('5'), 5)
+})
+
+t('por área / net churn: saldo em sellers e quanto falta (base 203, hoje 185)', () => {
+  const l = linha('net_churn', { 'Sellers ativos mês passado': 203, 'Sellers ativos mês atual': 185 }, { meta: -2.1 })
+  assert.equal(l.q.numero, -18)
+  assert.equal(l.q.faltam, 14)
+  assert.equal(l.destaque, '-18 sellers')
+  assert.equal(l.situacao, 'faltam 14 sellers p/ meta')
+})
+
+t('por área / net churn: acima da meta e singular', () => {
+  const acima = linha('net_churn', { 'Sellers ativos mês passado': 100, 'Sellers ativos mês atual': 99 }, { meta: -2.1 })
+  assert.equal(acima.situacao, '✓ 1 seller acima da meta')
+  const falta1 = linha('net_churn', { 'Sellers ativos mês passado': 269, 'Sellers ativos mês atual': 263 }, { meta: -2.1 })
+  assert.equal(falta1.situacao, 'falta 1 seller p/ meta')
+  assert.equal(linha('net_churn', { 'Sellers ativos mês passado': 100, 'Sellers ativos mês atual': 98 }, { meta: -2.1 }).situacao, '✓ meta atingida')
+})
+
+t('por área / aderência: "N de M" e visitas que faltam', () => {
+  const abaixo = linha('aderencia', { 'Sellers agendados': 25, 'Sellers aderentes à agenda': 11 }, { meta: 65 })
+  assert.equal(abaixo.destaque, '11 de 25')
+  assert.equal(abaixo.situacao, 'faltam 6 visitas p/ meta')
+  const acima = linha('aderencia', { 'Sellers agendados': 26, 'Sellers aderentes à agenda': 25 }, { meta: 65 })
+  assert.equal(acima.situacao, '✓ 8 visitas acima da meta')
+})
+
+t('por área / awareness: respostas e quanto falta pela carteira ativa (109 respostas, ativa 330 → meta 120)', () => {
+  const l = linha('awareness', { 'Sellers que responderam pesquisa': 109 }, { meta: 47.5, carteiraAtiva: 330, faixasAwareness: FAIXAS_AW_AREA, piso: 40 })
+  assert.equal(l.destaque, '109 respostas')
+  assert.equal(l.q.metaQtd, 120)
+  assert.equal(l.situacao, 'faltam 11 respostas p/ meta (120)')
+  // sem a carteira (data antiga) fica só a contagem
+  const sem = linha('awareness', { 'Sellers que responderam pesquisa': 109 }, { meta: 47.5 })
+  assert.equal(sem.destaque, '109 respostas')
+  assert.equal(sem.situacao, null)
+})
+
+t('por área / acionáveis: revertidas e quanto falta pela carteira TOTAL (4 revertidas, 424 clientes → meta 15)', () => {
+  const l = linha('acionaveis', { 'Total Acionáveis Revertido': 4 }, { meta: 15, carteiraTotal: 424, faixasAcionaveis: FAIXAS_AC_AREA })
+  assert.equal(l.destaque, '4 revertidas')
+  assert.equal(l.situacao, 'faltam 11 tarefas p/ meta (15)')
+  assert.equal(linha('acionaveis', { 'Total Acionáveis Revertido': 4 }, { meta: 15 }).situacao, null)
+})
+
+t('por área: sem o dado na planilha (ou pilar sem quantidade) volta a mostrar a %', () => {
+  assert.equal(quantidadeDoPilar('net_churn', { 'Sellers ativos mês passado': '', 'Sellers ativos mês atual': 185 }, { meta: -2.1 }), null)
+  assert.equal(quantidadeDoPilar('aderencia', { 'Sellers agendados': 0, 'Sellers aderentes à agenda': 0 }, { meta: 65 }), null)
+  assert.equal(quantidadeDoPilar('awareness', {}, { meta: 47.5 }), null)
+  assert.equal(quantidadeDoPilar('acionaveis', null, { meta: 15 }), null)
+  assert.equal(quantidadeDoPilar('produtividade', { 'Sellers visitados': 10 }, { meta: 6 }), null)
+  assert.equal(quantidadeDoPilar('tpv', {}, { meta: 104 }), null)
+})
+
+t('por área: meta inválida no net churn mantém o saldo (só o "faltam" some)', () => {
+  const q = quantidadeDoPilar('net_churn', { 'Sellers ativos mês passado': 203, 'Sellers ativos mês atual': 185 }, { meta: NaN })
+  assert.equal(q.numero, -18)
+  assert.equal(q.faltam, null)
+  assert.equal(textoSituacao('net_churn', q), null)
+})
+
+t('por área: carteira por consultor — total conta tudo, ativa só ATIVO e REATIVADO, nomes casam sem acento/caixa', () => {
+  const { total, ativa } = contarCarteiraPorConsultor([
+    { consultor_nome: 'José da Silva', status: 'ATIVO' },
+    { consultor_nome: 'JOSE DA SILVA', status: 'reativado' },
+    { consultor_nome: 'jose da silva ', status: 'CHURN' },
+    { consultor_nome: 'Jose da Silva', status: 'INATIVO' },
+    { consultor_nome: 'Jose da Silva', status: null },
+    { consultor_nome: 'Maria Souza', status: 'ATIVO' },
+  ])
+  assert.equal(total['jose da silva'], 5)
+  assert.equal(ativa['jose da silva'], 2)
+  assert.equal(total['maria souza'], 1)
+  assert.equal(ativa['maria souza'], 1)
+})
+
+t('por área: média do cabeçalho arredonda como número inteiro', () => {
+  assert.equal(textoQuantidade('net_churn', -0.3), '0 sellers') // sem "−0"
+  assert.equal(textoQuantidade('net_churn', 0), '0 sellers')
+  assert.equal(textoQuantidade('net_churn', -33.1), '-33 sellers')
+  assert.equal(textoQuantidade('aderencia', 10.7, 24.3), '11 de 24')
+  assert.equal(textoQuantidade('awareness', 1), '1 resposta')
+  assert.equal(textoQuantidade('acionaveis', 2.9), '3 revertidas')
+  assert.equal(textoQuantidade('net_churn', 5), '+5 sellers')
 })
 
 console.log(`\n${n} testes passaram`)

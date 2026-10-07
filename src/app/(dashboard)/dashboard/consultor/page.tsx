@@ -3,8 +3,7 @@ import { getProfile } from '@/lib/supabase/profile'
 import { redirect } from 'next/navigation'
 import ConsultorClient from './ConsultorClient'
 import { buscarTudo } from '@/lib/supabase/buscar-tudo'
-import { normalizarNome } from '@/lib/convites'
-import { ehCarteiraAtiva } from '@/lib/pilares'
+import { contarCarteiraPorConsultor } from '@/lib/carteira-por-consultor'
 import { SCORE_GERAL_FAIXAS_PADRAO, type ScoreGeralFaixas } from '@/lib/types'
 
 export default async function ConsultorPage() {
@@ -76,13 +75,7 @@ export default async function ConsultorPage() {
 
   // Acionáveis conta todas as linhas; Awareness só a carteira ATIVA (ATIVO +
   // REATIVADO) — é ela que bate com a nota da planilha, ver metaAwareness.
-  const carteiraPorConsultor: Record<string, number> = {}
-  const carteiraAtivaPorConsultor: Record<string, number> = {}
-  for (const c of carteiraLinhas) {
-    const chave = normalizarNome(c.consultor_nome)
-    carteiraPorConsultor[chave] = (carteiraPorConsultor[chave] ?? 0) + 1
-    carteiraAtivaPorConsultor[chave] = (carteiraAtivaPorConsultor[chave] ?? 0) + (ehCarteiraAtiva(c.status) ? 1 : 0)
-  }
+  const { total: carteiraPorConsultor, ativa: carteiraAtivaPorConsultor } = contarCarteiraPorConsultor(carteiraLinhas)
 
   const dateDisplay = new Date(latestDate + 'T12:00:00').toLocaleDateString('pt-BR', {
     day: '2-digit', month: 'long', year: 'numeric',

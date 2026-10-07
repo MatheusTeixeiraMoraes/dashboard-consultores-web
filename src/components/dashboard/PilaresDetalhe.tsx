@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 import {
   PILARES, GRUPOS, fmtValor, fmtMeta, calcFaltam, metaAcionaveis, metaAwareness, PISO_AWARENESS_PADRAO,
-  ativosMinimosNetChurn, aderentesMinimosAgenda, type FaixaAcionaveis, type FaixaAwareness,
+  ativosMinimosNetChurn, aderentesMinimosAgenda, numeroOuNaN, type FaixaAcionaveis, type FaixaAwareness,
 } from '@/lib/pilares'
 import type { PilarKey } from '@/lib/types'
 
@@ -292,9 +292,6 @@ function PilarCard({
     </div>
   )
 }
-
-/** Célula em branco ou ausente vira NaN, e não 0: "a planilha não trouxe o dado" não é "zero". */
-const numeroOuNaN = (v: unknown) => (v === '' || v == null ? NaN : Number(v))
 
 /**
  * Linhas "rótulo: valor" das colunas da planilha de um pilar, na ordem do contrato.
