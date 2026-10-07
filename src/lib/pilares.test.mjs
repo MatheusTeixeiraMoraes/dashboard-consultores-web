@@ -8,7 +8,10 @@
 // de 100,79%. A regra por mediana resolve isso.
 
 import assert from 'node:assert/strict'
-import { escalaPercentual, metaAwareness, ehCarteiraAtiva, ativosMinimosNetChurn, textoMetaNetChurn } from './pilares.ts'
+import {
+  escalaPercentual, metaAwareness, ehCarteiraAtiva, ativosMinimosNetChurn, textoMetaNetChurn,
+  aderentesMinimosAgenda, textoMetaAderencia,
+} from './pilares.ts'
 
 let n = 0
 const t = (nome, fn) => { fn(); n++; console.log('  ok:', nome) }
@@ -86,7 +89,7 @@ t('awareness: a meta nunca fica abaixo do piso', () => {
 
 // Os 3 consultores de 06/10/2026 em que contar TODAS as linhas da carteira (e não só
 // a ativa) dava meta maior que a da planilha: a nota deles veio cheia (1,5).
-t('awareness 06/10: Felipe (166 ativos) → 40, Gleudison (200) → 40, Rivaldo (248) → 80', () => {
+t('awareness 06/10: os 3 casos em que a carteira TOTAL erraria a meta (166 → 40, 200 → 40, 248 → 80)', () => {
   assert.equal(metaAwareness(166, FAIXAS_AW, 40), 40) // 69 respostas ≥ 40
   assert.equal(metaAwareness(200, FAIXAS_AW, 40), 40) // 77 respostas ≥ 40
   assert.equal(metaAwareness(248, FAIXAS_AW, 40), 80) // 119 respostas ≥ 80
@@ -105,16 +108,16 @@ t('carteira ativa: ATIVO e REATIVADO contam; CHURN, INATIVO e vazio não', () =>
 // reais da planilha de 06/10/2026; o mínimo e o "faltam" foram conferidos à mão e por SQL.
 const NC_REAL = [
   // [base (ativos mês passado), hoje (ativos mês atual), mínimo p/ meta, faltam]
-  [258, 218, 253, 35], // Luane
-  [246, 207, 241, 34], // Gleudison
-  [303, 264, 297, 33], // Rivaldo
-  [240, 204, 235, 31], // Nicolas
-  [415, 376, 407, 31], // Lidio
-  [377, 341, 370, 29], // Renata
-  [308, 275, 302, 27], // Reineldes
-  [269, 238, 264, 26], // Jaqueline
-  [193, 173, 189, 16], // Felipe
-  [203, 185, 199, 14], // Jessica
+  [258, 218, 253, 35],
+  [246, 207, 241, 34],
+  [303, 264, 297, 33],
+  [240, 204, 235, 31],
+  [415, 376, 407, 31],
+  [377, 341, 370, 29],
+  [308, 275, 302, 27],
+  [269, 238, 264, 26],
+  [193, 173, 189, 16],
+  [203, 185, 199, 14],
 ]
 
 t('net churn: mínimo e "faltam" dos 10 consultores reais (meta −2,10%)', () => {
@@ -151,6 +154,57 @@ t('net churn: conta exata não sobe um seller por erro de ponto flutuante', () =
 t('net churn: meta 0 pede a base inteira; meta positiva pede crescimento', () => {
   assert.equal(ativosMinimosNetChurn(200, 0), 200)
   assert.equal(ativosMinimosNetChurn(200, 1), 202)
+})
+
+// Aderência à agenda: aderentes mínimos para a meta (T1 = 65%). Agendados e aderentes são os 10
+// consultores reais da planilha de 06/10/2026; mínimo e "faltam" conferidos à mão e por SQL.
+const AD_REAL = [
+  // [agendados, aderentes, mínimo p/ 65%, faltam (negativo = acima do mínimo)]
+  [26, 25, 17, -8],
+  [24, 21, 16, -5],
+  [15, 13, 10, -3],
+  [23, 13, 15, 2],
+  [25, 11, 17, 6],
+  [25, 11, 17, 6],
+  [24, 7, 16, 9],
+  [30, 5, 20, 15],
+  [22, 1, 15, 14],
+  [29, 0, 19, 19],
+]
+
+t('aderência: mínimo e "faltam" dos 10 consultores reais (meta 65%)', () => {
+  for (const [ag, ad, minimo, faltam] of AD_REAL) {
+    assert.equal(aderentesMinimosAgenda(ag, 65), minimo, `agendados ${ag}`)
+    assert.equal(minimo - ad, faltam, `faltam, agendados ${ag}`)
+  }
+})
+
+// Aritmética INTEIRA, como no net churn: aderência ≥ 65% ⟺ aderentes × 10000 ≥ 6500 × agendados.
+t('aderência: no mínimo a aderência cumpre a meta; com uma visita a menos, não', () => {
+  const agendados = [...AD_REAL.map(l => l[0]), 20, 40, 60, 100] // as 4 últimas caem EXATAMENTE na fronteira
+  for (const ag of agendados) {
+    const minimo = aderentesMinimosAgenda(ag, 65)
+    assert.ok(minimo * 10000 >= 6500 * ag, `agendados ${ag}: no mínimo deveria cumprir`)
+    assert.ok((minimo - 1) * 10000 < 6500 * ag, `agendados ${ag}: com uma a menos deveria falhar`)
+  }
+})
+
+t('aderência: conta exata não pede uma visita a mais por erro de ponto flutuante', () => {
+  assert.equal(aderentesMinimosAgenda(20, 65), 13)
+  assert.equal(aderentesMinimosAgenda(100, 65), 65)
+  assert.equal(aderentesMinimosAgenda(40, 65), 26)
+})
+
+t('aderência: meta 100 pede todos; meta 0 e agenda vazia não pedem nada; meta > 100 não pede mais que os agendados', () => {
+  assert.equal(aderentesMinimosAgenda(25, 100), 25)
+  assert.equal(aderentesMinimosAgenda(25, 150), 25)
+  assert.equal(aderentesMinimosAgenda(25, 0), 0)
+  assert.equal(aderentesMinimosAgenda(0, 65), 0)
+})
+
+t('aderência: texto da meta nas telas sem a agenda do consultor', () => {
+  assert.equal(textoMetaAderencia(65), '65,00% dos sellers agendados visitados')
+  assert.equal(textoMetaAderencia(58.5), '58,50% dos sellers agendados visitados')
 })
 
 console.log(`\n${n} testes passaram`)

@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 import {
   PILARES, GRUPOS, fmtValor, fmtMeta, calcFaltam, metaAcionaveis, metaAwareness, PISO_AWARENESS_PADRAO,
-  ativosMinimosNetChurn, type FaixaAcionaveis, type FaixaAwareness,
+  ativosMinimosNetChurn, aderentesMinimosAgenda, type FaixaAcionaveis, type FaixaAwareness,
 } from '@/lib/pilares'
 import type { PilarKey } from '@/lib/types'
 
@@ -172,6 +172,15 @@ function PilarCard({
     )
   }
 
+  if (pilarKey === 'aderencia') {
+    return (
+      <AderenciaCard
+        header={header} color={color} refLabel={refLabel} metricas={metricas} config={config}
+        valorMetrica={resultado.valor_metrica}
+      />
+    )
+  }
+
   // Acionáveis (19/08/2026 em diante): meta deixou de ser percentual e virou
   // quantidade fixa de tarefas revertidas, que varia pelo tamanho da carteira
   // — um número global de pillar_config não dá conta disso. Com o tamanho da
@@ -284,6 +293,34 @@ function PilarCard({
   )
 }
 
+/** Célula em branco ou ausente vira NaN, e não 0: "a planilha não trouxe o dado" não é "zero". */
+const numeroOuNaN = (v: unknown) => (v === '' || v == null ? NaN : Number(v))
+
+/**
+ * Linhas "rótulo: valor" das colunas da planilha de um pilar, na ordem do contrato.
+ * `ocultar` tira a coluna que já é o número grande do card.
+ */
+function ColunasPlanilha({ pilar, ocultar, metricas }: {
+  pilar: PilarKey
+  ocultar: string
+  metricas: Record<string, unknown>
+}) {
+  return (
+    <>
+      {PILARES[pilar].cols
+        .filter(c => c.col !== ocultar)
+        .map(c => (
+          <div key={c.col} className="flex items-center justify-between gap-2 border-t border-card-2 pt-1.5">
+            <span className="text-[11px] text-ink-muted leading-tight">{c.label}:</span>
+            <span className="text-[11px] font-semibold text-ink whitespace-nowrap">
+              {fmtValor(c.type, metricas[c.col])}
+            </span>
+          </div>
+        ))}
+    </>
+  )
+}
+
 /**
  * Awareness (05/10/2026 em diante, Bloco 1 — Atuação): deixou de ser "% Awareness"
  * contra uma meta em % e virou QUANTIDADE de clientes que responderam a pesquisa.
@@ -307,8 +344,7 @@ function AwarenessCard({
 }) {
   // Célula em branco ou ausente = planilha SEM o dado, não zero respostas: tratar
   // como 0 dispararia o alerta do piso ("Bloco 1 zera") sem motivo.
-  const bruto = metricas['Sellers que responderam pesquisa']
-  const respostas = bruto === '' || bruto == null ? NaN : Number(bruto)
+  const respostas = numeroOuNaN(metricas['Sellers que responderam pesquisa'])
   const semRespostas = !Number.isFinite(respostas)
   const piso = config.piso_minimo ?? PISO_AWARENESS_PADRAO
   const meta = carteiraAtiva != null ? metaAwareness(carteiraAtiva, faixasAwareness, piso) : null
@@ -361,16 +397,7 @@ function AwarenessCard({
           <span className="text-ink-muted font-medium">{refLabel}</span>
         </div>
 
-        {PILARES.awareness.cols
-          .filter(c => c.col !== 'Sellers que responderam pesquisa') /* já é o número grande */
-          .map(c => (
-            <div key={c.col} className="flex items-center justify-between gap-2 border-t border-card-2 pt-1.5">
-              <span className="text-[11px] text-ink-muted leading-tight">{c.label}:</span>
-              <span className="text-[11px] font-semibold text-ink whitespace-nowrap">
-                {fmtValor(c.type, metricas[c.col])}
-              </span>
-            </div>
-          ))}
+        <ColunasPlanilha pilar="awareness" ocultar="Sellers que responderam pesquisa" metricas={metricas} />
       </div>
     </div>
   )
@@ -405,9 +432,8 @@ function NetChurnCard({
 }) {
   // Célula em branco, ausente ou base zero (consultor sem carteira): não dá pra
   // fazer a conta em sellers — mostra só a % e as colunas da planilha.
-  const num = (v: unknown) => (v === '' || v == null ? NaN : Number(v))
-  const base = num(metricas['Sellers ativos mês passado'])
-  const hoje = num(metricas['Sellers ativos mês atual'])
+  const base = numeroOuNaN(metricas['Sellers ativos mês passado'])
+  const hoje = numeroOuNaN(metricas['Sellers ativos mês atual'])
   const temContas = Number.isFinite(base) && base > 0 && Number.isFinite(hoje) && Number.isFinite(config.meta)
 
   const saldo = hoje - base
@@ -464,16 +490,103 @@ function NetChurnCard({
           <span className="text-ink-muted font-medium">{refLabel}</span>
         </div>
 
-        {!temContas && PILARES.net_churn.cols
-          .filter(c => c.col !== '%Net churn') /* já é o número grande */
-          .map(c => (
-            <div key={c.col} className="flex items-center justify-between gap-2 border-t border-card-2 pt-1.5">
-              <span className="text-[11px] text-ink-muted leading-tight">{c.label}:</span>
-              <span className="text-[11px] font-semibold text-ink whitespace-nowrap">
-                {fmtValor(c.type, metricas[c.col])}
-              </span>
-            </div>
-          ))}
+        {!temContas && <ColunasPlanilha pilar="net_churn" ocultar="%Net churn" metricas={metricas} />}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Aderência à agenda: a planilha e o MP falam em % (44%), mas um percentual não diz
+ * ao consultor quantas visitas faltam. O card mostra "11 de 25 agendados visitados"
+ * e traduz a meta (o T1, em pillar_config) em quantos aderentes são o mínimo para a
+ * agenda da planilha (ver aderentesMinimosAgenda) e quantos faltam. A nota continua
+ * a da planilha.
+ *
+ * Agendados e aderentes são acumulados do mês e crescem todo dia, então o mínimo
+ * sobe junto com a agenda: o "faltam" vale para a agenda desta planilha, e por isso
+ * o texto cita os agendados em vez de dizer "hoje" (a planilha pode ser de dias
+ * atrás). Visita atrasada conta como aderente (confirmado pelo usuário em
+ * 07/10/2026), por isso "faltam N" são visitas que ainda dá para fazer entre os
+ * agendados sem visita.
+ *
+ * Nenhuma coluna da planilha some: as três contagens e a % cabem nas linhas
+ * compostas — e, sem agenda para calcular (agendados zero ou ausente), voltam como
+ * linhas separadas. Aderência é sempre "maior é melhor" (tipo_comp 'ge'), por isso
+ * o card não lê tipo_comp.
+ */
+function AderenciaCard({
+  header, color, refLabel, metricas, config, valorMetrica,
+}: {
+  header: ReactNode
+  color: string
+  refLabel: string
+  metricas: Record<string, unknown>
+  config: PilarConfigMin
+  valorMetrica: number
+}) {
+  // Célula em branco, ausente ou zero agendados (consultor sem agenda): não dá pra
+  // fazer a conta em visitas — mostra só a % e as colunas da planilha.
+  const agendados = numeroOuNaN(metricas['Sellers agendados'])
+  const aderentes = numeroOuNaN(metricas['Sellers aderentes à agenda'])
+  const visitados = numeroOuNaN(metricas['Sellers visitados'])
+  const temContas = Number.isFinite(agendados) && agendados > 0 && Number.isFinite(aderentes) && Number.isFinite(config.meta)
+
+  const minimo = temContas ? aderentesMinimosAgenda(agendados, config.meta) : NaN
+  const faltam = minimo - aderentes
+  const semVisita = Math.max(0, agendados - aderentes)
+  const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`
+
+  return (
+    <div className="glass rounded-2xl border border-line overflow-hidden" style={{ borderLeft: `3px solid ${color}` }}>
+      {header}
+
+      <div className="px-4 py-3 space-y-3">
+        <div className="bg-card-2 rounded-xl p-3">
+          {temContas ? (
+            <>
+              <div className="flex items-baseline gap-x-2 flex-wrap">
+                <span className="text-2xl font-bold text-ink">{aderentes} de {agendados}</span>
+                <span className="text-xs text-ink-muted">
+                  agendados visitados · {fmtValor('percent', valorMetrica)} na planilha
+                </span>
+              </div>
+              <p className="text-[11px] text-ink-faint mt-0.5">
+                {plural(semVisita, 'agendado ainda sem visita', 'agendados ainda sem visita')}
+              </p>
+              <p className="text-[11px] text-ink-faint">
+                Sellers visitados: {fmtValor('int', metricas['Sellers visitados'])}
+                {Number.isFinite(visitados) && visitados >= aderentes && ` (${aderentes} da agenda)`}
+              </p>
+              <p className="text-[11px] text-ink-muted mt-1.5">
+                meta: {fmtValor('percent', config.meta)} dos agendados → mínimo de{' '}
+                <span className="font-semibold">{minimo}</span> {minimo === 1 ? 'visita' : 'visitas'} para os {agendados}{' '}
+                {agendados === 1 ? 'agendado' : 'agendados'} (sobe com a agenda)
+              </p>
+              {faltam <= 0 ? (
+                <p className="text-[11px] text-good font-medium mt-1">
+                  ✓ Meta atingida{faltam < 0 && ` — ${plural(-faltam, 'visita acima do mínimo', 'visitas acima do mínimo')}`}
+                </p>
+              ) : (
+                <p className="text-[11px] text-bad font-medium mt-1">
+                  ✗ {faltam === 1 ? 'Falta 1 visita' : `Faltam ${faltam} visitas`} a sellers agendados para a meta
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <span className="text-2xl font-bold text-ink">{fmtValor('percent', valorMetrica)}</span>
+              <p className="text-[11px] text-ink-faint font-medium mt-1">Sem sellers agendados para converter em visitas</p>
+            </>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-ink-faint">Ref.:</span>
+          <span className="text-ink-muted font-medium">{refLabel}</span>
+        </div>
+
+        {!temContas && <ColunasPlanilha pilar="aderencia" ocultar="%Aderência à agenda" metricas={metricas} />}
       </div>
     </div>
   )

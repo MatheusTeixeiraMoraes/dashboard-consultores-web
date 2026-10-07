@@ -22,7 +22,7 @@ const DistribuicaoEquipe = dynamic(() => import('./DistribuicaoEquipe'), {
 })
 import type { CarteiraResumo } from './page'
 import type { ScoreGeralFaixas } from '@/lib/types'
-import { textoMetaNetChurn } from '@/lib/pilares'
+import { textoMetaNetChurn, textoMetaAderencia } from '@/lib/pilares'
 
 const PILARES = ['tpv', 'net_churn', 'acionaveis', 'aderencia', 'awareness', 'produtividade']
 const PILAR_LABEL: Record<string, string> = {
@@ -321,6 +321,8 @@ export default function GeralClient({ ranking, dateDisplay, dataCarteiraBR, meta
                               ? `${PILAR_LABEL[p]} · meta: respostas fixas por carteira`
                               : p === 'net_churn' && mc
                               ? `${PILAR_LABEL[p]} · meta: ${textoMetaNetChurn(mc.meta)}`
+                              : p === 'aderencia' && mc
+                              ? `${PILAR_LABEL[p]} · meta: ${textoMetaAderencia(mc.meta)}`
                               : p === 'tpv'
                               ? `${PILAR_LABEL[p]} · meta: objetivo por consultor`
                               : mc ? `${PILAR_LABEL[p]} · meta ${fmtMeta(mc.meta, mc.unidade)}` : PILAR_LABEL[p]

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { PILARES, PILAR_KEYS, fmtValor, fmtMeta, textoMetaNetChurn } from '@/lib/pilares'
+import { PILARES, PILAR_KEYS, fmtValor, fmtMeta, textoMetaNetChurn, textoMetaAderencia } from '@/lib/pilares'
 import type { PilarKey } from '@/lib/types'
 import CategoryHeader from '@/components/dashboard/CategoryHeader'
 
@@ -202,6 +202,8 @@ export default function AreaClient({
                           <>Meta: <span className="font-semibold text-ink-muted">respostas fixas por carteira</span></>
                         ) : pilar === 'net_churn' ? (
                           <>Meta: <span className="font-semibold text-ink-muted">{textoMetaNetChurn(cfg.meta)}</span></>
+                        ) : pilar === 'aderencia' ? (
+                          <>Meta: <span className="font-semibold text-ink-muted">{textoMetaAderencia(cfg.meta)}</span></>
                         ) : pilar === 'tpv' ? (
                           <>Meta: <span className="font-semibold text-ink-muted">objetivo por consultor</span></>
                         ) : (

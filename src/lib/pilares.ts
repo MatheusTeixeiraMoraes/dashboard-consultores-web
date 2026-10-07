@@ -354,3 +354,35 @@ export function textoMetaNetChurn(metaPct: number): string {
   if (metaPct === 0) return 'não perder nenhum seller em relação ao mês passado'
   return `crescer pelo menos ${fmtValor('percent', metaPct)} sobre o mês passado`
 }
+
+/**
+ * Aderência à agenda: quantos sellers AGENDADOS o consultor precisa ter visitado
+ * (aderentes) para a aderência ficar na meta (o T1, em pillar_config).
+ *
+ *   aderência = aderentes ÷ agendados ≥ meta   ⇒   aderentes ≥ agendados × meta/100
+ *
+ * Arredonda PARA CIMA (seller não vem pela metade) e conta em inteiros (centésimos
+ * de ponto percentual): 20 × 65% = 13 exato não vira 13,000000000000002 e pede 14.
+ *
+ * Agendados e aderentes são acumulados do mês e crescem todo dia, então o mínimo
+ * de HOJE sobe quando entram novos agendados. Visita atrasada conta como aderente
+ * (confirmado pelo usuário em 07/10/2026), por isso "faltam N" são visitas que
+ * ainda dá para fazer entre os agendados sem visita.
+ *
+ * Conferido nas 410 linhas de aderência do banco (15/07 a 06/10/2026): aderentes ÷
+ * agendados reproduz o `%Aderência à agenda` da planilha em todas. A nota do MP
+ * não é recalculada aqui — só a meta é traduzida de % para visitas.
+ */
+export function aderentesMinimosAgenda(agendados: number, metaPct: number): number {
+  // O teto evita pedir mais visitas do que há agendados se alguém salvar uma meta
+  // acima de 100% por engano (meta 150 → "mínimo" de 38 para 25 agendados).
+  return Math.min(agendados, Math.ceil((agendados * Math.round(metaPct * 100)) / 10000))
+}
+
+/**
+ * Como dizer a meta de Aderência em telas sem a agenda de cada consultor (Por Área,
+ * Visão Geral). Duas casas, como a conta e como o MP publica (65,00%).
+ */
+export function textoMetaAderencia(metaPct: number): string {
+  return `${fmtValor('percent', metaPct)} dos sellers agendados visitados`
+}
