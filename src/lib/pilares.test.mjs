@@ -8,7 +8,7 @@
 // de 100,79%. A regra por mediana resolve isso.
 
 import assert from 'node:assert/strict'
-import { escalaPercentual } from './pilares.ts'
+import { escalaPercentual, metaAwareness, ehCarteiraAtiva } from './pilares.ts'
 
 let n = 0
 const t = (nome, fn) => { fn(); n++; console.log('  ok:', nome) }
@@ -49,6 +49,56 @@ t('TPV já em 0–100 (95, 106…) → ×1', () => {
 t('coluna vazia / só zeros → ×1 (nada a converter)', () => {
   assert.equal(escalaPercentual([]), 1)
   assert.equal(escalaPercentual([0, 0, 0]), 1)
+})
+
+// Awareness (05/10/2026): meta = quantidade de respostas pela carteira ATIVA.
+// Faixas do slide "Bloco 1 — Atuação" do MP; piso de 40.
+const FAIXAS_AW = [
+  { min_carteira: 1,   meta_respostas: 40 },
+  { min_carteira: 101, meta_respostas: 40 },
+  { min_carteira: 201, meta_respostas: 80 },
+  { min_carteira: 301, meta_respostas: 120 },
+  { min_carteira: 401, meta_respostas: 120 },
+  { min_carteira: 501, meta_respostas: 120 },
+]
+
+t('awareness: a faixa vale a partir de min_carteira (200 ainda é 40, 201 já é 80)', () => {
+  assert.equal(metaAwareness(166, FAIXAS_AW, 40), 40)
+  assert.equal(metaAwareness(200, FAIXAS_AW, 40), 40)
+  assert.equal(metaAwareness(201, FAIXAS_AW, 40), 80)
+  assert.equal(metaAwareness(300, FAIXAS_AW, 40), 80)
+  assert.equal(metaAwareness(301, FAIXAS_AW, 40), 120)
+  assert.equal(metaAwareness(900, FAIXAS_AW, 40), 120)
+})
+
+t('awareness: faixas fora de ordem dão o mesmo resultado', () => {
+  assert.equal(metaAwareness(248, [...FAIXAS_AW].reverse(), 40), 80)
+})
+
+t('awareness: sem faixa que valha (tabela vazia ou carteira 0) a meta é o piso', () => {
+  assert.equal(metaAwareness(250, [], 40), 40)
+  assert.equal(metaAwareness(0, FAIXAS_AW, 40), 40)
+})
+
+t('awareness: a meta nunca fica abaixo do piso', () => {
+  assert.equal(metaAwareness(150, [{ min_carteira: 1, meta_respostas: 30 }], 40), 40)
+})
+
+// Os 3 consultores de 06/10/2026 em que contar TODAS as linhas da carteira (e não só
+// a ativa) dava meta maior que a da planilha: a nota deles veio cheia (1,5).
+t('awareness 06/10: Felipe (166 ativos) → 40, Gleudison (200) → 40, Rivaldo (248) → 80', () => {
+  assert.equal(metaAwareness(166, FAIXAS_AW, 40), 40) // 69 respostas ≥ 40
+  assert.equal(metaAwareness(200, FAIXAS_AW, 40), 40) // 77 respostas ≥ 40
+  assert.equal(metaAwareness(248, FAIXAS_AW, 40), 80) // 119 respostas ≥ 80
+})
+
+t('carteira ativa: ATIVO e REATIVADO contam; CHURN, INATIVO e vazio não', () => {
+  assert.equal(ehCarteiraAtiva('ATIVO'), true)
+  assert.equal(ehCarteiraAtiva(' reativado '), true)
+  assert.equal(ehCarteiraAtiva('CHURN'), false)
+  assert.equal(ehCarteiraAtiva('INATIVO'), false)
+  assert.equal(ehCarteiraAtiva(null), false)
+  assert.equal(ehCarteiraAtiva(''), false)
 })
 
 console.log(`\n${n} testes passaram`)

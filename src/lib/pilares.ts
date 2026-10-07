@@ -49,6 +49,10 @@ export const PILARES: Record<PilarKey, PilarSpec> = {
     scoreCol: 'SCORE pesquisa',
     valorCol: '%Awareness',
     maiorMelhor: true,
+    // Meta (05/10/2026 em diante): quantidade de respostas por tamanho da carteira
+    // ativa — ver metaAwareness mais abaixo. valorCol continua sendo o %Awareness
+    // pra não misturar % e quantidade na mesma série do histórico.
+    nota: 'meta = respostas por carteira ativa',
     cols: [
       { col: 'Sellers visitados',                 label: 'Sellers visitados',                 type: 'int' },
       { col: 'Sellers que responderam pesquisa',  label: 'Sellers que responderam pesquisa',  type: 'int' },
@@ -274,4 +278,44 @@ export function metaAcionaveis(carteiraSize: number, faixas: FaixaAcionaveis[]):
     if (carteiraSize >= f.min_carteira) meta = f.meta_tarefas
   }
   return meta
+}
+
+/** Uma linha da tabela `metas_awareness_faixas` — a partir de quantos sellers
+ *  ATIVOS na carteira, quantas respostas de pesquisa valem a nota cheia. */
+export interface FaixaAwareness {
+  min_carteira: number
+  meta_respostas: number
+}
+
+/** Piso do Awareness quando `pillar_config.piso_minimo` não chega (banco fora
+ *  do ar, ou coluna ainda não criada) — o valor do slide do MP de 05/10/2026. */
+export const PISO_AWARENESS_PADRAO = 40
+
+/** Status que contam como carteira ATIVA. CHURN e INATIVO ficam de fora. */
+export const STATUS_CARTEIRA_ATIVA = ['ATIVO', 'REATIVADO'] as const
+
+export function ehCarteiraAtiva(status: string | null | undefined): boolean {
+  return (STATUS_CARTEIRA_ATIVA as readonly string[]).includes((status ?? '').trim().toUpperCase())
+}
+
+/**
+ * Awareness mudou de regra (05/10/2026, Bloco 1 — Atuação): deixou de ser "%
+ * Awareness" em degraus e virou tudo-ou-nada contra uma QUANTIDADE de sellers
+ * que responderam a pesquisa, que varia pelo tamanho da carteira ATIVA do
+ * consultor (ATIVO + REATIVADO — `ehCarteiraAtiva`). Abaixo do PISO o Bloco 1
+ * inteiro zera, então a meta efetiva nunca fica abaixo dele.
+ *
+ * É a carteira ATIVA, e não o total de linhas de `mp_carteira`, porque é ela que
+ * reproduz a nota da planilha: conferido nos 10 consultores em 05 e 06/10/2026
+ * (20 de 20). Contar CHURN e INATIVO errava a meta de 3 deles.
+ *
+ * Mesmo molde de `metaAcionaveis` (faixas editáveis em /dashboard/metas), mas
+ * sem o fallback de número fixo: sem faixa que valha — tabela vazia, ou carteira
+ * menor que a primeira faixa — a meta é o próprio piso.
+ */
+export function metaAwareness(carteiraAtiva: number, faixas: FaixaAwareness[], piso: number): number {
+  const faixa = [...faixas]
+    .sort((a, b) => b.min_carteira - a.min_carteira)
+    .find(f => carteiraAtiva >= f.min_carteira)
+  return Math.max(faixa?.meta_respostas ?? piso, piso)
 }

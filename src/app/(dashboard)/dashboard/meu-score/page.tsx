@@ -2,6 +2,7 @@ import { getProfile } from '@/lib/supabase/profile'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import MeuScoreClient from './MeuScoreClient'
+import { STATUS_CARTEIRA_ATIVA } from '@/lib/pilares'
 import { SCORE_GERAL_FAIXAS_PADRAO, type ScoreGeralFaixas } from '@/lib/types'
 
 export default async function MeuScorePage() {
@@ -69,8 +70,8 @@ export default async function MeuScorePage() {
   // `data_referencia` já vem gravada em cada linha de resultado (mesmo valor
   // do upload que a gerou) — filtrar direto por ela poupa a ida extra de buscar
   // os uploadIds do dia só para usar em `upload_id in (...)`.
-  const [{ data: pilaresConfig }, { data: resultados }, { count: carteiraSize }, { data: faixasAcionaveis }, { data: faixasScore }] = await Promise.all([
-    supabase.from('pillar_config').select('pilar_key, pontos_max, meta, tipo_comp, unidade'),
+  const [{ data: pilaresConfig }, { data: resultados }, { count: carteiraSize }, { count: carteiraAtiva }, { data: faixasAcionaveis }, { data: faixasAwareness }, { data: faixasScore }] = await Promise.all([
+    supabase.from('pillar_config').select('pilar_key, pontos_max, meta, tipo_comp, unidade, piso_minimo'),
     supabase
       .from('score_consultor_resultados')
       .select('id_carteira, consultor_nome, pilar_key, score_planilha, metricas, valor_metrica')
@@ -79,7 +80,16 @@ export default async function MeuScorePage() {
     dataCarteira
       ? supabase.from('mp_carteira').select('*', { count: 'exact', head: true }).eq('data_referencia', dataCarteira)
       : Promise.resolve({ count: null }),
+    // Awareness mede a carteira ATIVA (ATIVO + REATIVADO), não o total de linhas
+    // — é ela que bate com a nota da planilha (ver metaAwareness em lib/pilares.ts).
+    // `ilike` sem curinga = igualdade sem diferenciar maiúsculas, a mesma tolerância
+    // de `ehCarteiraAtiva` na tela do Consultor (o import já corta espaços das pontas).
+    dataCarteira
+      ? supabase.from('mp_carteira').select('*', { count: 'exact', head: true }).eq('data_referencia', dataCarteira)
+          .or(STATUS_CARTEIRA_ATIVA.map(s => `status.ilike.${s}`).join(','))
+      : Promise.resolve({ count: null }),
     supabase.from('metas_acionaveis_faixas').select('min_carteira, meta_tarefas'),
+    supabase.from('metas_awareness_faixas').select('min_carteira, meta_respostas'),
     supabase.from('score_geral_faixas').select('limite_critico, meta_objetivo').maybeSingle(),
   ])
   const faixas: ScoreGeralFaixas = faixasScore ?? SCORE_GERAL_FAIXAS_PADRAO
@@ -98,6 +108,8 @@ export default async function MeuScorePage() {
       idCarteira={profile.id_carteira}
       carteiraSize={carteiraSize ?? undefined}
       faixasAcionaveis={faixasAcionaveis ?? []}
+      carteiraAtiva={carteiraAtiva ?? undefined}
+      faixasAwareness={faixasAwareness ?? []}
       faixas={faixas}
     />
   )

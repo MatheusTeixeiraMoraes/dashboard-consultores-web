@@ -11,7 +11,7 @@ const EvolucaoScore = dynamic(() => import('@/components/dashboard/EvolucaoScore
   ssr: false,
   loading: () => null,
 })
-import { PILAR_KEYS, type FaixaAcionaveis } from '@/lib/pilares'
+import { PILAR_KEYS, type FaixaAcionaveis, type FaixaAwareness } from '@/lib/pilares'
 import { SCORE_MAX, scoreStatus, type ScoreGeralFaixas } from '@/lib/types'
 import { normalizarNome } from '@/lib/convites'
 
@@ -35,11 +35,14 @@ interface Props {
   pilaresConfig: PilarConfigMin[]
   carteiraPorConsultor: Record<string, number>
   faixasAcionaveis: FaixaAcionaveis[]
+  carteiraAtivaPorConsultor: Record<string, number>
+  faixasAwareness: FaixaAwareness[]
   faixas: ScoreGeralFaixas
 }
 
 export default function ConsultorClient({
-  resultados, dateDisplay, dataReferencia, pilaresConfig, carteiraPorConsultor, faixasAcionaveis, faixas,
+  resultados, dateDisplay, dataReferencia, pilaresConfig, carteiraPorConsultor, faixasAcionaveis,
+  carteiraAtivaPorConsultor, faixasAwareness, faixas,
 }: Props) {
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -72,6 +75,7 @@ export default function ConsultorClient({
 
   const nomeSelecionado = selectedId ? consultores.find(c => c.id === selectedId)?.nome : null
   const carteiraSize = nomeSelecionado ? carteiraPorConsultor[normalizarNome(nomeSelecionado)] : undefined
+  const carteiraAtiva = nomeSelecionado ? carteiraAtivaPorConsultor[normalizarNome(nomeSelecionado)] : undefined
   const st = total !== null ? statusMap(faixas)[scoreStatus(total, faixas)] : null
 
   return (
@@ -161,6 +165,8 @@ export default function ConsultorClient({
                 dataReferencia={dataReferencia}
                 carteiraSize={carteiraSize}
                 faixasAcionaveis={faixasAcionaveis}
+                carteiraAtiva={carteiraAtiva}
+                faixasAwareness={faixasAwareness}
               />
 
               <EvolucaoScore idCarteira={selectedId} minPontos={2} metaObjetivo={faixas.meta_objetivo} />

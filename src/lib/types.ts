@@ -30,6 +30,9 @@ export interface PillarConfig {
   pontos_max: number
   unidade: '%' | 'numero'
   tipo_comp: 'ge' | 'le'
+  // Mínimo obrigatório: abaixo dele o bloco inteiro zera. Só o Awareness usa
+  // (40 respostas); null nos demais.
+  piso_minimo: number | null
   updated_at: string
   updated_by: string | null
 }

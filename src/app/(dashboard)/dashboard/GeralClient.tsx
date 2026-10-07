@@ -316,6 +316,8 @@ export default function GeralClient({ ranking, dateDisplay, dataCarteiraBR, meta
                           title={
                             p === 'acionaveis'
                               ? `${PILAR_LABEL[p]} · meta: tarefas fixas por carteira`
+                              : p === 'awareness'
+                              ? `${PILAR_LABEL[p]} · meta: respostas fixas por carteira`
                               : p === 'tpv'
                               ? `${PILAR_LABEL[p]} · meta: objetivo por consultor`
                               : mc ? `${PILAR_LABEL[p]} · meta ${fmtMeta(mc.meta, mc.unidade)}` : PILAR_LABEL[p]

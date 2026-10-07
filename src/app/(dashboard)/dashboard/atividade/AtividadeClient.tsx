@@ -20,6 +20,8 @@ const ROTULO_EVENTO: Record<string, string> = {
   meta_alterada: 'alterou a meta',
   peso_pilar_alterado: 'alterou o peso',
   meta_acionaveis_faixas_alterada: 'alterou as faixas de meta de',
+  meta_awareness_faixas_alterada: 'alterou as faixas de meta de',
+  piso_awareness_alterado: 'alterou o piso mínimo de',
   score_geral_faixas_alterada: 'alterou as faixas de',
   delegacao_iniciada: 'entrou na conta de',
   delegacao_encerrada: 'voltou da conta de',
@@ -50,6 +52,8 @@ const COR_EVENTO: Record<string, string> = {
   meta_alterada: 'bg-primary',
   peso_pilar_alterado: 'bg-primary',
   meta_acionaveis_faixas_alterada: 'bg-primary',
+  meta_awareness_faixas_alterada: 'bg-primary',
+  piso_awareness_alterado: 'bg-primary',
   score_geral_faixas_alterada: 'bg-primary',
   delegacao_iniciada: 'bg-warn-fill',
   delegacao_encerrada: 'bg-ink-faint',
@@ -87,7 +91,7 @@ function diasAtras(n: number) {
 /** Resume `detalhes` numa linha curta, sem expor json cru na tela. */
 function resumoDetalhes(tipo: string, detalhes: Record<string, unknown> | null): string | null {
   if (!detalhes) return null
-  if ((tipo === 'meta_alterada' || tipo === 'peso_pilar_alterado') && 'de' in detalhes && 'para' in detalhes) {
+  if ((tipo === 'meta_alterada' || tipo === 'peso_pilar_alterado' || tipo === 'piso_awareness_alterado') && 'de' in detalhes && 'para' in detalhes) {
     return `${detalhes.de} → ${detalhes.para}`
   }
   if (tipo === 'usuario_ativo_alterado' && 'ativo' in detalhes) {
@@ -151,6 +155,10 @@ function resumoDetalhes(tipo: string, detalhes: Record<string, unknown> | null):
   if (tipo === 'meta_acionaveis_faixas_alterada' && Array.isArray(detalhes.faixas)) {
     const faixas = detalhes.faixas as { min_carteira: number; meta_tarefas: number }[]
     return faixas.map(f => `${f.min_carteira}+ → ${f.meta_tarefas}`).join(' · ')
+  }
+  if (tipo === 'meta_awareness_faixas_alterada' && Array.isArray(detalhes.faixas)) {
+    const faixas = detalhes.faixas as { min_carteira: number; meta_respostas: number }[]
+    return faixas.map(f => `${f.min_carteira}+ → ${f.meta_respostas}`).join(' · ')
   }
   if (tipo === 'score_geral_faixas_alterada' && 'limite_critico' in detalhes && 'meta_objetivo' in detalhes) {
     const critico = detalhes.limite_critico as { de: number; para: number }

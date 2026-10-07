@@ -1,6 +1,10 @@
 'use client'
 
-import { PILARES, GRUPOS, fmtValor, fmtMeta, calcFaltam, metaAcionaveis, type FaixaAcionaveis } from '@/lib/pilares'
+import type { ReactNode } from 'react'
+import {
+  PILARES, GRUPOS, fmtValor, fmtMeta, calcFaltam, metaAcionaveis, metaAwareness, PISO_AWARENESS_PADRAO,
+  type FaixaAcionaveis, type FaixaAwareness,
+} from '@/lib/pilares'
 import type { PilarKey } from '@/lib/types'
 
 /**
@@ -28,6 +32,8 @@ export interface PilarConfigMin {
   meta: number
   tipo_comp: string
   unidade: string
+  /** Mínimo obrigatório (só o Awareness): abaixo dele o Bloco 1 inteiro zera. */
+  piso_minimo?: number | null
 }
 
 function formatRefDate(iso: string) {
@@ -50,9 +56,17 @@ interface Props {
   carteiraSize?: number
   /** Faixas de metas_acionaveis_faixas (editáveis em /dashboard/metas). */
   faixasAcionaveis: FaixaAcionaveis[]
+  /** Sellers ATIVOS (ATIVO + REATIVADO) na carteira do consultor — só usado pelo
+   *  Awareness, cuja meta varia por esse tamanho. undefined = carteira não
+   *  encontrada: o card mostra só o piso, sem inventar uma meta. */
+  carteiraAtiva?: number
+  /** Faixas de metas_awareness_faixas (editáveis em /dashboard/metas). */
+  faixasAwareness: FaixaAwareness[]
 }
 
-export default function PilaresDetalhe({ resultados, pilaresConfig, dataReferencia, carteiraSize, faixasAcionaveis }: Props) {
+export default function PilaresDetalhe({
+  resultados, pilaresConfig, dataReferencia, carteiraSize, faixasAcionaveis, carteiraAtiva, faixasAwareness,
+}: Props) {
   const porPilar = Object.fromEntries(resultados.map(r => [r.pilar_key, r]))
   const cfgPorPilar = Object.fromEntries(pilaresConfig.map(p => [p.pilar_key, p]))
   const refLabel = formatRefDate(dataReferencia)
@@ -85,6 +99,8 @@ export default function PilaresDetalhe({ resultados, pilaresConfig, dataReferenc
                   refLabel={refLabel}
                   carteiraSize={carteiraSize}
                   faixasAcionaveis={faixasAcionaveis}
+                  carteiraAtiva={carteiraAtiva}
+                  faixasAwareness={faixasAwareness}
                 />
               ))}
             </div>
@@ -96,7 +112,7 @@ export default function PilaresDetalhe({ resultados, pilaresConfig, dataReferenc
 }
 
 function PilarCard({
-  pilarKey, resultado, config, refLabel, carteiraSize, faixasAcionaveis,
+  pilarKey, resultado, config, refLabel, carteiraSize, faixasAcionaveis, carteiraAtiva, faixasAwareness,
 }: {
   pilarKey: PilarKey
   resultado?: ResultadoPilar
@@ -104,6 +120,8 @@ function PilarCard({
   refLabel: string
   carteiraSize?: number
   faixasAcionaveis: FaixaAcionaveis[]
+  carteiraAtiva?: number
+  faixasAwareness: FaixaAwareness[]
 }) {
   const spec = PILARES[pilarKey]
   const { color } = spec
@@ -135,6 +153,15 @@ function PilarCard({
   }
 
   const metricas = resultado.metricas ?? {}
+
+  if (pilarKey === 'awareness') {
+    return (
+      <AwarenessCard
+        header={header} color={color} refLabel={refLabel} metricas={metricas} config={config}
+        carteiraAtiva={carteiraAtiva} faixasAwareness={faixasAwareness}
+      />
+    )
+  }
 
   // Acionáveis (19/08/2026 em diante): meta deixou de ser percentual e virou
   // quantidade fixa de tarefas revertidas, que varia pelo tamanho da carteira
@@ -235,6 +262,98 @@ function PilarCard({
             tarefas), caso em que a % continua valendo a pena mostrar aqui. */}
         {spec.cols
           .filter(c => usarMetaTarefas ? false : c.col !== (usarObjetivoTPV ? 'TPV Total mês atual' : spec.valorCol))
+          .map(c => (
+            <div key={c.col} className="flex items-center justify-between gap-2 border-t border-card-2 pt-1.5">
+              <span className="text-[11px] text-ink-muted leading-tight">{c.label}:</span>
+              <span className="text-[11px] font-semibold text-ink whitespace-nowrap">
+                {fmtValor(c.type, metricas[c.col])}
+              </span>
+            </div>
+          ))}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Awareness (05/10/2026 em diante, Bloco 1 — Atuação): deixou de ser "% Awareness"
+ * contra uma meta em % e virou QUANTIDADE de clientes que responderam a pesquisa.
+ * A meta varia pela carteira ativa do consultor e há um PISO: abaixo dele o
+ * Bloco 1 inteiro zera. A nota continua sendo a da planilha (nunca recalculada);
+ * a única conta aqui é "quantas respostas faltam", que é subtração.
+ *
+ * Quem zera o Bloco 1 na nota é a planilha do MP — este card só avisa o risco
+ * enquanto o mês corre.
+ */
+function AwarenessCard({
+  header, color, refLabel, metricas, config, carteiraAtiva, faixasAwareness,
+}: {
+  header: ReactNode
+  color: string
+  refLabel: string
+  metricas: Record<string, unknown>
+  config: PilarConfigMin
+  carteiraAtiva?: number
+  faixasAwareness: FaixaAwareness[]
+}) {
+  // Célula em branco ou ausente = planilha SEM o dado, não zero respostas: tratar
+  // como 0 dispararia o alerta do piso ("Bloco 1 zera") sem motivo.
+  const bruto = metricas['Sellers que responderam pesquisa']
+  const respostas = bruto === '' || bruto == null ? NaN : Number(bruto)
+  const semRespostas = !Number.isFinite(respostas)
+  const piso = config.piso_minimo ?? PISO_AWARENESS_PADRAO
+  const meta = carteiraAtiva != null ? metaAwareness(carteiraAtiva, faixasAwareness, piso) : null
+  const faltamMeta = meta != null && !semRespostas ? meta - respostas : null
+  const faltamPiso = piso - respostas
+
+  return (
+    <div className="glass rounded-2xl border border-line overflow-hidden" style={{ borderLeft: `3px solid ${color}` }}>
+      {header}
+
+      <div className="px-4 py-3 space-y-3">
+        <div className="bg-card-2 rounded-xl p-3">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="text-2xl font-bold text-ink">{semRespostas ? '—' : fmtValor('int', respostas)}</span>
+            <span className="text-xs text-ink-muted">
+              {respostas === 1 ? 'resposta' : 'respostas'} · meta: <span className="font-semibold">{meta ?? '—'}</span>
+            </span>
+          </div>
+          <p className="text-[11px] text-ink-faint mt-0.5">
+            {carteiraAtiva != null ? `carteira ativa: ${carteiraAtiva} clientes` : 'carteira ativa não encontrada'}
+          </p>
+          {semRespostas && (
+            <p className="text-[11px] text-ink-faint font-medium mt-1">Respostas não informadas nesta planilha</p>
+          )}
+          {faltamMeta != null && (faltamMeta <= 0 ? (
+            <p className="text-[11px] text-good font-medium mt-1">
+              ✓ Meta atingida{faltamMeta < 0 && ` — ${-faltamMeta} acima`}
+            </p>
+          ) : (
+            <p className="text-[11px] text-bad font-medium mt-1">
+              ✗ {faltamMeta === 1 ? 'Falta 1 resposta' : `Faltam ${faltamMeta} respostas`} de clientes para a meta
+            </p>
+          ))}
+        </div>
+
+        {semRespostas ? null : faltamPiso > 0 ? (
+          <div className="rounded-xl border border-bad/30 bg-bad-bg px-3 py-2">
+            <p className="text-[11px] text-bad font-semibold">⚠ Abaixo do piso de {piso} respostas</p>
+            <p className="text-[11px] text-bad mt-0.5">
+              {faltamPiso === 1 ? 'Falta 1 resposta' : `Faltam ${faltamPiso} respostas`} para o piso.
+              Sem ele, o Bloco 1 (Atuação) inteiro zera.
+            </p>
+          </div>
+        ) : (
+          <p className="text-[11px] text-ink-faint">Piso mínimo: {piso} respostas ✓</p>
+        )}
+
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-ink-faint">Ref.:</span>
+          <span className="text-ink-muted font-medium">{refLabel}</span>
+        </div>
+
+        {PILARES.awareness.cols
+          .filter(c => c.col !== 'Sellers que responderam pesquisa') /* já é o número grande */
           .map(c => (
             <div key={c.col} className="flex items-center justify-between gap-2 border-t border-card-2 pt-1.5">
               <span className="text-[11px] text-ink-muted leading-tight">{c.label}:</span>

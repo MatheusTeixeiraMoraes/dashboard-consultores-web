@@ -1,7 +1,7 @@
 'use client'
 
 import PilaresDetalhe, { type ResultadoPilar, type PilarConfigMin } from '@/components/dashboard/PilaresDetalhe'
-import type { FaixaAcionaveis } from '@/lib/pilares'
+import type { FaixaAcionaveis, FaixaAwareness } from '@/lib/pilares'
 import dynamic from 'next/dynamic'
 import CategoryHeader from '@/components/dashboard/CategoryHeader'
 
@@ -31,11 +31,14 @@ interface Props {
   idCarteira: string
   carteiraSize?: number
   faixasAcionaveis: FaixaAcionaveis[]
+  carteiraAtiva?: number
+  faixasAwareness: FaixaAwareness[]
   faixas: ScoreGeralFaixas
 }
 
 export default function MeuScoreClient({
-  resultados, dateDisplay, dataReferencia, pilaresConfig, profileNome, idCarteira, carteiraSize, faixasAcionaveis, faixas,
+  resultados, dateDisplay, dataReferencia, pilaresConfig, profileNome, idCarteira, carteiraSize, faixasAcionaveis,
+  carteiraAtiva, faixasAwareness, faixas,
 }: Props) {
   const porPilar = Object.fromEntries(resultados.map(r => [r.pilar_key, r]))
   const total = Math.min(
@@ -89,6 +92,8 @@ export default function MeuScoreClient({
           dataReferencia={dataReferencia}
           carteiraSize={carteiraSize}
           faixasAcionaveis={faixasAcionaveis}
+          carteiraAtiva={carteiraAtiva}
+          faixasAwareness={faixasAwareness}
         />
 
         <EvolucaoScore idCarteira={idCarteira} minPontos={2} metaObjetivo={faixas.meta_objetivo} />

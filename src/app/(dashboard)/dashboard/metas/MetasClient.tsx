@@ -4,9 +4,10 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { PillarConfig, ScoreGeralFaixas } from '@/lib/types'
-import type { FaixaAcionaveis } from '@/lib/pilares'
+import { PISO_AWARENESS_PADRAO, type FaixaAcionaveis, type FaixaAwareness } from '@/lib/pilares'
 import { registrarEvento } from '@/lib/atividade'
 import CategoryHeader from '@/components/dashboard/CategoryHeader'
+import FaixasAwareness from './FaixasAwareness'
 
 const CAT_LABEL: Record<string, string> = { atuacao: 'Atuação', resultado: 'Resultado' }
 const CAT_COLOR: Record<string, string> = { atuacao: 'var(--color-primary)', resultado: 'var(--color-good)' }
@@ -18,10 +19,11 @@ function sufixoUnidade(unidade: string) {
 
 interface FaixaEdit { min_carteira: string; meta_tarefas: string }
 
-export default function MetasClient({ pilares, profileId, faixasAcionaveis, faixasScoreGeral }: {
+export default function MetasClient({ pilares, profileId, faixasAcionaveis, faixasAwareness, faixasScoreGeral }: {
   pilares: PillarConfig[]
   profileId: string
   faixasAcionaveis: FaixaAcionaveis[]
+  faixasAwareness: FaixaAwareness[]
   faixasScoreGeral: ScoreGeralFaixas
 }) {
   const router = useRouter()
@@ -30,6 +32,10 @@ export default function MetasClient({ pilares, profileId, faixasAcionaveis, faix
   )
   const [pesos, setPesos] = useState<Record<string, string>>(
     Object.fromEntries(pilares.map(p => [p.pilar_key, String(p.pontos_max)]))
+  )
+  // Piso do Awareness (só ele tem): abaixo disso o Bloco 1 inteiro zera.
+  const [piso, setPiso] = useState(
+    String(pilares.find(p => p.pilar_key === 'awareness')?.piso_minimo ?? PISO_AWARENESS_PADRAO),
   )
   const [saving, setSaving] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
@@ -63,6 +69,12 @@ export default function MetasClient({ pilares, profileId, faixasAcionaveis, faix
       setErro(prev => ({ ...prev, [pilar.pilar_key]: 'Informe um peso válido (maior que zero).' }))
       return
     }
+    const ehAwareness = pilar.pilar_key === 'awareness'
+    const novoPiso = parseFloat(piso)
+    if (ehAwareness && (isNaN(novoPiso) || novoPiso <= 0)) {
+      setErro(prev => ({ ...prev, [pilar.pilar_key]: 'Informe um piso válido (maior que zero).' }))
+      return
+    }
 
     setSaving(pilar.pilar_key)
     setErro(prev => ({ ...prev, [pilar.pilar_key]: '' }))
@@ -71,6 +83,7 @@ export default function MetasClient({ pilares, profileId, faixasAcionaveis, faix
     const { error } = await supabase.from('pillar_config').update({
       meta: novaMeta,
       pontos_max: novoPeso,
+      ...(ehAwareness && { piso_minimo: novoPiso }),
       updated_at: new Date().toISOString(),
       updated_by: profileId,
     }).eq('pilar_key', pilar.pilar_key)
@@ -100,6 +113,16 @@ export default function MetasClient({ pilares, profileId, faixasAcionaveis, faix
         alvoId: pilar.pilar_key,
         alvoDescricao: pilar.label,
         detalhes: { de: pilar.pontos_max, para: novoPeso },
+      })
+    }
+    const pisoAnterior = pilar.piso_minimo ?? PISO_AWARENESS_PADRAO
+    if (ehAwareness && novoPiso !== pisoAnterior) {
+      registrarEvento({
+        tipo: 'piso_awareness_alterado',
+        alvoTipo: 'meta',
+        alvoId: pilar.pilar_key,
+        alvoDescricao: pilar.label,
+        detalhes: { de: pisoAnterior, para: novoPiso },
       })
     }
 
@@ -282,6 +305,38 @@ export default function MetasClient({ pilares, profileId, faixasAcionaveis, faix
                             Acionáveis Comerciais</strong>, no fim desta página.
                           </p>
                         </div>
+                      ) : pilar.pilar_key === 'awareness' ? (
+                        // Awareness (05/10/2026 em diante): deixou de ser percentual. A meta
+                        // virou uma quantidade de respostas que varia pela carteira ativa de
+                        // cada consultor (seção "Faixas de meta — Awareness", no fim desta
+                        // página), e há um piso: abaixo dele o Bloco 1 inteiro zera. O piso é
+                        // o único número global — por isso mora aqui.
+                        <>
+                          <div className="bg-card-2 rounded-xl p-3">
+                            <p className="text-xs text-ink-dim font-medium mb-1">Meta: respostas por carteira ativa</p>
+                            <p className="text-[11px] text-ink-muted leading-relaxed">
+                              Ajuste as faixas na seção <strong className="text-ink">Faixas de meta —
+                              Awareness</strong>, no fim desta página.
+                            </p>
+                          </div>
+                          <div>
+                            <label className="text-xs text-ink-muted mb-1 block">
+                              Piso mínimo{' '}
+                              <span className="text-ink-faint">(abaixo disso o Bloco 1 inteiro zera)</span>
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                step="1"
+                                min="1"
+                                value={piso}
+                                onChange={e => setPiso(e.target.value)}
+                                className="flex-1 min-w-0 border border-field-line rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary"
+                              />
+                              <span className="text-sm text-ink-muted flex-shrink-0">respostas</span>
+                            </div>
+                          </div>
+                        </>
                       ) : pilar.pilar_key === 'tpv' ? (
                         // TPV (20/08/2026 em diante): a meta não é mais um % fixo — o MP
                         // manda o objetivo exato em R$ de cada consultor na coluna
@@ -491,6 +546,8 @@ export default function MetasClient({ pilares, profileId, faixasAcionaveis, faix
           {savingFaixas ? 'Salvando...' : savedFaixas ? '✓ Salvo' : 'Salvar faixas'}
         </button>
       </div>
+
+      <FaixasAwareness faixasIniciais={faixasAwareness} profileId={profileId} />
     </div>
   )
 }

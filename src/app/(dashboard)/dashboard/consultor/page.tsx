@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import ConsultorClient from './ConsultorClient'
 import { buscarTudo } from '@/lib/supabase/buscar-tudo'
 import { normalizarNome } from '@/lib/convites'
+import { ehCarteiraAtiva } from '@/lib/pilares'
 import { SCORE_GERAL_FAIXAS_PADRAO, type ScoreGeralFaixas } from '@/lib/types'
 
 export default async function ConsultorPage() {
@@ -51,8 +52,8 @@ export default async function ConsultorPage() {
   // `data_referencia` já vem gravada em cada linha de resultado (mesmo valor
   // do upload que a gerou) — filtrar direto por ela poupa a ida extra de buscar
   // os uploadIds do dia só para usar em `upload_id in (...)`.
-  const [{ data: pilaresConfig }, { data: resultados }, carteiraLinhas, { data: faixasAcionaveis }, { data: faixasScore }] = await Promise.all([
-    supabase.from('pillar_config').select('pilar_key, pontos_max, meta, tipo_comp, unidade'),
+  const [{ data: pilaresConfig }, { data: resultados }, carteiraLinhas, { data: faixasAcionaveis }, { data: faixasAwareness }, { data: faixasScore }] = await Promise.all([
+    supabase.from('pillar_config').select('pilar_key, pontos_max, meta, tipo_comp, unidade, piso_minimo'),
     supabase
       .from('score_consultor_resultados')
       .select('id_carteira, consultor_nome, pilar_key, score_planilha, metricas, valor_metrica')
@@ -62,20 +63,25 @@ export default async function ConsultorPage() {
     // Filtrado num único `data_referencia`, `seller_id` sozinho já é ordem
     // TOTAL — mesmo sem estar entre as colunas selecionadas.
     dataCarteira
-      ? buscarTudo<{ consultor_nome: string }>(
-          opcoes => supabase.from('mp_carteira').select('consultor_nome', opcoes).eq('data_referencia', dataCarteira),
+      ? buscarTudo<{ consultor_nome: string; status: string | null }>(
+          opcoes => supabase.from('mp_carteira').select('consultor_nome, status', opcoes).eq('data_referencia', dataCarteira),
           'seller_id',
         )
       : Promise.resolve([]),
     supabase.from('metas_acionaveis_faixas').select('min_carteira, meta_tarefas'),
+    supabase.from('metas_awareness_faixas').select('min_carteira, meta_respostas'),
     supabase.from('score_geral_faixas').select('limite_critico, meta_objetivo').maybeSingle(),
   ])
   const faixas: ScoreGeralFaixas = faixasScore ?? SCORE_GERAL_FAIXAS_PADRAO
 
+  // Acionáveis conta todas as linhas; Awareness só a carteira ATIVA (ATIVO +
+  // REATIVADO) — é ela que bate com a nota da planilha, ver metaAwareness.
   const carteiraPorConsultor: Record<string, number> = {}
+  const carteiraAtivaPorConsultor: Record<string, number> = {}
   for (const c of carteiraLinhas) {
     const chave = normalizarNome(c.consultor_nome)
     carteiraPorConsultor[chave] = (carteiraPorConsultor[chave] ?? 0) + 1
+    carteiraAtivaPorConsultor[chave] = (carteiraAtivaPorConsultor[chave] ?? 0) + (ehCarteiraAtiva(c.status) ? 1 : 0)
   }
 
   const dateDisplay = new Date(latestDate + 'T12:00:00').toLocaleDateString('pt-BR', {
@@ -90,6 +96,8 @@ export default async function ConsultorPage() {
       pilaresConfig={pilaresConfig ?? []}
       carteiraPorConsultor={carteiraPorConsultor}
       faixasAcionaveis={faixasAcionaveis ?? []}
+      carteiraAtivaPorConsultor={carteiraAtivaPorConsultor}
+      faixasAwareness={faixasAwareness ?? []}
       faixas={faixas}
     />
   )
