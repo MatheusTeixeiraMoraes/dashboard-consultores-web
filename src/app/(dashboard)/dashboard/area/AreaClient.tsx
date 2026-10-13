@@ -33,6 +33,15 @@ function formatDateBR(iso: string) {
   return `${d}/${m}/${y}`
 }
 
+const PILAR_TABELA_LABEL: Record<PilarKey, string> = {
+  awareness: 'Awareness', produtividade: 'Produtividade', aderencia: 'Aderência',
+  tpv: 'TPV', net_churn: 'Net Churn', acionaveis: 'Acionáveis',
+}
+
+function formatScore(score: number | undefined) {
+  return score?.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) ?? '—'
+}
+
 interface Resultado {
   id_carteira: string
   consultor_nome: string
@@ -177,59 +186,65 @@ export default function AreaClient({
 
   return (
     <div className="category-page category-page--performance">
-      <div className="mb-5 space-y-4">
-        <div>
-          <CategoryHeader
-            category="performance"
-            title="Por área"
-            description={`${selectedPilar === 'geral' ? 'Ranking geral por score total' : `Ranking de ${PILARES[selectedPilar].label}`} · ${formatDateBR(selectedDate)}`}
-          />
-        </div>
+      <div className="mb-5">
+        <CategoryHeader
+          category="performance"
+          title="Por área"
+          description={`${selectedPilar === 'geral' ? 'Ranking geral por score total' : `Ranking de ${PILARES[selectedPilar].label}`} · ${formatDateBR(selectedDate)}`}
+        />
 
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-xs text-ink-muted">
-            <span>Ranking</span>
+        <div className="glass rounded-2xl border border-line p-3 mt-4 flex flex-wrap items-end justify-between gap-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="flex flex-col gap-1 text-[11px] font-medium text-ink-muted">
+              <span>Ranking</span>
             <select
               aria-label="Ranking por"
               value={selectedPilar}
               onChange={e => setSelectedPilar(e.target.value as PilarKey | 'geral')}
-              className="border border-field-line rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary bg-field"
+              className="border border-field-line rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary bg-field min-w-[210px]"
             >
               <option value="geral">Geral — todos os pilares</option>
               {PILAR_KEYS.map(pilar => <option key={pilar} value={pilar}>{PILARES[pilar].label}</option>)}
             </select>
+            </label>
+
+            {selectedPilar !== 'geral' && (
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-medium text-ink-muted">Ordenar por</span>
+                <div className="flex items-center gap-0.5 text-xs bg-field border border-field-line rounded-lg p-0.5 h-[38px]">
+                  {([['resultado', 'Resultado'], ['score', 'Score']] as [Criterio, string][]).map(([k, rot]) => (
+                    <button key={k} onClick={() => setCriterio(k)} aria-pressed={criterio === k}
+                      className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
+                        criterio === k ? 'bg-primary text-white' : 'text-ink-muted hover:text-ink'
+                      }`}>
+                      {rot}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <label className="flex flex-col gap-1 text-[11px] font-medium text-ink-muted">
+            <span>Data de referência</span>
+            <select
+              aria-label="Data de referência"
+              value={selectedDate}
+              onChange={e => handleDateChange(e.target.value)}
+              className="border border-field-line rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary bg-field min-w-[140px]"
+            >
+              {dates.map(d => <option key={d} value={d}>{formatDateBR(d)}</option>)}
+            </select>
           </label>
-
-          {selectedPilar !== 'geral' && (
-            <div className="flex items-center gap-0.5 text-xs bg-field border border-field-line rounded-lg p-0.5">
-              {([['resultado', 'Resultado'], ['score', 'Score']] as [Criterio, string][]).map(([k, rot]) => (
-                <button key={k} onClick={() => setCriterio(k)}
-                  className={`px-2.5 py-1.5 rounded-md font-medium transition-colors ${
-                    criterio === k ? 'bg-primary text-white' : 'text-ink-muted hover:text-ink'
-                  }`}>
-                  {rot}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <select
-            aria-label="Data de referência"
-            value={selectedDate}
-            onChange={e => handleDateChange(e.target.value)}
-            className="border border-field-line rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary bg-field"
-          >
-            {dates.map(d => <option key={d} value={d}>{formatDateBR(d)}</option>)}
-          </select>
         </div>
       </div>
 
-      <div className={`max-w-4xl transition-opacity ${loading ? 'opacity-50' : ''}`}>
+      <div className={`w-full min-w-0 transition-opacity ${loading ? 'opacity-50' : ''}`}>
         {selectedPilar === 'geral' ? (
-          <div className="glass rounded-2xl border border-line overflow-hidden">
+          <section className="glass rounded-2xl border border-line overflow-hidden" aria-label="Ranking geral dos consultores">
             <div className="px-5 py-4 flex items-center justify-between gap-3 border-b border-line">
               <div>
-                <p className="font-semibold text-ink text-sm">Todos os pilares</p>
+                <h2 className="font-semibold text-ink text-sm">Todos os pilares</h2>
                 <p className="text-[11px] text-ink-faint mt-0.5">Soma dos scores · máximo de 10 pontos</p>
               </div>
               <p className="text-xs text-ink-muted flex-shrink-0">{rankingGeral.length} consultores</p>
@@ -237,35 +252,71 @@ export default function AreaClient({
             {rankingGeral.length === 0 ? (
               <div className="px-5 py-6 text-center text-sm text-ink-faint">Sem dados para esta data</div>
             ) : (
-              <div className="divide-y divide-card-2">
-                {rankingGeral.map((c, i) => (
-                  <div key={c.id} className="px-4 sm:px-5 py-3 flex items-center gap-3 flex-wrap sm:flex-nowrap">
-                    <span className="text-xs font-medium text-ink-faint w-5 text-center flex-shrink-0">{i + 1}</span>
-                    <div className="flex-1 min-w-[140px]">
-                      <p className="text-sm font-medium text-ink truncate leading-tight">{c.nome}</p>
-                      <div className="flex flex-wrap gap-1.5 mt-2">
+              <>
+                <div className="hidden xl:block">
+                  <table className="w-full table-fixed text-sm">
+                    <thead className="bg-card-2/70 text-[11px] text-ink-muted">
+                      <tr>
+                        <th scope="col" className="w-14 px-3 py-3 text-center font-semibold">#</th>
+                        <th scope="col" className="w-[22%] px-3 py-3 text-left font-semibold">Consultor</th>
                         {PILAR_KEYS.map(pilar => (
-                          <span
-                            key={pilar}
-                            title={`${PILARES[pilar].label}: ${c.scores[pilar]?.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) ?? 'sem score'}`}
-                            className="inline-flex items-center gap-1 rounded-md bg-card-2 border border-line px-1.5 py-1 text-[10px] text-ink-muted"
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: PILARES[pilar].color }} />
-                            {PILARES[pilar].label}
-                            <b className="text-ink-dim">{c.scores[pilar]?.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) ?? '—'}</b>
-                          </span>
+                          <th key={pilar} scope="col" className="px-2 py-3 text-center font-semibold">
+                            <span className="inline-flex items-center justify-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: PILARES[pilar].color }} />
+                              <span>{PILAR_TABELA_LABEL[pilar]}</span>
+                            </span>
+                          </th>
                         ))}
+                        <th scope="col" className="w-28 px-5 py-3 text-right font-semibold">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-card-2">
+                      {rankingGeral.map((c, i) => (
+                        <tr key={c.id} className="hover:bg-card-2/40 transition-colors">
+                          <td className="px-3 py-3.5 text-center text-xs font-medium text-ink-faint">{i + 1}</td>
+                          <th scope="row" className="px-3 py-3.5 text-left font-medium text-ink truncate">{c.nome}</th>
+                          {PILAR_KEYS.map(pilar => (
+                            <td key={pilar} className="px-2 py-3.5 text-center tabular-nums text-ink-dim">{formatScore(c.scores[pilar])}</td>
+                          ))}
+                          <td className="px-5 py-3.5 text-right">
+                            <span className="text-base font-bold text-ink tabular-nums">{formatScore(c.total)}</span>
+                            <span className="block text-[10px] text-ink-faint">de 10 pontos</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="xl:hidden divide-y divide-card-2">
+                  {rankingGeral.map((c, i) => (
+                    <article key={c.id} className="px-4 sm:px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <span className={`w-8 h-8 rounded-full grid place-items-center text-xs font-bold shrink-0 ${
+                          i === 0 ? 'bg-primary text-white' : i < 3 ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-card-2 text-ink-muted border border-line'
+                        }`}>{i + 1}</span>
+                        <p className="flex-1 min-w-0 text-sm font-semibold text-ink leading-tight">{c.nome}</p>
+                        <div className="text-right shrink-0">
+                          <p className="text-lg font-bold text-ink tabular-nums">{formatScore(c.total)}</p>
+                          <p className="text-[10px] text-ink-faint">de 10 pontos</p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="ml-auto text-right flex-shrink-0">
-                      <p className="text-lg font-bold text-ink tabular-nums">{c.total.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</p>
-                      <p className="text-[10px] text-ink-faint">de 10 pontos</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                      <dl className="grid grid-cols-3 gap-x-3 gap-y-3 mt-4 pl-11">
+                        {PILAR_KEYS.map(pilar => (
+                          <div key={pilar} className="min-w-0">
+                            <dt className="flex items-center gap-1 text-[10px] text-ink-muted truncate">
+                              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: PILARES[pilar].color }} />
+                              {PILAR_TABELA_LABEL[pilar]}
+                            </dt>
+                            <dd className="mt-0.5 text-sm font-semibold text-ink tabular-nums">{formatScore(c.scores[pilar])}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </article>
+                  ))}
+                </div>
+              </>
             )}
-          </div>
+          </section>
         ) : (
         <div className="glass rounded-2xl border border-line overflow-hidden" style={{ borderTop: `3px solid ${PILARES[selectedPilar].color}` }}>
         {PILAR_KEYS.filter(pilar => pilar === selectedPilar).map(pilar => {
@@ -313,6 +364,25 @@ export default function AreaClient({
             : ehTpvResultado
             ? (comFalta.length > 0 ? comFalta.reduce((s, v) => s + v, 0) / comFalta.length : null)
             : (comValor.length > 0 ? comValor.reduce((s, c) => s + c.valorMetrica!, 0) / comValor.length : null)
+
+          const linhas = consultores.map((c, i) => {
+            const st = statusStyle(c.score, cfg?.pontos_max ?? 0)
+            const falta = ehTpvResultado ? tpvFalta(c.metricas) : null
+            const bateuMeta = falta != null && falta <= 0
+            const q = quantidades[i]
+            const destaque = q ? textoQuantidade(pilar, q.numero, q.de) : null
+            const situacao = q ? textoSituacao(pilar, q) : null
+            const semCarteira = q != null && q.faltam == null && dataAtual && (pilar === 'awareness' || pilar === 'acionaveis')
+            const pct = c.valorMetrica != null && valorSpec ? fmtValor(valorSpec.type, c.valorMetrica) : null
+            const scoreTxt = c.score.toFixed(1).replace('.', ',')
+            const valorResultado = ehTpvResultado
+              ? falta == null ? '—' : `${bateuMeta ? '+' : ''}${fmtValor('currency', Math.abs(falta))}`
+              : destaque ?? pct ?? '—'
+            const detalheResultado = ehTpvResultado
+              ? falta == null ? 'objetivo não informado' : bateuMeta ? 'meta batida' : 'faltam para a meta'
+              : [semCarteira ? 'carteira não encontrada' : null, situacao, pct && destaque ? `${pct} na planilha` : null].filter(Boolean).join(' · ')
+            return { c, i, st, scoreTxt, valorResultado, detalheResultado }
+          })
 
           return (
             <div key={pilar}>
@@ -370,77 +440,32 @@ export default function AreaClient({
               {consultores.length === 0 ? (
                 <div className="px-5 py-6 text-center text-sm text-ink-faint">Sem dados para este pilar</div>
               ) : (
-                <div className="divide-y divide-card-2">
-                  {consultores.map((c, i) => {
-                    const st = statusStyle(c.score, cfg?.pontos_max ?? 0)
-                    const falta = ehTpvResultado ? tpvFalta(c.metricas) : null
-                    const bateuMeta = falta != null && falta <= 0
-                    const q = quantidades[i]
-                    const destaque = q ? textoQuantidade(pilar, q.numero, q.de) : null
-                    const situacao = q ? textoSituacao(pilar, q) : null
-                    // Na data mais recente, sem "faltam" no Awareness/Acionáveis = carteira do consultor
-                    // não achada pelo nome (nas datas antigas é esperado). Melhor avisar do que sumir calado.
-                    const semCarteira = q != null && q.faltam == null && dataAtual && (pilar === 'awareness' || pilar === 'acionaveis')
-                    const pct = c.valorMetrica != null && valorSpec ? fmtValor(valorSpec.type, c.valorMetrica) : null
-                    const scoreTxt = c.score.toFixed(1).replace('.', ',')
-                    const semValorNesteCriterio = ehTpvResultado
-                      ? falta == null
-                      : criterio === 'resultado' && c.valorMetrica == null && !q
-                    return (
-                      <div key={c.id} className="px-5 py-2.5 flex items-center gap-3">
-                        <span className="text-xs font-medium text-ink-faint w-5 text-center flex-shrink-0">{i + 1}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-ink truncate leading-tight">{c.nome}</p>
-                          {ehTpvResultado ? (
-                            falta != null && (
-                              <p className="text-[11px] text-ink-muted mt-0.5">
-                                {bateuMeta
-                                  ? <span className="text-good font-medium">Meta batida</span>
-                                  : 'Faltam para a meta'}
-                              </p>
-                            )
-                          ) : criterio === 'resultado' ? (
-                            <p className="text-[11px] text-ink-muted mt-0.5">
-                              {semCarteira && <>carteira não encontrada · </>}
-                              {situacao && (
-                                <>
-                                  <span className={`font-medium ${(q?.faltam ?? 0) > 0 ? 'text-bad' : 'text-good'}`}>{situacao}</span>
-                                  {' · '}
-                                </>
-                              )}
-                              {destaque && pct && <>{pct} · </>}
-                              Score: <span className="font-semibold text-ink-dim">{scoreTxt}</span>
-                            </p>
-                          ) : destaque ? (
-                            <p className="text-[11px] text-ink-muted mt-0.5">
-                              <span className="font-semibold text-ink-dim">{destaque}</span>{pct && ` · ${pct}`}
-                            </p>
-                          ) : (
-                            c.valorMetrica != null && valorSpec && (
-                              <p className="text-[11px] text-ink-muted mt-0.5">
-                                {valorSpec.label}:{' '}
-                                <span className="font-semibold text-ink-dim">
-                                  {fmtValor(valorSpec.type, c.valorMetrica)}
-                                </span>
-                              </p>
-                            )
-                          )}
-                        </div>
-                        {semValorNesteCriterio ? (
-                          <span className="text-sm font-medium px-2.5 py-0.5 rounded-lg flex-shrink-0 text-ink-faint bg-card-2">—</span>
-                        ) : (
-                          <span className="text-sm font-bold px-2.5 py-0.5 rounded-lg flex-shrink-0 whitespace-nowrap" style={{ background: st.bg, color: st.text }}>
-                            {ehTpvResultado
-                              ? `${bateuMeta ? '+' : ''}${fmtValor('currency', Math.abs(falta!))}`
-                              : criterio === 'score'
-                              ? scoreTxt
-                              : (destaque ?? (valorSpec ? fmtValor(valorSpec.type, c.valorMetrica) : '—'))}
-                          </span>
-                        )}
-                      </div>
-                    )
-                  })}
+              <div className="divide-y divide-card-2">
+                <div className="hidden xl:grid grid-cols-[48px_minmax(0,1fr)_minmax(180px,260px)_120px] gap-3 px-5 py-2.5 bg-card-2/60 text-[11px] font-semibold text-ink-muted">
+                  <span className="text-center">#</span>
+                  <span>Consultor</span>
+                  <span className="text-right">Resultado</span>
+                  <span className="text-right">Score</span>
                 </div>
+                {linhas.map(({ c, i, st, scoreTxt, valorResultado, detalheResultado }) => (
+                  <div key={c.id} className="grid grid-cols-[32px_minmax(0,1fr)_auto] xl:grid-cols-[48px_minmax(0,1fr)_minmax(180px,260px)_120px] gap-x-3 gap-y-2 px-4 sm:px-5 py-3 items-center hover:bg-card-2/30 transition-colors">
+                    <span className="text-xs font-medium text-ink-faint text-center">{i + 1}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-ink leading-tight">{c.nome}</p>
+                      <p className="xl:hidden text-[11px] text-ink-muted mt-1">
+                        {valorResultado}{detalheResultado ? ` · ${detalheResultado}` : ''}
+                      </p>
+                    </div>
+                    <div className="hidden xl:block text-right min-w-0">
+                      <p className="text-sm font-semibold text-ink-dim tabular-nums truncate">{valorResultado}</p>
+                      {detalheResultado && <p className="text-[10px] text-ink-faint mt-0.5 truncate">{detalheResultado}</p>}
+                    </div>
+                    <span className="text-sm font-bold px-2.5 py-1 rounded-lg text-right tabular-nums" style={{ background: st.bg, color: st.text }}>
+                      {scoreTxt}<span className="text-[10px] font-medium opacity-70"> / {cfg?.pontos_max}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
               )}
             </div>
           )
