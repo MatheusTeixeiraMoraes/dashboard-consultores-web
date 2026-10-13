@@ -42,6 +42,28 @@ function formatScore(score: number | undefined) {
   return score?.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) ?? '—'
 }
 
+function rankBadgeStyle(index: number) {
+  const podium = [
+    { backgroundColor: '#fff3c4', color: '#8a5b00', borderColor: '#f3d36a' },
+    { backgroundColor: '#eef2f6', color: '#526171', borderColor: '#cbd5df' },
+    { backgroundColor: '#ffeadb', color: '#98512b', borderColor: '#f2bd97' },
+  ]
+  return podium[index] ?? { backgroundColor: 'var(--color-card-2)', color: 'var(--color-ink-muted)', borderColor: 'var(--color-line)' }
+}
+
+function totalProgress(score: number) {
+  return `${Math.max(0, Math.min(100, score * 10))}%`
+}
+
+function pilarScoreStyle(pilar: PilarKey) {
+  const color = PILARES[pilar].color
+  return {
+    color: `color-mix(in srgb, ${color} 82%, #111827)`,
+    backgroundColor: `color-mix(in srgb, ${color} 10%, white)`,
+    borderColor: `color-mix(in srgb, ${color} 28%, transparent)`,
+  }
+}
+
 interface Resultado {
   id_carteira: string
   consultor_nome: string
@@ -273,14 +295,24 @@ export default function AreaClient({
                     <tbody className="divide-y divide-card-2">
                       {rankingGeral.map((c, i) => (
                         <tr key={c.id} className="hover:bg-card-2/40 transition-colors">
-                          <td className="px-3 py-3.5 text-center text-xs font-medium text-ink-faint">{i + 1}</td>
+                          <td className="px-3 py-3.5 text-center">
+                            <span aria-label={`${i + 1}º lugar`} className="inline-grid w-7 h-7 place-items-center rounded-full border text-[11px] font-bold tabular-nums" style={rankBadgeStyle(i)}>{i + 1}</span>
+                          </td>
                           <th scope="row" className="px-3 py-3.5 text-left font-medium text-ink truncate">{c.nome}</th>
                           {PILAR_KEYS.map(pilar => (
-                            <td key={pilar} className="px-2 py-3.5 text-center tabular-nums text-ink-dim">{formatScore(c.scores[pilar])}</td>
+                            <td key={pilar} className="px-2 py-3.5 text-center">
+                              <span className="inline-flex min-w-[3.25rem] justify-center rounded-lg border px-2 py-1 text-xs font-semibold tabular-nums" style={pilarScoreStyle(pilar)}>{formatScore(c.scores[pilar])}</span>
+                            </td>
                           ))}
                           <td className="px-5 py-3.5 text-right">
-                            <span className="text-base font-bold text-ink tabular-nums">{formatScore(c.total)}</span>
-                            <span className="block text-[10px] text-ink-faint">de 10 pontos</span>
+                            <div className="flex flex-col items-end gap-1.5">
+                              <span className="inline-flex items-baseline gap-1 rounded-lg border border-primary/20 bg-primary/10 px-2.5 py-1 text-sm font-bold text-primary tabular-nums">
+                                {formatScore(c.total)}<span className="text-[9px] font-semibold opacity-70">/10</span>
+                              </span>
+                              <span role="meter" aria-label={`Score total de ${c.nome}`} aria-valuemin={0} aria-valuemax={10} aria-valuenow={c.total} aria-valuetext={`${formatScore(c.total)} de 10 pontos`} className="h-1.5 w-16 overflow-hidden rounded-full bg-primary/10">
+                                <span className="block h-full rounded-full bg-primary transition-[width]" style={{ width: totalProgress(c.total) }} />
+                              </span>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -291,12 +323,15 @@ export default function AreaClient({
                   {rankingGeral.map((c, i) => (
                     <article key={c.id} className="px-4 sm:px-5 py-4">
                       <div className="flex items-center gap-3">
-                        <span className={`w-8 h-8 rounded-full grid place-items-center text-xs font-bold shrink-0 ${
-                          i === 0 ? 'bg-primary text-white' : i < 3 ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-card-2 text-ink-muted border border-line'
-                        }`}>{i + 1}</span>
+                        <span aria-label={`${i + 1}º lugar`} className="w-8 h-8 rounded-full grid place-items-center text-xs font-bold shrink-0 border tabular-nums" style={rankBadgeStyle(i)}>{i + 1}</span>
                         <p className="flex-1 min-w-0 text-sm font-semibold text-ink leading-tight">{c.nome}</p>
-                        <div className="text-right shrink-0">
-                          <p className="text-lg font-bold text-ink tabular-nums">{formatScore(c.total)}</p>
+                        <div className="text-right shrink-0 min-w-[68px]">
+                          <p className="inline-flex items-baseline gap-1 rounded-lg border border-primary/20 bg-primary/10 px-2 py-1 text-base font-bold text-primary tabular-nums">
+                            {formatScore(c.total)}<span className="text-[9px] font-semibold opacity-70">/10</span>
+                          </p>
+                          <span role="meter" aria-label={`Score total de ${c.nome}`} aria-valuemin={0} aria-valuemax={10} aria-valuenow={c.total} aria-valuetext={`${formatScore(c.total)} de 10 pontos`} className="ml-auto mt-1 block h-1.5 w-16 overflow-hidden rounded-full bg-primary/10">
+                            <span className="block h-full rounded-full bg-primary transition-[width]" style={{ width: totalProgress(c.total) }} />
+                          </span>
                           <p className="text-[10px] text-ink-faint">de 10 pontos</p>
                         </div>
                       </div>
@@ -307,7 +342,9 @@ export default function AreaClient({
                               <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: PILARES[pilar].color }} />
                               {PILAR_TABELA_LABEL[pilar]}
                             </dt>
-                            <dd className="mt-0.5 text-sm font-semibold text-ink tabular-nums">{formatScore(c.scores[pilar])}</dd>
+                            <dd className="mt-1">
+                              <span className="inline-flex min-w-[3.25rem] justify-center rounded-lg border px-2 py-1 text-xs font-semibold tabular-nums" style={pilarScoreStyle(pilar)}>{formatScore(c.scores[pilar])}</span>
+                            </dd>
                           </div>
                         ))}
                       </dl>
@@ -449,15 +486,16 @@ export default function AreaClient({
                 </div>
                 {linhas.map(({ c, i, st, scoreTxt, valorResultado, detalheResultado }) => (
                   <div key={c.id} className="grid grid-cols-[32px_minmax(0,1fr)_auto] xl:grid-cols-[48px_minmax(0,1fr)_minmax(180px,260px)_120px] gap-x-3 gap-y-2 px-4 sm:px-5 py-3 items-center hover:bg-card-2/30 transition-colors">
-                    <span className="text-xs font-medium text-ink-faint text-center">{i + 1}</span>
+                    <span aria-label={`${i + 1}º lugar`} className="inline-grid w-7 h-7 place-items-center rounded-full border text-[11px] font-bold tabular-nums" style={rankBadgeStyle(i)}>{i + 1}</span>
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-ink leading-tight">{c.nome}</p>
-                      <p className="xl:hidden text-[11px] text-ink-muted mt-1">
-                        {valorResultado}{detalheResultado ? ` · ${detalheResultado}` : ''}
+                      <p className="xl:hidden text-[11px] text-ink-muted mt-1 flex flex-wrap items-center gap-1">
+                        <span className="inline-flex rounded-md border px-1.5 py-0.5 font-semibold tabular-nums" style={pilarScoreStyle(pilar)}>{valorResultado}</span>
+                        {detalheResultado && <span>· {detalheResultado}</span>}
                       </p>
                     </div>
                     <div className="hidden xl:block text-right min-w-0">
-                      <p className="text-sm font-semibold text-ink-dim tabular-nums truncate">{valorResultado}</p>
+                      <p><span className="inline-flex max-w-full rounded-md border px-2 py-1 text-sm font-semibold tabular-nums truncate" style={pilarScoreStyle(pilar)}>{valorResultado}</span></p>
                       {detalheResultado && <p className="text-[10px] text-ink-faint mt-0.5 truncate">{detalheResultado}</p>}
                     </div>
                     <span className="text-sm font-bold px-2.5 py-1 rounded-lg text-right tabular-nums" style={{ background: st.bg, color: st.text }}>
