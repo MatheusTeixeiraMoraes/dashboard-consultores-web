@@ -6,6 +6,7 @@ import { normalizarNome as norm } from '@/lib/convites'
 import { redirect } from 'next/navigation'
 import GeralClient from './GeralClient'
 import { SCORE_GERAL_FAIXAS_PADRAO, type ScoreGeralFaixas } from '@/lib/types'
+import type { FaixaAcionaveis, FaixaAwareness } from '@/lib/pilares'
 
 /** Números de carteira de um consultor, agregados das duas fontes. */
 export interface CarteiraResumo {
@@ -60,15 +61,16 @@ export default async function GeralPage() {
    * E `clientes`/`linhasCarteira` nunca dependeram do score: só de `dataCarteira`,
    * que já saiu da primeira onda. Antes essas quatro buscas rodavam em três ondas
    * em fila; nenhuma depende do resultado de outra, então cabem todas juntas. */
-  type ResultadoRow = { id_carteira: string; consultor_nome: string; pilar_key: string; score_planilha: number }
-  const [{ data: pilaresConfig }, { data: resultadosData }, clientes, linhasCarteira, { data: faixasScore }, { data: aliasesData }] = await Promise.all([
+  const modoConsultor = profile.role === 'consultor'
+  type ResultadoRow = { id_carteira: string; consultor_nome: string; pilar_key: string; score_planilha: number; metricas?: Record<string, unknown> | null }
+  const [{ data: pilaresConfig }, { data: resultadosData }, clientes, linhasCarteira, { data: faixasScore }, { data: aliasesData }, { data: faixasAwareness }, { data: faixasAcionaveis }] = await Promise.all([
     latestDate
-      ? supabase.from('pillar_config').select('pilar_key, meta, unidade')
-      : Promise.resolve({ data: [] as { pilar_key: string; meta: number; unidade: string }[] }),
+      ? supabase.from('pillar_config').select('pilar_key, meta, unidade, piso_minimo')
+      : Promise.resolve({ data: [] as { pilar_key: string; meta: number; unidade: string; piso_minimo: number | null }[] }),
     latestDate
       ? supabase
           .from('score_consultor_resultados')
-          .select('id_carteira, consultor_nome, pilar_key, score_planilha')
+          .select('id_carteira, consultor_nome, pilar_key, score_planilha, metricas')
           .eq('data_referencia', latestDate)
       : Promise.resolve({ data: [] as ResultadoRow[] }),
     // `seller_id` é `unique` em `clientes` — ordem TOTAL sozinho.
@@ -92,22 +94,29 @@ export default async function GeralPage() {
       : Promise.resolve([]),
     supabase.from('score_geral_faixas').select('limite_critico, meta_objetivo').maybeSingle(),
     supabase.from('consultor_aliases').select('nome_normalizado, id_carteira'),
+    modoConsultor
+      ? supabase.from('metas_awareness_faixas').select('min_carteira, meta_respostas')
+      : Promise.resolve({ data: [] as FaixaAwareness[] }),
+    modoConsultor
+      ? supabase.from('metas_acionaveis_faixas').select('min_carteira, meta_tarefas')
+      : Promise.resolve({ data: [] as FaixaAcionaveis[] }),
   ])
   const faixas: ScoreGeralFaixas = faixasScore ?? SCORE_GERAL_FAIXAS_PADRAO
 
-  const metaMap: Record<string, { meta: number; unidade: string }> = Object.fromEntries(
-    (pilaresConfig ?? []).map(p => [p.pilar_key, { meta: p.meta, unidade: p.unidade }])
+  const metaMap: Record<string, { meta: number; unidade: string; piso_minimo?: number | null }> = Object.fromEntries(
+    (pilaresConfig ?? []).map(p => [p.pilar_key, { meta: p.meta, unidade: p.unidade, piso_minimo: p.piso_minimo }])
   )
   const resultados: ResultadoRow[] = resultadosData ?? []
 
-  const consultoresMap = new Map<string, { nome: string; scores: Record<string, number>; total: number }>()
+  const consultoresMap = new Map<string, { nome: string; scores: Record<string, number>; total: number; metricas: Record<string, unknown> }>()
   for (const r of resultados) {
     if (!consultoresMap.has(r.id_carteira)) {
-      consultoresMap.set(r.id_carteira, { nome: r.consultor_nome, scores: {}, total: 0 })
+      consultoresMap.set(r.id_carteira, { nome: r.consultor_nome, scores: {}, total: 0, metricas: {} })
     }
     const c = consultoresMap.get(r.id_carteira)!
     c.scores[r.pilar_key] = r.score_planilha
     c.total += r.score_planilha
+    if (modoConsultor && r.metricas) Object.assign(c.metricas, r.metricas)
   }
 
   // Nome normalizado → id_carteira: o nome como o score já conhece (bate
@@ -158,11 +167,12 @@ export default async function GeralPage() {
         total: Math.min(c.total, 10) as number | null,
         scores: c.scores,
         carteira: carteiras.get(chave) ?? null,
+        metricas: modoConsultor ? c.metricas : null,
       }
     })
   for (const [k, v] of carteiras) {
     if (!chavesUsadas.has(k)) {
-      ranking.push({ id: null, nome: v.nome, total: null, scores: {}, carteira: v })
+      ranking.push({ id: null, nome: v.nome, total: null, scores: {}, carteira: v, metricas: null })
     }
   }
   ranking.sort((a, b) => (b.total ?? -1) - (a.total ?? -1))
@@ -178,9 +188,11 @@ export default async function GeralPage() {
       dateDisplay={dateDisplay}
       dataCarteiraBR={dataCarteiraBR}
       metaMap={metaMap}
-      modoConsultor={profile.role === 'consultor'}
+      modoConsultor={modoConsultor}
       meuNome={profile.nome || profile.email}
       faixas={faixas}
+      faixasAwareness={faixasAwareness ?? []}
+      faixasAcionaveis={faixasAcionaveis ?? []}
     />
   )
 }

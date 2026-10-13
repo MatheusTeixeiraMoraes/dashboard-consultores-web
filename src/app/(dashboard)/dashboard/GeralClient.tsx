@@ -22,7 +22,18 @@ const DistribuicaoEquipe = dynamic(() => import('./DistribuicaoEquipe'), {
 })
 import type { CarteiraResumo } from './page'
 import type { ScoreGeralFaixas } from '@/lib/types'
-import { textoMetaNetChurn, textoMetaAderencia } from '@/lib/pilares'
+import {
+  ativosMinimosNetChurn,
+  aderentesMinimosAgenda,
+  metaAcionaveis,
+  metaAwareness,
+  numeroOuNaN,
+  PISO_AWARENESS_PADRAO,
+  textoMetaNetChurn,
+  textoMetaAderencia,
+  type FaixaAcionaveis,
+  type FaixaAwareness,
+} from '@/lib/pilares'
 
 const PILARES = ['tpv', 'net_churn', 'acionaveis', 'aderencia', 'awareness', 'produtividade']
 const PILAR_LABEL: Record<string, string> = {
@@ -67,16 +78,182 @@ interface ConsultorData {
   total: number | null          // null = está na carteira mas sem planilha de score
   scores: Record<string, number>
   carteira: (CarteiraResumo & { nome: string }) | null
+  metricas?: Record<string, unknown> | null
 }
 
 interface Props {
   ranking: ConsultorData[]
   dateDisplay: string | null
   dataCarteiraBR: string | null
-  metaMap: Record<string, { meta: number; unidade: string }>
+  metaMap: Record<string, { meta: number; unidade: string; piso_minimo?: number | null }>
   modoConsultor: boolean
   meuNome: string
   faixas: ScoreGeralFaixas
+  faixasAwareness: FaixaAwareness[]
+  faixasAcionaveis: FaixaAcionaveis[]
+}
+
+interface MetaDoMes {
+  label: string
+  valor: string
+  detalhe: string
+  progresso: number | null
+  atingida: boolean | null
+  color: string
+}
+
+function fmtCurrency(n: number): string {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(n)
+}
+
+function fmtDecimal(n: number): string {
+  return n.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
+}
+
+function progresso(current: number, target: number): number {
+  return target > 0 ? Math.max(0, Math.min(100, (current / target) * 100)) : current >= target ? 100 : 0
+}
+
+function MetaCard({ item }: { item: MetaDoMes }) {
+  const color = item.atingida === null ? 'var(--color-ink-muted)' : item.atingida ? 'var(--color-good)' : 'var(--color-warn)'
+  return (
+    <div className="glass rounded-2xl border border-line p-4 min-w-0" style={{ borderLeft: `3px solid ${item.color}` }}>
+      <p className="text-[11px] uppercase tracking-wider font-semibold text-ink-muted mb-2">{item.label}</p>
+      <p className="text-xl sm:text-2xl font-bold text-ink tabular-nums leading-tight">{item.valor}</p>
+      <div className="h-1.5 rounded-full bg-card-2 overflow-hidden mt-3">
+        {item.progresso !== null && (
+          <div role="progressbar" aria-label={`Progresso: ${item.label}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(item.progresso)} className="h-full rounded-full transition-[width]" style={{ width: `${item.progresso}%`, background: color }} />
+        )}
+      </div>
+      <p className="text-xs text-ink-muted mt-2 min-h-8">{item.detalhe}</p>
+    </div>
+  )
+}
+
+function metasDoMes(
+  consultor: ConsultorData,
+  metaMap: Props['metaMap'],
+  faixasAwareness: FaixaAwareness[],
+  faixasAcionaveis: FaixaAcionaveis[],
+): MetaDoMes[] {
+  const m = consultor.metricas ?? {}
+  const status = consultor.carteira?.status
+  const tamanhoCarteira = status ? Object.values(status).reduce((total, n) => total + n, 0) : null
+  const carteiraAtiva = status && Object.keys(status).length > 0
+    ? (status.ATIVO ?? 0) + (status.REATIVADO ?? 0)
+    : null
+  const cards: MetaDoMes[] = []
+  const addQuantidade = (label: string, realizado: number, alvo: number, unidade: string, color: string) => {
+    const atingida = realizado >= alvo
+    const faltam = Math.max(0, Math.ceil(alvo - realizado))
+    cards.push({
+      label,
+      valor: `${nBR(realizado)} / ${nBR(alvo)}`,
+      detalhe: `${unidade} · ${atingida ? 'meta atingida' : `faltam ${nBR(faltam)}`}`,
+      progresso: progresso(realizado, alvo),
+      atingida,
+      color,
+    })
+  }
+
+  const tpvAtual = numeroOuNaN(m['TPV Total mês atual'])
+  const tpvMeta = numeroOuNaN(m['Objetivo TPV Total Atual'])
+  if (Number.isFinite(tpvAtual) && Number.isFinite(tpvMeta)) {
+    const atingida = tpvAtual >= tpvMeta
+    cards.push({
+      label: 'TPV',
+      valor: `${fmtCurrency(tpvAtual)} / ${fmtCurrency(tpvMeta)}`,
+      detalhe: atingida ? 'meta atingida' : `faltam ${fmtCurrency(tpvMeta - tpvAtual)}`,
+      progresso: progresso(tpvAtual, tpvMeta),
+      atingida,
+      color: PILAR_COLOR.tpv,
+    })
+  } else {
+    cards.push({ label: 'TPV', valor: '— / —', detalhe: 'aguardando dados da planilha', progresso: null, atingida: null, color: PILAR_COLOR.tpv })
+  }
+
+  const baseNetChurn = numeroOuNaN(m['Sellers ativos mês passado'])
+  const ativosHoje = numeroOuNaN(m['Sellers ativos mês atual'])
+  const metaNetChurn = metaMap.net_churn?.meta
+  if (baseNetChurn > 0 && Number.isFinite(ativosHoje) && Number.isFinite(metaNetChurn)) {
+    const ativosMinimos = ativosMinimosNetChurn(baseNetChurn, metaNetChurn)
+    const atingida = ativosHoje >= ativosMinimos
+    const saldoNecessario = ativosMinimos - baseNetChurn
+    if (metaNetChurn < 0) {
+      const perdas = Math.max(0, baseNetChurn - ativosHoje)
+      const limitePerdas = Math.max(0, baseNetChurn - ativosMinimos)
+      cards.push({
+        label: 'Net Churn',
+        valor: `${nBR(perdas)} / máx. ${nBR(limitePerdas)}`,
+        detalhe: atingida ? 'perdas líquidas de sellers · dentro do limite' : `perdas líquidas · recupere ${nBR(ativosMinimos - ativosHoje)} sellers ativos`,
+        progresso: progresso(ativosHoje, ativosMinimos),
+        atingida,
+        color: PILAR_COLOR.net_churn,
+      })
+    } else {
+      const saldoAtual = ativosHoje - baseNetChurn
+      cards.push({
+        label: 'Net Churn',
+        valor: `${saldoAtual > 0 ? '+' : ''}${nBR(saldoAtual)} / mín. ${saldoNecessario > 0 ? '+' : ''}${nBR(saldoNecessario)}`,
+        detalhe: atingida ? 'saldo líquido de sellers · meta atingida' : `saldo líquido · faltam ${nBR(ativosMinimos - ativosHoje)} ativos`,
+        progresso: progresso(ativosHoje, ativosMinimos),
+        atingida,
+        color: PILAR_COLOR.net_churn,
+      })
+    }
+  } else {
+    cards.push({ label: 'Net Churn', valor: '— / —', detalhe: 'aguardando dados da planilha', progresso: null, atingida: null, color: PILAR_COLOR.net_churn })
+  }
+
+  const revertidas = numeroOuNaN(m['Total Acionáveis Revertido'])
+  if (Number.isFinite(revertidas) && tamanhoCarteira !== null) {
+    addQuantidade('Acionáveis', revertidas, metaAcionaveis(tamanhoCarteira, faixasAcionaveis), 'tarefas revertidas', PILAR_COLOR.acionaveis)
+  } else {
+    cards.push({ label: 'Acionáveis', valor: '— / —', detalhe: 'aguardando dados da carteira', progresso: null, atingida: null, color: PILAR_COLOR.acionaveis })
+  }
+
+  const agendados = numeroOuNaN(m['Sellers agendados'])
+  const aderentes = numeroOuNaN(m['Sellers aderentes à agenda'])
+  const metaAderencia = metaMap.aderencia?.meta
+  if (agendados > 0 && Number.isFinite(aderentes) && Number.isFinite(metaAderencia)) {
+    const minimo = aderentesMinimosAgenda(agendados, metaAderencia)
+    const atingida = aderentes >= minimo
+    cards.push({
+      label: 'Aderência',
+      valor: `${nBR(aderentes)} / ${nBR(minimo)}`,
+      detalhe: `${nBR(agendados)} agendados · ${atingida ? 'meta atingida' : `faltam ${nBR(minimo - aderentes)} visitas`}`,
+      progresso: progresso(aderentes, minimo),
+      atingida,
+      color: PILAR_COLOR.aderencia,
+    })
+  } else {
+    cards.push({ label: 'Aderência', valor: '— / —', detalhe: 'aguardando dados da agenda', progresso: null, atingida: null, color: PILAR_COLOR.aderencia })
+  }
+
+  const respostas = numeroOuNaN(m['Sellers que responderam pesquisa'])
+  if (Number.isFinite(respostas) && carteiraAtiva !== null) {
+    addQuantidade('Pesquisas', respostas, metaAwareness(carteiraAtiva, faixasAwareness, metaMap.awareness?.piso_minimo ?? PISO_AWARENESS_PADRAO), 'respostas', PILAR_COLOR.awareness)
+  } else {
+    cards.push({ label: 'Pesquisas', valor: '— / —', detalhe: 'aguardando dados da carteira ativa', progresso: null, atingida: null, color: PILAR_COLOR.awareness })
+  }
+
+  const produtividade = numeroOuNaN(m['Prod média por dia útil'])
+  const metaProdutividade = metaMap.produtividade?.meta
+  if (Number.isFinite(produtividade) && Number.isFinite(metaProdutividade)) {
+    const atingida = produtividade >= metaProdutividade
+    const unidade = metaMap.produtividade?.unidade || 'por dia útil'
+    cards.push({
+      label: 'Produtividade',
+      valor: `${fmtDecimal(produtividade)} / ${fmtMeta(metaProdutividade, unidade)}`,
+      detalhe: `${unidade} · ${atingida ? 'meta atingida' : `faltam ${fmtDecimal(metaProdutividade - produtividade)}`}`,
+      progresso: progresso(produtividade, metaProdutividade),
+      atingida,
+      color: PILAR_COLOR.produtividade,
+    })
+  } else {
+    cards.push({ label: 'Produtividade', valor: '— / —', detalhe: 'aguardando dados da planilha', progresso: null, atingida: null, color: PILAR_COLOR.produtividade })
+  }
+  return cards
 }
 
 function SummaryCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
@@ -125,7 +302,7 @@ function Stat({ rotulo, children }: { rotulo: string; children: React.ReactNode 
   )
 }
 
-export default function GeralClient({ ranking, dateDisplay, dataCarteiraBR, metaMap, modoConsultor, meuNome, faixas }: Props) {
+export default function GeralClient({ ranking, dateDisplay, dataCarteiraBR, metaMap, modoConsultor, meuNome, faixas, faixasAwareness, faixasAcionaveis }: Props) {
   const stats = useMemo(() => {
     const comScore = ranking.filter((c): c is ConsultorData & { total: number } => c.total !== null)
     const acima = comScore.filter(c => c.total >= faixas.meta_objetivo).length
@@ -146,6 +323,9 @@ export default function GeralClient({ ranking, dateDisplay, dataCarteiraBR, meta
   ]
 
   const meuScore = modoConsultor ? ranking.find(c => c.total !== null)?.total ?? null : null
+  const metasConsultor = modoConsultor && ranking[0]
+    ? metasDoMes(ranking[0], metaMap, faixasAwareness, faixasAcionaveis)
+    : []
 
   return (
     <div className="category-page category-page--performance">
@@ -154,6 +334,21 @@ export default function GeralClient({ ranking, dateDisplay, dataCarteiraBR, meta
         title={modoConsultor ? 'Minha visão geral' : 'Visão geral'}
         description={`${modoConsultor ? meuNome : `${ranking.length} consultores${dateDisplay ? ` · ${dateDisplay}` : ''}`}${dataCarteiraBR ? ` · carteira de ${dataCarteiraBR}` : ''}`}
       />
+
+      {modoConsultor && (
+        <section aria-labelledby="metas-do-mes" className="mb-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+            <div>
+              <h2 id="metas-do-mes" className="text-base font-semibold text-ink">Metas do mês</h2>
+              <p className="text-xs text-ink-muted mt-0.5">Veja quanto já alcançou e o que falta em cada pilar.</p>
+            </div>
+            <p className="text-[11px] text-ink-faint">Net Churn considera perdas líquidas após reativações.</p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+            {metasConsultor.map(item => <MetaCard key={item.label} item={item} />)}
+          </div>
+        </section>
+      )}
 
       {/* Cards de resumo */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
