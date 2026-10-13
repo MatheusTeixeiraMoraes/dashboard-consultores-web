@@ -54,6 +54,13 @@ interface PilarConfigLite {
 
 type Criterio = 'resultado' | 'score'
 
+type ConsultorRankingGeral = {
+  id: string
+  nome: string
+  total: number
+  scores: Partial<Record<PilarKey, number>>
+}
+
 interface ConsultorRow {
   id: string
   nome: string
@@ -84,6 +91,20 @@ function agruparPorPilar(resultados: Resultado[]): Record<string, ConsultorRow[]
     })
   }
   return porPilar
+}
+
+function agruparRankingGeral(resultados: Resultado[]): ConsultorRankingGeral[] {
+  const consultores = new Map<string, ConsultorRankingGeral>()
+  for (const r of resultados) {
+    let consultor = consultores.get(r.id_carteira)
+    if (!consultor) {
+      consultor = { id: r.id_carteira, nome: r.consultor_nome, total: 0, scores: {} }
+      consultores.set(r.id_carteira, consultor)
+    }
+    consultor.scores[r.pilar_key] = r.score_planilha
+    consultor.total = Math.min(consultor.total + r.score_planilha, 10)
+  }
+  return [...consultores.values()].sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, 'pt-BR'))
 }
 
 /**
@@ -134,6 +155,7 @@ export default function AreaClient({
   faixasAwareness: FaixaAwareness[]
   faixasAcionaveis: FaixaAcionaveis[]
 }) {
+  const [selectedPilar, setSelectedPilar] = useState<PilarKey | 'geral'>('geral')
   const [selectedDate, setSelectedDate] = useState(initialDate)
   const [criterio, setCriterio] = useState<Criterio>('resultado')
   const [resultados, setResultados] = useState(initialResultados)
@@ -148,6 +170,7 @@ export default function AreaClient({
 
   const cfgPorPilar = Object.fromEntries(pilaresConfig.map(p => [p.pilar_key, p]))
   const porPilar = agruparPorPilar(resultados)
+  const rankingGeral = agruparRankingGeral(resultados)
   // A carteira vem do último snapshot: só vale para a data mais recente. Nas antigas
   // o Awareness e os Acionáveis mostram a contagem, sem o "faltam".
   const dataAtual = selectedDate === initialDate
@@ -156,22 +179,42 @@ export default function AreaClient({
     <div className="category-page category-page--performance">
       <div className="mb-5 space-y-4">
         <div>
-          <CategoryHeader category="performance" title="Por área" description={`Ranking de cada pilar · ${formatDateBR(selectedDate)}`} />
+          <CategoryHeader
+            category="performance"
+            title="Por área"
+            description={`${selectedPilar === 'geral' ? 'Ranking geral por score total' : `Ranking de ${PILARES[selectedPilar].label}`} · ${formatDateBR(selectedDate)}`}
+          />
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-0.5 text-xs bg-field border border-field-line rounded-lg p-0.5">
-            {([['resultado', 'Resultado'], ['score', 'Score']] as [Criterio, string][]).map(([k, rot]) => (
-              <button key={k} onClick={() => setCriterio(k)}
-                className={`px-2.5 py-1.5 rounded-md font-medium transition-colors ${
-                  criterio === k ? 'bg-primary text-white' : 'text-ink-muted hover:text-ink'
-                }`}>
-                {rot}
-              </button>
-            ))}
-          </div>
+          <label className="flex items-center gap-2 text-xs text-ink-muted">
+            <span>Ranking</span>
+            <select
+              aria-label="Ranking por"
+              value={selectedPilar}
+              onChange={e => setSelectedPilar(e.target.value as PilarKey | 'geral')}
+              className="border border-field-line rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary bg-field"
+            >
+              <option value="geral">Geral — todos os pilares</option>
+              {PILAR_KEYS.map(pilar => <option key={pilar} value={pilar}>{PILARES[pilar].label}</option>)}
+            </select>
+          </label>
+
+          {selectedPilar !== 'geral' && (
+            <div className="flex items-center gap-0.5 text-xs bg-field border border-field-line rounded-lg p-0.5">
+              {([['resultado', 'Resultado'], ['score', 'Score']] as [Criterio, string][]).map(([k, rot]) => (
+                <button key={k} onClick={() => setCriterio(k)}
+                  className={`px-2.5 py-1.5 rounded-md font-medium transition-colors ${
+                    criterio === k ? 'bg-primary text-white' : 'text-ink-muted hover:text-ink'
+                  }`}>
+                  {rot}
+                </button>
+              ))}
+            </div>
+          )}
 
           <select
+            aria-label="Data de referência"
             value={selectedDate}
             onChange={e => handleDateChange(e.target.value)}
             className="border border-field-line rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary bg-field"
@@ -181,8 +224,51 @@ export default function AreaClient({
         </div>
       </div>
 
-      <div className={`grid grid-cols-1 lg:grid-cols-2 gap-5 transition-opacity ${loading ? 'opacity-50' : ''}`}>
-        {PILAR_KEYS.map(pilar => {
+      <div className={`max-w-4xl transition-opacity ${loading ? 'opacity-50' : ''}`}>
+        {selectedPilar === 'geral' ? (
+          <div className="glass rounded-2xl border border-line overflow-hidden">
+            <div className="px-5 py-4 flex items-center justify-between gap-3 border-b border-line">
+              <div>
+                <p className="font-semibold text-ink text-sm">Todos os pilares</p>
+                <p className="text-[11px] text-ink-faint mt-0.5">Soma dos scores · máximo de 10 pontos</p>
+              </div>
+              <p className="text-xs text-ink-muted flex-shrink-0">{rankingGeral.length} consultores</p>
+            </div>
+            {rankingGeral.length === 0 ? (
+              <div className="px-5 py-6 text-center text-sm text-ink-faint">Sem dados para esta data</div>
+            ) : (
+              <div className="divide-y divide-card-2">
+                {rankingGeral.map((c, i) => (
+                  <div key={c.id} className="px-4 sm:px-5 py-3 flex items-center gap-3 flex-wrap sm:flex-nowrap">
+                    <span className="text-xs font-medium text-ink-faint w-5 text-center flex-shrink-0">{i + 1}</span>
+                    <div className="flex-1 min-w-[140px]">
+                      <p className="text-sm font-medium text-ink truncate leading-tight">{c.nome}</p>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {PILAR_KEYS.map(pilar => (
+                          <span
+                            key={pilar}
+                            title={`${PILARES[pilar].label}: ${c.scores[pilar]?.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) ?? 'sem score'}`}
+                            className="inline-flex items-center gap-1 rounded-md bg-card-2 border border-line px-1.5 py-1 text-[10px] text-ink-muted"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: PILARES[pilar].color }} />
+                            {PILARES[pilar].label}
+                            <b className="text-ink-dim">{c.scores[pilar]?.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) ?? '—'}</b>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="ml-auto text-right flex-shrink-0">
+                      <p className="text-lg font-bold text-ink tabular-nums">{c.total.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</p>
+                      <p className="text-[10px] text-ink-faint">de 10 pontos</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+        <div className="glass rounded-2xl border border-line overflow-hidden" style={{ borderTop: `3px solid ${PILARES[selectedPilar].color}` }}>
+        {PILAR_KEYS.filter(pilar => pilar === selectedPilar).map(pilar => {
           const spec = PILARES[pilar]
           const { color } = spec
           const consultores = ordenar(porPilar[pilar] ?? [], pilar, criterio)
@@ -229,7 +315,7 @@ export default function AreaClient({
             : (comValor.length > 0 ? comValor.reduce((s, c) => s + c.valorMetrica!, 0) / comValor.length : null)
 
           return (
-            <div key={pilar} className="glass rounded-2xl border border-line overflow-hidden" style={{ borderTop: `3px solid ${color}` }}>
+            <div key={pilar}>
               <div className="px-5 py-4 flex items-center justify-between gap-3 border-b border-line">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${color}20` }}>
@@ -359,6 +445,8 @@ export default function AreaClient({
             </div>
           )
         })}
+        </div>
+        )}
       </div>
     </div>
   )
