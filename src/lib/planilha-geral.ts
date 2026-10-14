@@ -73,18 +73,20 @@ export function paraNumero(v: unknown): number | null {
 export const paraBool = (v: unknown) => String(v ?? '').trim().toUpperCase() === 'SIM'
 
 /**
- * Separa a lista multivalorada de acionáveis.
+ * Separa a lista multivalorada de acionáveis, mantendo cada ação uma vez.
  *
  * O separador é vírgula E quebra de linha — na planilha real os itens vêm como
- * "Limpeza de balcão 1x\n,Aumentar TPV". Errar o split não dá erro: dá uma fila
- * com clientes faltando e ninguém percebe. Por isso o import confere a
- * contagem contra a coluna "#ACIONÁVEIS COMERCIAIS".
+ * "Limpeza de balcão 1x\n,Aumentar TPV". A fonte pode repetir um acionável na
+ * mesma célula, mas a contagem e a fila consideram cada ação distinta. O Set
+ * preserva a ordem da primeira ocorrência.
  */
 export function separarAcionaveis(v: unknown): string[] {
-  return String(v ?? '')
-    .split(/[\n\r,]+/)
-    .map(s => s.trim())
-    .filter(Boolean)
+  return [...new Set(
+    String(v ?? '')
+      .split(/[\n\r,]+/)
+      .map(s => s.trim())
+      .filter(Boolean),
+  )]
 }
 
 export interface ClienteSnapshot {
