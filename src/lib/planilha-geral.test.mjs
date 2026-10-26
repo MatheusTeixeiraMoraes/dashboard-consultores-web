@@ -48,6 +48,10 @@ t('separa acionáveis por vírgula E quebra de linha', () => {
     ['Limpeza de balcão 1x', 'Aumentar TPV'],
   )
   assert.deepEqual(separarAcionaveis('Aumentar TPV'), ['Aumentar TPV'])
+  assert.deepEqual(
+    separarAcionaveis('Ofertar link de pagamento\r\n,Promessa TPV\r\n,Limpeza de balcão 1x\r\n,Limpeza de balcão 1x\r\n'),
+    ['Ofertar link de pagamento', 'Promessa TPV', 'Limpeza de balcão 1x'],
+  )
   assert.deepEqual(separarAcionaveis(''), [])
   // O caso de 6, que é o máximo observado.
   assert.equal(separarAcionaveis('a\n,b\n,c\n,d\n,e\n,f').length, 6)
@@ -122,12 +126,13 @@ t('explode a lista em uma ação por linha', () => {
   assert.equal(clientes[0].qtd_acionaveis, 2)
 })
 
-t('ABORTA se a contagem não bate com #ACIONÁVEIS (a guarda do split)', () => {
-  // A planilha diz 3, a lista tem 2 — separador mudou ou dado corrompido.
-  assert.throws(
-    () => lerPlanilhaGeral([linha({ '#ACIONÁVEIS COMERCIAIS': 3 })]),
-    e => e instanceof ErroPlanilha && /diz 3 acionáveis.*tem 2/s.test(e.message),
-  )
+t('remove acionáveis repetidos antes de conferir a contagem declarada', () => {
+  const { clientes, acoes } = lerPlanilhaGeral([linha({
+    'LISTA ACIONÁVEIS COMERCIAIS': 'Limpeza de balcão 1x\r\n,Aumentar TPV\r\n,Limpeza de balcão 1x\r\n',
+    '#ACIONÁVEIS COMERCIAIS': 2,
+  })])
+  assert.equal(clientes[0].qtd_acionaveis, 2)
+  assert.deepEqual(acoes.map(a => a.acionavel), ['Limpeza de balcão 1x', 'Aumentar TPV'])
 })
 
 t('a mensagem de erro cita a linha e o seller, para achar na planilha', () => {
