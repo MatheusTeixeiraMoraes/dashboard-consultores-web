@@ -7,6 +7,7 @@ import type { Profile, UserRole } from '@/lib/types'
 import { canManageUsers, canDelegateInto } from '@/lib/types'
 import { gerarLinkAcesso, revogarLink, excluirLink, listarConsultoresDaPlanilha } from './convites'
 import { entrarNaConta } from './delegacao'
+import { gerarLinkRedefinicaoSenha } from './actions'
 import { registrarEvento } from '@/lib/atividade'
 import type { ConsultorPlanilha } from './convites'
 import type { ConviteLinha } from './page'
@@ -147,6 +148,12 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
   const [deleting, setDeleting]     = useState<string | null>(null)
   const [delErr, setDelErr]         = useState<string | null>(null)
 
+  // Redefinição de senha
+  const [redefinindo, setRedefinindo] = useState<string | null>(null)
+  const [redefinicaoMensagem, setRedefinicaoMensagem] = useState<{ id: string; texto: string; erro?: boolean } | null>(null)
+  const [linkRedefinicao, setLinkRedefinicao] = useState<{ nome: string; url: string } | null>(null)
+  const [copiadoRedefinicao, setCopiadoRedefinicao] = useState(false)
+
   // modal de criação
   const [showModal, setShowModal] = useState(false)
   const [createForm, setCreateForm] = useState(EMPTY_FORM)
@@ -280,6 +287,29 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
       setDelErr('Erro de comunicação com o servidor')
     }
     setDeleting(null)
+  }
+
+  async function handleRedefinicao(u: Profile) {
+    setRedefinindo(u.id)
+    setRedefinicaoMensagem(null)
+    const resultado = await gerarLinkRedefinicaoSenha(u.id)
+    if (resultado.ok && resultado.url) {
+      setLinkRedefinicao({ nome: u.nome || u.email, url: resultado.url })
+      setCopiadoRedefinicao(false)
+    } else {
+      setRedefinicaoMensagem({ id: u.id, texto: resultado.error ?? 'Não foi possível gerar o link.', erro: true })
+    }
+    setRedefinindo(null)
+  }
+
+  async function copiarLinkRedefinicao() {
+    if (!linkRedefinicao) return
+    try {
+      await navigator.clipboard.writeText(linkRedefinicao.url)
+      setCopiadoRedefinicao(true)
+    } catch {
+      setCopiadoRedefinicao(false)
+    }
   }
 
   // ── criação ─────────────────────────────────────────────────
@@ -483,6 +513,15 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
                               {saving === u.id ? '...' : u.ativo ? 'Desativar' : 'Reativar'}
                             </button>
                           )}
+                          {canEdit && u.ativo && (
+                            <button
+                              onClick={() => handleRedefinicao(u)}
+                              disabled={redefinindo === u.id}
+                              className="text-xs font-medium text-ink-dim hover:text-primary transition-colors disabled:opacity-60"
+                            >
+                              {redefinindo === u.id ? 'Gerando...' : 'Gerar link'}
+                            </button>
+                          )}
                           {/* Independente de canEdit: líder passa por aqui (via
                               canDelegateInto) sem ter alçada de gestão nenhuma —
                               só isto. Só faz sentido em conta ativa: desativado
@@ -507,6 +546,11 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
                           )}
                           {editErr && saving !== u.id && (
                             <span className="text-[11px] text-bad">{editErr}</span>
+                          )}
+                          {redefinicaoMensagem?.id === u.id && (
+                            <span role="status" className={`basis-full text-[11px] ${redefinicaoMensagem.erro ? 'text-bad' : 'text-good'}`}>
+                              {redefinicaoMensagem.texto}
+                            </span>
                           )}
                         </div>
                       )}
@@ -613,6 +657,49 @@ export default function UsuariosClient({ usuarios, myRole, myId, convites }: {
           </div>
         )}
       </div>
+
+      {/* Modal com o segredo de recuperação: só aparece após pedido autorizado e não é persistido. */}
+      <Modal
+        aberto={!!linkRedefinicao}
+        aoFechar={() => { setLinkRedefinicao(null); setCopiadoRedefinicao(false) }}
+        titulo="Link de redefinição de senha"
+        subtitulo={linkRedefinicao ? `Conta de ${linkRedefinicao.nome}` : undefined}
+        maxWidth="lg"
+      >
+        {linkRedefinicao && (
+          <div className="px-6 py-5">
+            <p className="text-sm text-ink mb-3">
+              Copie e envie este link diretamente ao titular por um canal privado. Quem tiver o link poderá definir uma nova senha.
+            </p>
+            <div className="flex gap-2">
+              <input
+                readOnly
+                value={linkRedefinicao.url}
+                onFocus={e => e.currentTarget.select()}
+                aria-label="Link de redefinição de senha"
+                className="flex-1 min-w-0 bg-field border border-field-line rounded-xl px-3 py-2 text-xs text-ink font-mono"
+              />
+              <button
+                onClick={copiarLinkRedefinicao}
+                className="bg-primary hover:bg-primary-dk text-white text-sm font-medium px-4 rounded-xl transition-colors"
+              >
+                {copiadoRedefinicao ? 'Copiado!' : 'Copiar link'}
+              </button>
+            </div>
+            {!copiadoRedefinicao && (
+              <p role="status" className="text-[11px] text-ink-muted mt-2">Se a cópia automática não funcionar, selecione o link e copie manualmente.</p>
+            )}
+            <div className="pt-5">
+              <button
+                onClick={() => { setLinkRedefinicao(null); setCopiadoRedefinicao(false) }}
+                className="w-full bg-primary hover:bg-primary-dk text-white text-sm font-medium py-2.5 rounded-xl transition-colors"
+              >
+                Concluir
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Modal do link de acesso */}
       <Modal

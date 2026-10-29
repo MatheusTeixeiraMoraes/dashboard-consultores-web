@@ -111,7 +111,7 @@ export const PILARES: Record<PilarKey, PilarSpec> = {
       { col: 'TPV Total mês passado',               label: 'TPV total mês passado',    type: 'currency' },
       { col: 'TPV médio mês atual',                 label: 'TPV médio mês atual',      type: 'currency' },
       { col: 'TPV médio mês passado',               label: 'TPV médio mês passado',    type: 'currency' },
-      { col: 'Variação de TPV versus mês passado',  label: 'Variação vs mês passado',  type: 'percent' },
+      { col: '% Objetivo TPV',                     label: '% Objetivo TPV',           type: 'percent' },
       { col: 'Objetivo TPV Total Atual',             label: 'Objetivo TPV (mês atual)', type: 'currency' },
     ],
   },

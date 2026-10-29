@@ -6,6 +6,54 @@ import { escritaBloqueadaPeloDemo, MSG_BLOQUEIO_DEMO } from '@/lib/demo/guarda'
 import { canManageUsers } from '@/lib/types'
 import type { Profile, UserRole } from '@/lib/types'
 
+const ERRO_REDEFINICAO = 'Não foi possível gerar o link de redefinição. Tente novamente mais tarde.'
+
+export async function gerarLinkRedefinicaoSenha(
+  userId: string
+): Promise<{ ok: boolean; url?: string; error?: string }> {
+  try {
+    const me = await perfilAutorizado()
+    if (!me || (me.role !== 'admin' && me.role !== 'dono')) {
+      return { ok: false, error: 'Sem permissão' }
+    }
+
+    if (await escritaBloqueadaPeloDemo()) return { ok: false, error: MSG_BLOQUEIO_DEMO }
+    if (userId === me.id) {
+      return { ok: false, error: 'Use a recuperação iniciada pelo titular da conta.' }
+    }
+
+    const admin = createAdminClient()
+    const { data: target, error: erroPerfil } = await admin
+      .from('profiles')
+      .select('id, role, ativo')
+      .eq('id', userId)
+      .maybeSingle()
+
+    if (erroPerfil || !target) return { ok: false, error: 'Usuário não encontrado.' }
+    if (!target.ativo) return { ok: false, error: 'Não é possível redefinir a senha de um usuário desativado.' }
+    if (!canManageUsers(me.role, target.role as UserRole)) {
+      return { ok: false, error: 'Sem permissão para este usuário.' }
+    }
+
+    const { data: authData, error: erroAuthUser } = await admin.auth.admin.getUserById(userId)
+    const email = authData.user?.email
+    if (erroAuthUser || !email) return { ok: false, error: ERRO_REDEFINICAO }
+
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://www.tri3dashboard.com.br'
+    const redirectTo = new URL('/redefinir-senha', baseUrl).toString()
+    const { data: linkData, error: erroLink } = await admin.auth.admin.generateLink({
+      type: 'recovery',
+      email,
+      options: { redirectTo },
+    })
+
+    if (erroLink || !linkData.properties.action_link) return { ok: false, error: ERRO_REDEFINICAO }
+    return { ok: true, url: linkData.properties.action_link }
+  } catch {
+    return { ok: false, error: ERRO_REDEFINICAO }
+  }
+}
+
 export async function criarUsuario(data: {
   email: string
   nome: string

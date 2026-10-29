@@ -40,6 +40,10 @@ const PILAR_LABEL: Record<string, string> = {
   tpv: 'TPV', net_churn: 'NC', acionaveis: 'AC',
   aderencia: 'Agenda', awareness: 'AW', produtividade: 'Prod',
 }
+const PILAR_NOME: Record<string, string> = {
+  tpv: 'TPV', net_churn: 'Net Churn', acionaveis: 'Acionáveis',
+  aderencia: 'Aderência', awareness: 'Pesquisas', produtividade: 'Produtividade',
+}
 const PILAR_COLOR: Record<string, string> = {
   tpv: 'var(--color-pilar-tpv)', net_churn: 'var(--color-pilar-net-churn)', acionaveis: 'var(--color-pilar-acionaveis)',
   aderencia: 'var(--color-pilar-aderencia)', awareness: 'var(--color-pilar-awareness)', produtividade: 'var(--color-pilar-produtividade)',
@@ -115,17 +119,23 @@ function progresso(current: number, target: number): number {
 }
 
 function MetaCard({ item }: { item: MetaDoMes }) {
-  const color = item.atingida === null ? 'var(--color-ink-muted)' : item.atingida ? 'var(--color-good)' : 'var(--color-warn)'
+  const statusColor = item.atingida === null ? 'var(--color-ink-muted)' : item.atingida ? 'var(--color-good)' : 'var(--color-warn)'
   return (
     <div className="glass rounded-2xl border border-line p-4 min-w-0" style={{ borderLeft: `3px solid ${item.color}` }}>
-      <p className="text-[11px] uppercase tracking-wider font-semibold text-ink-muted mb-2">{item.label}</p>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <p className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-semibold text-ink-muted">
+          <span aria-hidden="true" className="w-2 h-2 rounded-full" style={{ background: item.color }} />
+          {item.label}
+        </p>
+        {item.progresso !== null && <span className="text-[10px] font-semibold tabular-nums" style={{ color: statusColor }}>{Math.round(item.progresso)}%</span>}
+      </div>
       <p className="text-xl sm:text-2xl font-bold text-ink tabular-nums leading-tight">{item.valor}</p>
       <div className="h-1.5 rounded-full bg-card-2 overflow-hidden mt-3">
         {item.progresso !== null && (
-          <div role="progressbar" aria-label={`Progresso: ${item.label}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(item.progresso)} className="h-full rounded-full transition-[width]" style={{ width: `${item.progresso}%`, background: color }} />
+          <div role="progressbar" aria-label={`Progresso: ${item.label}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(item.progresso)} className="h-full rounded-full transition-[width]" style={{ width: `${item.progresso}%`, background: item.color }} />
         )}
       </div>
-      <p className="text-xs text-ink-muted mt-2 min-h-8">{item.detalhe}</p>
+      <p className="text-xs mt-2 min-h-8" style={{ color: item.atingida === null ? 'var(--color-ink-muted)' : statusColor }}>{item.detalhe}</p>
     </div>
   )
 }
@@ -350,57 +360,76 @@ export default function GeralClient({ ranking, dateDisplay, dataCarteiraBR, meta
         </section>
       )}
 
-      {/* Cards de resumo */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-        {modoConsultor ? (
-          <SummaryCard
-            label="Meu score"
-            value={meuScore !== null ? meuScore.toFixed(1).replace('.', ',') + ' pts' : '—'}
-            sub="de 10,0 pts"
-            color={meuScore !== null ? statusStyle(meuScore, faixas).text : undefined}
-          />
-        ) : (
+      {/* Resumo pessoal em destaque; a grade da equipe permanece inalterada. */}
+      {modoConsultor ? (
+        <div className="grid lg:grid-cols-[minmax(220px,0.8fr)_minmax(0,2.2fr)] gap-3 mb-5">
+          <div className="glass rounded-2xl border border-line p-5 sm:p-6 relative overflow-hidden" style={meuScore !== null ? { borderLeft: `4px solid ${statusStyle(meuScore, faixas).text}` } : undefined}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[11px] uppercase tracking-wider font-semibold text-ink-muted">Meu score</p>
+                <p className="text-4xl sm:text-5xl font-bold tracking-tight tabular-nums mt-2" style={{ color: meuScore !== null ? statusStyle(meuScore, faixas).text : 'var(--color-ink-muted)' }}>
+                  {meuScore !== null ? meuScore.toFixed(1).replace('.', ',') : '—'}
+                  {meuScore !== null && <span className="text-base sm:text-lg font-semibold ml-1">pts</span>}
+                </p>
+                <p className="text-xs text-ink-muted mt-1">de 10,0 pontos</p>
+              </div>
+              {meuScore !== null && <span className="rounded-xl px-3 py-2 text-xs font-semibold" style={{ background: statusStyle(meuScore, faixas).bg, color: statusStyle(meuScore, faixas).text }}>
+                {meuScore >= faixas.meta_objetivo ? 'Meta atingida' : meuScore >= faixas.limite_critico ? 'Em atenção' : 'Em desenvolvimento'}
+              </span>}
+            </div>
+            <div className="h-2 rounded-full bg-card-2 overflow-hidden mt-5">
+              {meuScore !== null && <div role="progressbar" aria-label="Meu score geral" aria-valuemin={0} aria-valuemax={10} aria-valuenow={meuScore} className="h-full rounded-full transition-[width]" style={{ width: `${Math.max(0, Math.min(100, meuScore * 10))}%`, background: statusStyle(meuScore, faixas).text }} />}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <SummaryCard
+              label="Clientes na carteira"
+              value={nBR(stats.clientes)}
+              sub={dataCarteiraBR ? `Planilha de ${dataCarteiraBR}` : undefined}
+            />
+            <SummaryCard label="TPV da carteira" value={brlCompacto(stats.tpv)} sub="faturamento do mês" color="var(--color-good)" />
+            <SummaryCard
+              label="Pendentes de identificação"
+              value={nBR(stats.pendentes)}
+              sub={stats.clientes > 0 ? `${Math.round(stats.pendentes / stats.clientes * 100)}% da carteira` : undefined}
+              color={stats.pendentes > 0 ? 'var(--color-warn)' : undefined}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
           <SummaryCard label="Total equipe" value={String(ranking.length)} />
-        )}
-        <SummaryCard
-          label="Clientes na carteira"
-          value={nBR(stats.clientes)}
-          sub={dataCarteiraBR ? `Planilha Ação Oportunidades de ${dataCarteiraBR}` : undefined}
-        />
-        <SummaryCard
-          label="TPV da carteira"
-          value={brlCompacto(stats.tpv)}
-          sub="faturamento do mês"
-          color="var(--color-good)"
-        />
-        <SummaryCard
-          label="Pendentes de identificação"
-          value={nBR(stats.pendentes)}
-          sub={stats.clientes > 0 ? `${Math.round(stats.pendentes / stats.clientes * 100)}% da carteira` : undefined}
-          color={stats.pendentes > 0 ? 'var(--color-warn)' : undefined}
-        />
-        {!modoConsultor && (
-          <>
-            <SummaryCard
-              label="Acima do objetivo"
-              value={String(stats.acima)}
-              sub={`${stats.nComScore > 0 ? Math.round(stats.acima / stats.nComScore * 100) : 0}% da equipe`}
-              color="var(--color-good)"
-            />
-            <SummaryCard
-              label="Crítico"
-              value={String(stats.critico)}
-              sub={`${stats.nComScore > 0 ? Math.round(stats.critico / stats.nComScore * 100) : 0}% da equipe`}
-              color="var(--color-bad)"
-            />
-            <SummaryCard
-              label="Média da equipe"
-              value={stats.media.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' pts'}
-              sub="de 10,0 pts"
-            />
-          </>
-        )}
-      </div>
+          <SummaryCard
+            label="Clientes na carteira"
+            value={nBR(stats.clientes)}
+            sub={dataCarteiraBR ? `Planilha Ação Oportunidades de ${dataCarteiraBR}` : undefined}
+          />
+          <SummaryCard label="TPV da carteira" value={brlCompacto(stats.tpv)} sub="faturamento do mês" color="var(--color-good)" />
+          <SummaryCard
+            label="Pendentes de identificação"
+            value={nBR(stats.pendentes)}
+            sub={stats.clientes > 0 ? `${Math.round(stats.pendentes / stats.clientes * 100)}% da carteira` : undefined}
+            color={stats.pendentes > 0 ? 'var(--color-warn)' : undefined}
+          />
+          <SummaryCard
+            label="Acima do objetivo"
+            value={String(stats.acima)}
+            sub={`${stats.nComScore > 0 ? Math.round(stats.acima / stats.nComScore * 100) : 0}% da equipe`}
+            color="var(--color-good)"
+          />
+          <SummaryCard
+            label="Crítico"
+            value={String(stats.critico)}
+            sub={`${stats.nComScore > 0 ? Math.round(stats.critico / stats.nComScore * 100) : 0}% da equipe`}
+            color="var(--color-bad)"
+          />
+          <SummaryCard
+            label="Média da equipe"
+            value={stats.media.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' pts'}
+            sub="de 10,0 pts"
+          />
+        </div>
+      )}
 
       {/* Gráfico de distribuição — só faz sentido com equipe */}
       {!modoConsultor && (
@@ -434,8 +463,38 @@ export default function GeralClient({ ranking, dateDisplay, dataCarteiraBR, meta
         </div>
       )}
 
-      {/* Ranking em cards — números com respiro, sem cara de planilha */}
-      {ranking.length === 0 ? (
+      {/* Consultor vê os próprios pilares; a equipe mantém o ranking em cards. */}
+      {modoConsultor ? (
+        ranking[0] ? (
+          <section aria-labelledby="pontuacao-pilares" className="glass rounded-2xl border border-line p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div>
+                <h2 id="pontuacao-pilares" className="text-sm font-semibold text-ink">Pontuação por pilar</h2>
+                <p className="text-xs text-ink-muted mt-0.5">Sua contribuição em cada frente do resultado.</p>
+              </div>
+              <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
+                <span className="w-2 h-2 rounded-full" style={{ background: PILAR_COLOR.tpv }} />
+                Cada cor representa um pilar
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5">
+              {PILARES.map(p => {
+                const score = ranking[0].scores[p]
+                return (
+                  <div key={p} className="rounded-xl border border-line p-3 min-w-0" style={{ borderTop: `3px solid ${PILAR_COLOR[p]}`, background: `color-mix(in srgb, ${PILAR_COLOR[p]} 8%, var(--color-card))` }}>
+                    <p className="text-[11px] font-semibold text-ink-muted truncate">{PILAR_NOME[p]}</p>
+                    <p className="text-2xl font-bold text-ink tabular-nums mt-2">{score !== undefined ? <>{score.toFixed(1).replace('.', ',')}<span className="text-xs font-medium text-ink-faint ml-1">pts</span></> : '—'}</p>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        ) : (
+          <div className="glass rounded-2xl border border-line p-12 text-center">
+            <p className="text-ink-muted">Nenhum resultado na data mais recente.</p>
+          </div>
+        )
+      ) : ranking.length === 0 ? (
         <div className="glass rounded-2xl border border-line p-12 text-center">
           <p className="text-ink-muted">Nenhum resultado na data mais recente.</p>
         </div>
