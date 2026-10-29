@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 import {
   PILARES, GRUPOS, fmtValor, fmtMeta, calcFaltam, metaAcionaveis, metaAwareness, PISO_AWARENESS_PADRAO,
-  ativosMinimosNetChurn, aderentesMinimosAgenda, numeroOuNaN, type FaixaAcionaveis, type FaixaAwareness,
+  ativosMinimosNetChurn, aderentesMinimosAgenda, numeroOuNaN, percentualObjetivoTPV, type FaixaAcionaveis, type FaixaAwareness,
 } from '@/lib/pilares'
 import type { PilarKey } from '@/lib/types'
 
@@ -279,12 +279,16 @@ function PilarCard({
             quando o número grande deixou de ser ela (acionáveis com meta por
             tarefas), caso em que a % continua valendo a pena mostrar aqui. */}
         {spec.cols
-          .filter(c => usarMetaTarefas ? false : c.col !== (usarObjetivoTPV ? 'TPV Total mês atual' : spec.valorCol))
+          .filter(c => usarMetaTarefas ? false : usarObjetivoTPV
+            ? c.col !== 'TPV Total mês atual' && c.col !== spec.valorCol
+            : c.col !== spec.valorCol)
           .map(c => (
             <div key={c.col} className="flex items-center justify-between gap-2 border-t border-card-2 pt-1.5">
               <span className="text-[11px] text-ink-muted leading-tight">{c.label}:</span>
               <span className="text-[11px] font-semibold text-ink whitespace-nowrap">
-                {fmtValor(c.type, metricas[c.col])}
+                {fmtValor(c.type, usarObjetivoTPV && c.col === '% Objetivo TPV'
+                  ? percentualObjetivoTPV(metricas)
+                  : metricas[c.col])}
               </span>
             </div>
           ))}

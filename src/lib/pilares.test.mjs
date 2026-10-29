@@ -9,7 +9,7 @@
 
 import assert from 'node:assert/strict'
 import {
-  escalaPercentual, metaAwareness, ehCarteiraAtiva, ativosMinimosNetChurn, textoMetaNetChurn,
+  PILARES, escalaPercentual, fmtValor, percentualObjetivoTPV, metaAwareness, ehCarteiraAtiva, ativosMinimosNetChurn, textoMetaNetChurn,
   aderentesMinimosAgenda, textoMetaAderencia,
   numeroOuNaN, quantidadeDoPilar, textoQuantidade, textoSituacao,
 } from './pilares.ts'
@@ -17,6 +17,35 @@ import { contarCarteiraPorConsultor } from './carteira-por-consultor.ts'
 
 let n = 0
 const t = (nome, fn) => { fn(); n++; console.log('  ok:', nome) }
+
+t('TPV: calcula % do objetivo com os valores do último upload quando a coluna não veio', () => {
+  const metricas = {
+    'TPV Total mês atual': 8431405.4,
+    'Objetivo TPV Total Atual': 9633264.18484622,
+    'Variação de TPV versus mês passado': 86.58,
+  }
+  assert.equal(percentualObjetivoTPV(metricas), 8431405.4 / 9633264.18484622 * 100)
+  assert.equal(fmtValor('percent', percentualObjetivoTPV(metricas)), '87,52%')
+})
+
+t('TPV: prefere a coluna % Objetivo TPV quando o upload a contém', () => {
+  assert.equal(percentualObjetivoTPV({
+    '% Objetivo TPV': 91.25,
+    'TPV Total mês atual': 8431405.4,
+    'Objetivo TPV Total Atual': 9633264.18484622,
+  }), 91.25)
+})
+
+t('TPV: não exige a coluna opcional e preserva a variação do mês para o histórico', () => {
+  const colunas = PILARES.tpv.cols
+  assert.equal(colunas.find(c => c.col === '% Objetivo TPV')?.opcional, true)
+  assert.ok(colunas.some(c => c.col === 'Variação de TPV versus mês passado'))
+})
+
+t('TPV: percentual fica indisponível sem valores de atual e objetivo', () => {
+  assert.equal(percentualObjetivoTPV({ 'TPV Total mês atual': 100 }), null)
+  assert.equal(percentualObjetivoTPV({ 'TPV Total mês atual': 0, 'Objetivo TPV Total Atual': 100 }), 0)
+})
 
 // TPV: razão orbitando 1,0, com uns crescendo (>1) e outros caindo (<1).
 // É decimal → precisa de ×100 mesmo com valores acima de 1.

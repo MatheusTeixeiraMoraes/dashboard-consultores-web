@@ -69,7 +69,7 @@ async function parsePilarFile(file: File, pilarKey: PilarKey): Promise<ParsedRow
     return { ...c, header, fator }
   })
 
-  const faltando = resolvidas.filter(c => !c.header).map(c => c.col)
+  const faltando = resolvidas.filter(c => !c.header && !c.opcional).map(c => c.col)
   if (faltando.length > 0) {
     throw new Error(
       `Coluna(s) não encontrada(s): ${faltando.join(', ')}.\n\n` +
@@ -83,6 +83,7 @@ async function parsePilarFile(file: File, pilarKey: PilarKey): Promise<ParsedRow
     .map(r => {
       const metricas: Record<string, unknown> = {}
       for (const c of resolvidas) {
+        if (!c.header) continue
         const raw = r[c.header!]
         const n = Number(raw)
         metricas[c.col] = raw === '' || raw == null || !Number.isFinite(n) ? raw : n * c.fator

@@ -21,6 +21,8 @@ export interface ColSpec {
   /** Como aparece na tela. */
   label: string
   type: ColType
+  /** Campo auxiliar que nem toda versão da planilha do MP inclui. */
+  opcional?: boolean
 }
 
 export interface PilarSpec {
@@ -111,7 +113,8 @@ export const PILARES: Record<PilarKey, PilarSpec> = {
       { col: 'TPV Total mês passado',               label: 'TPV total mês passado',    type: 'currency' },
       { col: 'TPV médio mês atual',                 label: 'TPV médio mês atual',      type: 'currency' },
       { col: 'TPV médio mês passado',               label: 'TPV médio mês passado',    type: 'currency' },
-      { col: '% Objetivo TPV',                     label: '% Objetivo TPV',           type: 'percent' },
+      { col: 'Variação de TPV versus mês passado',  label: 'Variação vs mês passado',  type: 'percent' },
+      { col: '% Objetivo TPV',                     label: '% Objetivo TPV',           type: 'percent', opcional: true },
       { col: 'Objetivo TPV Total Atual',             label: 'Objetivo TPV (mês atual)', type: 'currency' },
     ],
   },
@@ -233,6 +236,31 @@ export function fmtValor(type: ColType, val: unknown): string {
     case 'int':      return n.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
     case 'decimal':  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   }
+}
+
+/**
+ * Atingimento da meta de TPV. Usa a coluna pronta quando o upload a contém;
+ * uploads antigos não têm esse cabeçalho, então calcula com os dois valores
+ * monetários do mesmo resultado importado.
+ */
+export function percentualObjetivoTPV(metricas: Record<string, unknown> | null): number | null {
+  if (!metricas) return null
+
+  const informado = metricas['% Objetivo TPV']
+  if (informado !== undefined && informado !== null && informado !== '') {
+    const percentual = Number(informado)
+    if (Number.isFinite(percentual)) return percentual
+  }
+
+  const atualRaw = metricas['TPV Total mês atual']
+  const objetivoRaw = metricas['Objetivo TPV Total Atual']
+  if (atualRaw === undefined || atualRaw === null || atualRaw === '' ||
+      objetivoRaw === undefined || objetivoRaw === null || objetivoRaw === '') return null
+
+  const atual = Number(atualRaw)
+  const objetivo = Number(objetivoRaw)
+  if (!Number.isFinite(atual) || !Number.isFinite(objetivo) || atual < 0 || objetivo <= 0) return null
+  return atual / objetivo * 100
 }
 
 export function fmtMeta(meta: number, unidade: string): string {
